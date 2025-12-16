@@ -1,0 +1,63 @@
+// Genre ID to Name mapping utility
+import Database from 'better-sqlite3';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+import { parse } from 'csv-parse/sync';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Create genre mapping from CSV
+let genreMap = null;
+
+function loadGenreMap() {
+  if (genreMap) return genreMap;
+
+  try {
+    const csvPath = path.join(__dirname, '..', '..', 'data', 'genre_taxonomy.csv');
+    const fileContent = fs.readFileSync(csvPath, 'utf-8');
+    const records = parse(fileContent, {
+      columns: true,
+      skip_empty_lines: true
+    });
+
+    genreMap = {};
+    records.forEach(record => {
+      genreMap[record.genre_id] = record.genre_name;
+    });
+
+    console.log(`Loaded ${Object.keys(genreMap).length} genre mappings`);
+    return genreMap;
+  } catch (error) {
+    console.error('Error loading genre map:', error);
+    return {};
+  }
+}
+
+// Map genre IDs to names for a track
+export function enrichTrackWithGenreNames(track) {
+  const mapping = loadGenreMap();
+
+  // Map primary genre
+  if (track.genre && mapping[track.genre]) {
+    track.genre_name = mapping[track.genre];
+  } else {
+    track.genre_name = track.genre; // Fallback to ID if no mapping
+  }
+
+  // Map additional genres
+  if (track.additional_genres) {
+    const additionalIds = track.additional_genres.split(';').filter(id => id);
+    const additionalNames = additionalIds.map(id => mapping[id] || id);
+    track.additional_genres_names = additionalNames.join(', ');
+  }
+
+  return track;
+}
+
+// Map genre IDs to names for multiple tracks
+export function enrichTracksWithGenreNames(tracks) {
+  return tracks.map(track => enrichTrackWithGenreNames(track));
+}
+
+export default { enrichTrackWithGenreNames, enrichTracksWithGenreNames };

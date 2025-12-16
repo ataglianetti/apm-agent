@@ -1,0 +1,73 @@
+genre_id,genre_name,parent_id,track_count
+1100,Blues,,15
+1101,Blues / Folk,1100,6
+1102,Blues / Jazz,1100,15
+1103,Blues / Rock,1100,47
+1104,Rhythm & Blues,1100,4
+1105,Children,,122
+1110,Classical,,202
+1111,20th Century Classical Style,1110,56
+1112,Avant Garde,1110,27
+1113,Classical Arrangement,1110,43
+1114,Classical Fusion,1110,20
+1116,Classical Styling,1110,88
+1118,Minimalist Style,1110,86
+1120,Neo Classical,1110,97
+1121,Club / Electronica,,249
+1124,Ambient,1121,170
+1128,Chill Out / Downtempo,1121,70
+1130,Disco,1121,29
+1131,Drum n Bass / Jungle,1121,26
+1133,Dubstep,1121,20
+1136,Electronica,1121,180
+1141,House,1121,0
+1145,Techno,1121,5
+1146,Trance,1121,11
+1147,Trip Hop,1121,2
+1149,Country,,17
+1151,Americana,1149,22
+1152,Bluegrass,1149,5
+1154,Country Folk,1149,3
+1155,Country Pop,1149,4
+1156,Country Rock,1149,11
+1170,Folk,,166
+1171,Acoustic,1170,8
+1172,Celtic,1170,11
+1174,Folk Pop,1170,14
+1175,Folk Rock,1170,6
+1177,Hip Hop / R&B,,3
+1180,Funk,1177,4
+1182,Hip Hop / Rap,1177,22
+1185,Soul / Motown,1177,89
+1187,Trap,1177,21
+1188,Jazz,,7
+1192,Big Band,1188,88
+1194,Dixieland / Trad Jazz,1188,53
+1196,Fusion,1188,57
+1200,Modern Jazz,1188,22
+1203,Smooth Jazz,1188,14
+1204,Swing,1188,43
+1222,Pop,,967
+1223,Brit Pop,1222,137
+1224,Bubblegum Pop,1222,506
+1227,Electropop,1222,350
+1228,Indie Pop,1222,56
+1233,Synth Pop,1222,1
+1237,Arena Rock,1222,315
+1248,New Wave,1222,151
+1286,Pop (Vocal),,677
+1289,R&B Pop,1286,99
+1322,Rock,,299
+1323,Alternative,1322,60
+1327,Garage Rock,1322,32
+1331,Hard Rock,1322,15
+1332,Indie Rock,1322,19
+1336,Metal,1322,53
+1338,Modern Rock,1322,56
+1339,Hard Rock / Metal,1322,215
+1352,Retro Rock,1322,19
+1353,Rockabilly,1322,3
+1357,Southern Rock,1322,26
+1358,Surf,1322,17
+1360,Score / Cinematic,,247
+1364,Tension / Suspense,1360,93

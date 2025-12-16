@@ -1,0 +1,213 @@
+import { useState, useEffect, useMemo } from 'react';
+import { useTheme } from '../context/ThemeContext';
+
+export function TrackCard({ track, index, onSoundsLike }) {
+  const { isDark } = useTheme();
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  // Parse duration string (e.g., "2:15") to seconds
+  const durationSeconds = useMemo(() => {
+    if (!track.duration) return 60;
+    const parts = track.duration.split(':');
+    if (parts.length === 2) {
+      const minutes = parseInt(parts[0], 10);
+      const seconds = parseInt(parts[1], 10);
+      // Validate that both parts are valid numbers
+      if (!isNaN(minutes) && !isNaN(seconds) && minutes >= 0 && seconds >= 0 && seconds < 60) {
+        return minutes * 60 + seconds;
+      }
+    }
+    // Try parsing as a single number (seconds)
+    const totalSeconds = parseInt(track.duration, 10);
+    if (!isNaN(totalSeconds) && totalSeconds > 0) {
+      return totalSeconds;
+    }
+    return 60; // Default fallback
+  }, [track.duration]);
+
+  // Generate stable random heights for waveform bars (more bars = narrower)
+  const barHeights = useMemo(() => {
+    return Array.from({ length: 200 }).map(() => 20 + Math.random() * 60);
+  }, []);
+
+  // Simulate playback progress
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          setIsPlaying(false);
+          return 0;
+        }
+        return prev + (100 / durationSeconds / 10);
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [isPlaying, durationSeconds]);
+
+  const togglePlay = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+    } else {
+      setIsPlaying(true);
+    }
+  };
+
+  // Parse additional genres from comma-separated string
+  const additionalGenres = track.additional_genres
+    ? track.additional_genres.split(',').map(g => g.trim()).filter(Boolean)
+    : [];
+
+  // Limit visible tags
+  const maxVisibleTags = 8;
+  const visibleTags = additionalGenres.slice(0, maxVisibleTags);
+  const hasMoreTags = additionalGenres.length > maxVisibleTags;
+
+  return (
+    <div className={`rounded-lg p-4 transition-colors ${
+      isDark ? 'bg-apm-navy hover:bg-apm-navy/80' : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
+    }`}>
+      {/* Header Row: Track number, play button, title, action icons */}
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-3">
+          {/* Track Number */}
+          <span className={`text-sm w-6 ${isDark ? 'text-apm-gray-light' : 'text-gray-400'}`}>{index + 1}</span>
+
+          {/* Play/Pause Button */}
+          <button
+            onClick={togglePlay}
+            className="w-10 h-10 bg-apm-purple rounded-full flex items-center justify-center hover:bg-apm-purple-light transition-colors flex-shrink-0"
+          >
+            {isPlaying ? (
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            )}
+          </button>
+
+          {/* Title, ID, and Library */}
+          <div>
+            <h3 className={`font-semibold text-base leading-tight ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+              {track.track_title}
+            </h3>
+            <p className={`text-xs mt-0.5 ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
+              #{index + 1} {track.id} {track.library_name && `· ${track.library_name}`}
+            </p>
+          </div>
+        </div>
+
+        {/* Action Icons and Sounds Like */}
+        <div className="flex items-center gap-2">
+          {/* Sounds Like */}
+          <button
+            onClick={() => onSoundsLike && onSoundsLike(track)}
+            className={`px-2 py-1 hover:text-apm-purple hover:underline text-xs transition-colors ${
+              isDark ? 'text-apm-gray-light' : 'text-gray-500'
+            }`}
+          >
+            Sounds Like
+          </button>
+          {/* Favorite */}
+          <button className={`p-2 hover:text-apm-purple transition-colors ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </button>
+          {/* Download */}
+          <button className={`p-2 hover:text-apm-purple transition-colors ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </button>
+          {/* Add to Project */}
+          <button className={`p-2 hover:text-apm-purple transition-colors ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Description + Metadata Grid */}
+      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 mb-3 ml-[52px]">
+        {/* Description (left column, takes remaining space) */}
+        <p className={`text-sm leading-relaxed pr-4 ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}>
+          {track.track_description}
+        </p>
+
+        {/* Metadata columns (right side): Genre, Duration, BPM */}
+        <div className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-light' : 'text-gray-800'}`}>{track.genre}</div>
+        <div className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>{track.duration}</div>
+        <div className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>{track.bpm} BPM</div>
+      </div>
+
+      {/* Waveform with Playback Progress */}
+      <div
+        className={`h-10 rounded ml-[52px] mb-3 relative overflow-hidden cursor-pointer ${
+          isDark ? 'bg-apm-dark/50' : 'bg-gray-100'
+        }`}
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const clickX = e.clientX - rect.left;
+          const newProgress = (clickX / rect.width) * 100;
+          setProgress(newProgress);
+          if (!isPlaying) setIsPlaying(true);
+        }}
+      >
+        {/* Waveform bars - fills entire container */}
+        <div className="absolute inset-0 flex items-center">
+          {barHeights.map((height, i) => {
+            const barProgress = ((i + 1) / barHeights.length) * 100;
+            const isPlayed = barProgress <= progress;
+            return (
+              <div
+                key={i}
+                className={`flex-1 rounded-sm transition-colors duration-100 ${
+                  isPlayed
+                    ? (isDark ? 'bg-white' : 'bg-apm-purple')
+                    : (isDark ? 'bg-apm-gray/40' : 'bg-gray-300')
+                }`}
+                style={{ height: `${height}%`, marginRight: '1px' }}
+              />
+            );
+          })}
+        </div>
+        {/* Playhead */}
+        {(isPlaying || progress > 0) && (
+          <div
+            className="absolute top-0 bottom-0 w-0.5 bg-apm-purple"
+            style={{ left: `${progress}%` }}
+          />
+        )}
+      </div>
+
+      {/* Additional Genre Tags */}
+      {visibleTags.length > 0 && (
+        <div className="flex flex-wrap gap-2 ml-[52px]">
+          {visibleTags.map((tag, i) => (
+            <span
+              key={i}
+              className={`px-3 py-1 text-xs rounded-full transition-colors cursor-pointer ${
+                isDark ? 'bg-apm-dark/60 text-apm-gray-light hover:bg-apm-dark' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {tag}
+            </span>
+          ))}
+          {hasMoreTags && (
+            <button className="px-3 py-1 bg-apm-purple/20 text-apm-purple text-xs rounded-full hover:bg-apm-purple/30 transition-colors">
+              See More
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
