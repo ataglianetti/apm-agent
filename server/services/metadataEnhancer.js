@@ -231,10 +231,27 @@ export function enhanceTrackMetadata(track) {
   // Generate keywords
   enhancedMetadata.keywords = generateKeywords(enrichedTrack, enhancedMetadata);
 
+  // Format duration from seconds to MM:SS for display
+  let formattedDuration = track.duration;
+  if (track.duration && !track.duration.includes(':')) {
+    const durationSeconds = parseInt(track.duration, 10);
+    if (!isNaN(durationSeconds) && durationSeconds > 0) {
+      const minutes = Math.floor(durationSeconds / 60);
+      const seconds = durationSeconds % 60;
+      formattedDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+  }
+
   // Add all enhanced metadata to the track
   return {
     ...enrichedTrack,
     ...enhancedMetadata,
+
+    // Replace genre with human-readable name for display
+    genre: enrichedTrack.genre_name || track.genre,
+
+    // Replace duration with formatted MM:SS
+    duration: formattedDuration,
 
     // Keep original genre ID for backward compatibility
     genre_id: track.genre,
