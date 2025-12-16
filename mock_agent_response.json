@@ -1,0 +1,147 @@
+{
+  "query": "Filter for tracks with stems, run an audio similarity search on 'Good Rockin Tonight A', and add the first 10 results to your Swinging into the New Year project",
+  "agent_response": {
+    "type": "track_results",
+    "message": "I'll help you with that multi-step workflow. Let me find tracks similar to 'Good Rockin Tonight A', filter for stems, and add them to your Swinging into the New Year project.\n\nFinding similar tracks to 'Good Rockin Tonight A'...\nFound 12 similar rockabilly/rock and roll tracks.\nFiltering for tracks with stems... all 12 tracks have stems available.\nAdding the first 10 tracks to your 'Swinging into the New Year' project (P012)...\n\n✅ Successfully added 10 rock and roll tracks with stems to your 'Swinging into the New Year' project. These tracks are perfect for your New Year's Eve celebration with their upbeat, party atmosphere and classic rock and roll energy. All tracks have stem files available for flexible mixing.",
+    "tracks": [
+      {
+        "id": "SOHO_SOHO_0363_04101",
+        "track_title": "Rockin Blues Stomp - Sting",
+        "track_description": "Vibrant rock and roll with a rough, country feel, feel-good, comedy, fun and games",
+        "album_title": "Rockabilly Bops",
+        "library_name": "Soho",
+        "composer": "Dominic Ashworth",
+        "genre": "Rockabilly",
+        "additional_genres": "Rock & Roll 50s, Party/Celebration, Retro",
+        "bpm": "106",
+        "duration": "0:06",
+        "has_stems": "true"
+      },
+      {
+        "id": "BRU_BTV_0299_05801",
+        "track_title": "Crafty Kids",
+        "track_description": "Positive and lively folk with acoustic strums, rock n roll guitars and harmonica",
+        "album_title": "Fun Folk",
+        "library_name": "Bruton TV Series",
+        "composer": "Robert Bradley",
+        "genre": "Folk",
+        "additional_genres": "Rock & Roll, Upbeat",
+        "bpm": "115",
+        "duration": "3:01",
+        "has_stems": "true"
+      },
+      {
+        "id": "NFL_NFL_0010_00101",
+        "track_title": "New Attitude",
+        "track_description": "Up-tempo, optimistic and funky, with classic rock guitar solo",
+        "album_title": "Tailgate Party",
+        "library_name": "NFL Music Library",
+        "composer": "David Robidoux",
+        "genre": "Classic Rock",
+        "additional_genres": "Rock, Upbeat",
+        "bpm": "106",
+        "duration": "2:06",
+        "has_stems": "true"
+      },
+      {
+        "id": "SOHO_SOHO_0285_05901",
+        "track_title": "Twist Party",
+        "track_description": "Bouncing brass and piano rock n roll, enthused and energised, fun comedy and kids, cheerful and bright",
+        "album_title": "Rock N Roll Vol 1",
+        "library_name": "Soho",
+        "composer": "Paul Moran",
+        "genre": "Rock & Roll 50s",
+        "additional_genres": "Party, Dance, Retro",
+        "bpm": "144",
+        "duration": "0:15",
+        "has_stems": "true"
+      },
+      {
+        "id": "MYMA_SCOP_0061_02301",
+        "track_title": "Do We Doo Wap",
+        "track_description": "Sixties rock and roll ballad, on the road to the graduation party, sunroof down and a well-oiled quiff!",
+        "album_title": "Feelgood Sixties",
+        "library_name": "Stereoscopic",
+        "composer": "Christophe Deschamps",
+        "genre": "Rock & Roll 60s",
+        "additional_genres": "Retro, Party",
+        "bpm": "134",
+        "duration": "0:30",
+        "has_stems": "true"
+      },
+      {
+        "id": "MTA_MTA_0058_03501",
+        "track_title": "South (a)",
+        "track_description": "Warming guitars strums crash over bouncing drums moving at a fast pace. Lively and upbeat with a playful feel. Summery raucous chorus adds a rock and roll feel",
+        "album_title": "Upbeat Rock",
+        "library_name": "Music To Air",
+        "composer": "Ehren Ebbage",
+        "genre": "Rock",
+        "additional_genres": "Upbeat, Summer",
+        "bpm": "136",
+        "duration": "1:44",
+        "has_stems": "true"
+      },
+      {
+        "id": "CHR_CHR_0042_02301",
+        "track_title": "Lets Get Some Love - Instrumental underscore",
+        "track_description": "Medium tempo blues classic rock instrumental track, positive feel - with dobro, harmonica, guitars, bass and drums",
+        "album_title": "MR FEELGOOD - Vol 3",
+        "library_name": "Chapel of Rock",
+        "composer": "Neil Taylor",
+        "genre": "Classic Rock",
+        "additional_genres": "Blues Rock",
+        "bpm": "90",
+        "duration": "3:27",
+        "has_stems": "true"
+      },
+      {
+        "id": "JCM_JM_0150_05301",
+        "track_title": "Grenadier (a 30)",
+        "track_description": "Seventies guitar fest: classic rock guitar and drum anthem with sporadic shouts of 'hey'",
+        "album_title": "70S SOUNDS",
+        "library_name": "Juice Music",
+        "composer": "Tom Bowler",
+        "genre": "Classic Rock",
+        "additional_genres": "70s Rock, Anthemic",
+        "bpm": "129",
+        "duration": "0:30",
+        "has_stems": "true"
+      },
+      {
+        "id": "BRU_BURN_0053_00901",
+        "track_title": "Back To Hell (60 Sec)",
+        "track_description": "Powerful classic rock that's ready to hit the road with distorted guitars and stomping drums",
+        "album_title": "Let There Be Rock",
+        "library_name": "Burn",
+        "composer": "Laura Sweeney",
+        "genre": "Classic Rock",
+        "additional_genres": "Hard Rock, Driving",
+        "bpm": "135",
+        "duration": "1:00",
+        "has_stems": "true"
+      },
+      {
+        "id": "MTA_MTA_0001_02901",
+        "track_title": "Coldkicks Faster (a)",
+        "track_description": "Upbeat, catchy and welcoming. Bright guitar lines and thoughtful moments in this classic rock instrumental. Strong emotive piano lines build the emotional rousing atmosphere",
+        "album_title": "TV Rock",
+        "library_name": "Music To Air",
+        "composer": "Tomas Altamirano",
+        "genre": "Classic Rock",
+        "additional_genres": "Upbeat, Emotional",
+        "bpm": "105",
+        "duration": "1:17",
+        "has_stems": "true"
+      }
+    ],
+    "total_count": 12,
+    "showing": "1-10",
+    "project_update": {
+      "project_id": "P012",
+      "project_name": "Swinging into the New Year",
+      "tracks_added": 10,
+      "confirmation": "All 10 tracks have been successfully added to your 'Swinging into the New Year' project with full stem availability for flexible mixing during your New Year's Eve broadcast."
+    }
+  }
+}
