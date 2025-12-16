@@ -36,10 +36,23 @@ router.post('/chat', async (req, res) => {
 
     // Call Claude with the message history
     const startTime = Date.now();
-    const reply = await claudeChat(messages);
+    let reply = await claudeChat(messages);
     const elapsed = Date.now() - startTime;
 
     console.log(`Response generated in ${elapsed}ms`);
+
+    // Check if the reply has been double-encoded (common issue with JSON responses)
+    // This happens when markdown text gets JSON.stringify'd multiple times
+    if (typeof reply === 'string' && (reply.includes('\\n') || reply.includes('\\"'))) {
+      try {
+        // Try to parse as JSON string to unescape it
+        const unescaped = JSON.parse(`"${reply}"`);
+        reply = unescaped;
+      } catch (e) {
+        // If parsing fails, use the original reply
+        // This is fine - it just means it wasn't double-encoded
+      }
+    }
 
     // Return the response
     res.json({ reply });
