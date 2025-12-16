@@ -8,20 +8,39 @@ const FIELD_OPTIONS = [
   { key: 'composer', label: 'Composer', field: 'composer', description: 'Search by composer name' },
   { key: 'library', label: 'Library', field: 'library_name', description: 'Search by library name' },
   { key: 'tags', label: 'Tags/Genre', field: 'genre', description: 'Search by genre tags' },
-  { key: 'lyrics-text', label: 'Lyrics', field: 'lyrics', description: 'Search lyrics content' },
-  { key: 'inspired-by', label: 'Inspired By', field: 'inspired_by', description: 'Search by inspiration references' },
+  { key: 'mood', label: 'Mood', field: 'mood', description: 'Search by mood' },
+  { key: 'energy', label: 'Energy', field: 'energy_level', description: 'Search by energy level' },
+  { key: 'use-case', label: 'Use Case', field: 'use_case', description: 'Search by use case' },
+  { key: 'instruments', label: 'Instruments', field: 'instruments', description: 'Search by instruments' },
+  { key: 'era', label: 'Era', field: 'era', description: 'Search by era/period' },
   { key: 'bpm', label: 'BPM', field: 'bpm', description: 'Search by tempo' },
 ];
 
+// Field labels for better display
+const fieldLabels = {
+  'track-title': 'Title',
+  'track-description': 'Description',
+  'album-title': 'Album',
+  'composer': 'Composer',
+  'library': 'Library',
+  'tags': 'Genre',
+  'mood': 'Mood',
+  'energy': 'Energy',
+  'use-case': 'Use Case',
+  'instruments': 'Instruments',
+  'era': 'Era',
+  'bpm': 'BPM',
+  'duration': 'Duration',
+  'has-stems': 'Stems'
+};
+
 export function MessageInput({ onSend, disabled }) {
   const { isDark } = useTheme();
-  const [selectedFields, setSelectedFields] = useState([]); // Multiple selected @fields as chips
+  const [activeFilters, setActiveFilters] = useState([]); // Persistent filter pills
   const [searchText, setSearchText] = useState(''); // Main search text
   const [showFieldMenu, setShowFieldMenu] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [filterText, setFilterText] = useState('');
-  const [currentFieldValue, setCurrentFieldValue] = useState(''); // Value being typed for current field
-  const [currentFieldOperator, setCurrentFieldOperator] = useState(':'); // : or =
   const inputRef = useRef(null);
   const menuRef = useRef(null);
 
@@ -30,6 +49,86 @@ export function MessageInput({ onSend, disabled }) {
     opt.label.toLowerCase().includes(filterText.toLowerCase()) ||
     opt.key.toLowerCase().includes(filterText.toLowerCase())
   );
+
+  // Smart value extraction for multi-word values
+  const extractMultiWordValue = (text, fieldKey, nextAtIndex) => {
+    const naturalBoundaries = [' for ', ' with ', ' that ', ' having ', ' featuring ',
+      ' in ', ' and ', ' but ', ' or ', ' like ', ' similar to ', ' such as '];
+
+    // Extract until next @ or natural boundary
+    let value = nextAtIndex > 0 ? text.slice(0, nextAtIndex) : text;
+
+    // Check for natural language boundaries
+    for (const boundary of naturalBoundaries) {
+      const idx = value.toLowerCase().indexOf(boundary);
+      if (idx > 0 && idx < 50) {
+        value = value.slice(0, idx);
+        break;
+      }
+    }
+
+    // Field-specific word limits
+    const multiWordFields = ['track-title', 'album-title', 'composer', 'library', 'track-description'];
+    const limit = multiWordFields.includes(fieldKey) ? 5 : 3;
+
+    const words = value.trim().split(/\s+/);
+    if (words.length > limit) {
+      return words.slice(0, limit).join(' ');
+    }
+
+    return value.trim();
+  };
+
+  // Enhanced filter parsing that handles multi-word values
+  const parseEnhancedFilters = (text) => {
+    const filters = [];
+    let workingText = text;
+
+    // Enhanced regex to detect filter patterns
+    const filterPattern = /@([a-z-]+)([:=])/gi;
+    let match;
+    const matches = [];
+
+    // Collect all matches first
+    while ((match = filterPattern.exec(text)) !== null) {
+      matches.push({
+        index: match.index,
+        fullMatch: match[0],
+        fieldKey: match[1],
+        operator: match[2],
+        startIdx: match.index + match[0].length
+      });
+    }
+
+    // Process matches and extract values
+    matches.forEach((match, idx) => {
+      const nextMatchIdx = idx < matches.length - 1 ? matches[idx + 1].index : text.length;
+      const valueText = text.slice(match.startIdx, nextMatchIdx);
+      const value = extractMultiWordValue(valueText, match.fieldKey,
+        idx < matches.length - 1 ? nextMatchIdx - match.startIdx : -1);
+
+      const field = FIELD_OPTIONS.find(opt => opt.key === match.fieldKey.toLowerCase());
+
+      if (field && value) {
+        filters.push({
+          key: field.key,
+          label: fieldLabels[field.key] || field.label,
+          operator: match.operator,
+          value: value
+        });
+
+        // Remove this filter from working text
+        const filterEnd = match.startIdx + value.length;
+        const fullFilterText = text.slice(match.index, filterEnd);
+        workingText = workingText.replace(fullFilterText, '').trim();
+      }
+    });
+
+    return {
+      filters,
+      remainingText: workingText.replace(/\s+/g, ' ').trim()
+    };
+  };
 
   // Detect @ symbol in search text and show menu
   useEffect(() => {
@@ -65,49 +164,72 @@ export function MessageInput({ onSend, disabled }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Parse any remaining @ filters in the search text
-    const finalFilters = parseFieldsFromText(searchText);
-    const allFilters = [...selectedFields, ...finalFilters.filters];
+    // Parse any @filters still in the input
+    const parsed = parseEnhancedFilters(searchText);
 
-    if ((allFilters.length > 0 || finalFilters.remainingText.trim()) && !disabled) {
-      // Build the full query with all filters and remaining text
-      const filterString = allFilters.map(f => `@${f.key}${f.operator}${f.value}`).join(' ');
-      const fullQuery = filterString + (finalFilters.remainingText ? ' ' + finalFilters.remainingText : '');
+    // Create new pills from parsed filters with unique IDs
+    const newPills = parsed.filters.map(f => ({
+      id: `filter-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      key: f.key,
+      label: f.label,
+      operator: f.operator,
+      value: f.value
+    }));
 
+    // Combine with existing pills
+    const updatedFilters = [...activeFilters, ...newPills];
+
+    // Only update if we have new pills
+    if (newPills.length > 0) {
+      setActiveFilters(updatedFilters);
+    }
+
+    // Build query from all pills + remaining text
+    const filterString = updatedFilters
+      .map(f => `@${f.key}${f.operator}${f.value}`)
+      .join(' ');
+    const fullQuery = filterString +
+      (parsed.remainingText ? ' ' + parsed.remainingText : '');
+
+    if (fullQuery.trim() && !disabled) {
       onSend(fullQuery.trim());
-      setSearchText('');
-      setSelectedFields([]);
+      setSearchText(''); // Only clear input, keep pills
       setShowFieldMenu(false);
     }
   };
 
-  // Parse @ filters from text and return filters + remaining text
-  const parseFieldsFromText = (text) => {
-    const filters = [];
-    let remainingText = text;
+  // Remove filter pill with auto re-search
+  const removeFilter = (filterId) => {
+    const updatedFilters = activeFilters.filter(f => f.id !== filterId);
+    setActiveFilters(updatedFilters);
 
-    // Match @field:value or @field=value patterns
-    const regex = /@([a-z-]+)([:=])([^\s@]+)/gi;
-    let match;
+    // Auto re-search with remaining filters
+    const hasContent = updatedFilters.length > 0 || searchText.trim();
 
-    while ((match = regex.exec(text)) !== null) {
-      const [fullMatch, fieldKey, operator, value] = match;
-      const field = FIELD_OPTIONS.find(opt => opt.key === fieldKey.toLowerCase());
+    if (hasContent && !disabled) {
+      const filterString = updatedFilters
+        .map(f => `@${f.key}${f.operator}${f.value}`)
+        .join(' ');
+      const fullQuery = filterString + (searchText ? ' ' + searchText : '');
 
-      if (field) {
-        filters.push({
-          key: field.key,
-          label: field.label,
-          operator: operator,
-          value: value
-        });
-
-        // Remove this filter from the remaining text
-        remainingText = remainingText.replace(fullMatch, '').trim();
+      if (fullQuery.trim()) {
+        onSend(fullQuery.trim());
       }
     }
 
-    return { filters, remainingText };
+    inputRef.current?.focus();
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setActiveFilters([]);
+
+    // If we have search text, re-search with just that
+    if (searchText.trim() && !disabled) {
+      onSend(searchText.trim());
+    }
+
+    inputRef.current?.focus();
   };
 
   // Maintain focus on the input field after sending messages
@@ -135,23 +257,6 @@ export function MessageInput({ onSend, disabled }) {
     inputRef.current?.focus();
   };
 
-  const removeFieldChip = (index) => {
-    const newFields = selectedFields.filter((_, i) => i !== index);
-    setSelectedFields(newFields);
-    inputRef.current?.focus();
-  };
-
-  // Convert completed filters in text to chips when user hits space
-  useEffect(() => {
-    if (searchText.endsWith(' ')) {
-      const parsed = parseFieldsFromText(searchText);
-      if (parsed.filters.length > 0) {
-        setSelectedFields(prev => [...prev, ...parsed.filters]);
-        setSearchText(parsed.remainingText);
-      }
-    }
-  }, [searchText]);
-
   const handleKeyDown = (e) => {
     if (showFieldMenu && filteredOptions.length > 0) {
       if (e.key === 'ArrowDown') {
@@ -167,10 +272,11 @@ export function MessageInput({ onSend, disabled }) {
         e.preventDefault();
         setShowFieldMenu(false);
       }
-    } else if (e.key === 'Backspace' && searchText === '' && selectedFields.length > 0) {
-      // Backspace on empty input removes the last chip
+    } else if (e.key === 'Backspace' && searchText === '' && activeFilters.length > 0) {
+      // Backspace on empty input removes the last pill
       e.preventDefault();
-      removeFieldChip(selectedFields.length - 1);
+      const lastFilter = activeFilters[activeFilters.length - 1];
+      removeFilter(lastFilter.id);
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
@@ -211,50 +317,75 @@ export function MessageInput({ onSend, disabled }) {
         </div>
       )}
 
+      {/* Persistent Filter Pills */}
+      {activeFilters.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3 px-1">
+          {activeFilters.map((filter) => (
+            <span
+              key={filter.id}
+              className={`inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md flex-shrink-0 ${
+                isDark ? 'bg-apm-purple/30 text-apm-purple-light hover:bg-apm-purple/40'
+                       : 'bg-apm-purple/20 text-apm-purple hover:bg-apm-purple/30'
+              } transition-colors`}
+            >
+              <span className="font-medium">
+                {filter.label}: {filter.value}
+              </span>
+              <button
+                type="button"
+                onClick={() => removeFilter(filter.id)}
+                className={`ml-1 p-0.5 rounded-full transition-colors ${
+                  isDark ? 'hover:bg-red-500/20 hover:text-red-300'
+                         : 'hover:bg-red-500/20 hover:text-red-600'
+                }`}
+                aria-label={`Remove ${filter.label} filter`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          ))}
+
+          {/* Clear All button when many filters */}
+          {activeFilters.length > 2 && (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className={`text-xs px-2 py-1 rounded-md transition-colors ${
+                isDark ? 'text-apm-gray-light hover:text-white hover:bg-apm-dark/50'
+                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-3">
         <div className={`flex-1 rounded-xl px-3 py-2 border focus-within:ring-2 focus-within:ring-apm-purple focus-within:border-transparent ${
           isDark ? 'bg-apm-navy border-apm-gray/30' : 'bg-gray-50 border-gray-200'
         }`}>
-          <div className="flex items-center flex-wrap gap-2">
-            {/* Multiple Field Chips */}
-            {selectedFields.map((field, index) => (
-              <span
-                key={index}
-                className={`inline-flex items-center gap-1 text-sm px-2 py-1 rounded-md flex-shrink-0 ${
-                  isDark ? 'bg-apm-purple/30 text-apm-purple-light' : 'bg-apm-purple/20 text-apm-purple'
-                }`}
-              >
-                <span className="font-medium">
-                  @{field.key}{field.operator}{field.value}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => removeFieldChip(index)}
-                  className={`transition-colors ${isDark ? 'hover:text-white' : 'hover:text-apm-purple-dark'}`}
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </span>
-            ))}
-            <input
-              ref={inputRef}
-              type="text"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={selectedFields.length > 0 ? "Add more filters or search text..." : "Search for music... (type @ for field search)"}
-              disabled={disabled}
-              className={`flex-1 min-w-[200px] bg-transparent py-1 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                isDark ? 'text-apm-light placeholder:text-apm-gray' : 'text-gray-900 placeholder:text-gray-400'
-              }`}
-            />
-          </div>
+          <input
+            ref={inputRef}
+            type="text"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={activeFilters.length > 0
+              ? "Add more filters or refine search..."
+              : "Search for music... (type @ for field search)"}
+            disabled={disabled}
+            className={`w-full bg-transparent py-1 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+              isDark ? 'text-apm-light placeholder:text-apm-gray' : 'text-gray-900 placeholder:text-gray-400'
+            }`}
+          />
         </div>
         <button
           type="submit"
-          disabled={disabled || !searchText.trim()}
+          disabled={disabled || (!searchText.trim() && activeFilters.length === 0)}
           className="bg-apm-purple hover:bg-apm-purple-light text-white font-medium
                      rounded-xl px-6 py-3 transition-colors
                      disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-apm-purple"

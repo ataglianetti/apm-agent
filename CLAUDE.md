@@ -292,11 +292,13 @@ This will:
 
 ### Genre Disambiguation (CRITICAL)
 
+**IMPORTANT: Disambiguation responses must be MARKDOWN, not JSON.**
+
 When a user searches for a broad genre term (e.g., "rock", "classical", "jazz"), **do not immediately return results**. Instead:
 
 1. **Analyze the genre's subgenres** in `genre_taxonomy.csv`
 2. **Count tracks per subgenre** in `tracks.csv`
-3. **Ask the user to narrow down** by presenting the top subgenre options
+3. **Ask the user to narrow down** by presenting the top subgenre options in MARKDOWN format
 
 **Example - User searches "rock":**
 
@@ -321,17 +323,37 @@ Then list the options with track counts. Don't copy the same phrasing every time
 
 **Example - User searches "classical":**
 
-Be natural and vary your language. Some ways to ask:
+**CRITICAL: Your ENTIRE response should be:**
+1. ONE short question (no explanation why you're asking)
+2. The bulleted list of options
+3. NOTHING ELSE
 
-- "Classical is pretty broad - are you thinking famous composers, modern neo-classical, or something else?"
-- "What kind of classical? Traditional pieces, contemporary classical styling, a specific era?"
-- "Classical covers everything from Bach to Philip Glass. What direction?"
+**WRONG:**
+"Since 'classical' is a broad genre term, I'll provide disambiguation options. This helps narrow down the specific type of classical music you're interested in.
 
-Include relevant options like:
-- Well-known classical pieces (Mozart, Beethoven, Bach)
-- Modern/neo-classical compositions
-- Classical styling (contemporary tracks with classical elements)
-- A specific era (Baroque, Romantic, 20th Century)
+Which type of classical are you looking for?
+
+- **Classical** (202 tracks)
+..."
+
+**CORRECT:**
+"Which type of classical are you looking for?
+
+- **Classical** (202 tracks)
+- **Classical Styling** (88 tracks)
+..."
+
+List the ACTUAL subgenres from genre_taxonomy.csv with their track counts. Don't invent genre names. Use only what exists in the data.
+
+For classical (genre 1110), the actual subgenres are:
+- **Classical** (202 tracks) - the main genre
+- **Classical Styling** (88 tracks)
+- **Neo Classical** (97 tracks)
+- **Minimalist Style** (86 tracks)
+- **20th Century Classical Style** (56 tracks)
+- **Classical Arrangement** (43 tracks)
+- **Avant Garde** (27 tracks)
+- **Classical Fusion** (20 tracks)
 
 ### Handling Disambiguation Responses (CRITICAL)
 
