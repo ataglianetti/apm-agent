@@ -38,7 +38,10 @@
       "Bash(/dev/null)",
       "Bash(/Users/echowreck/Projects/APM Music/apm-agent/test-rock.sh)",
       "Bash(while read id)",
-      "Bash(do grep \"^$id,\" data/tracks.csv)"
+      "Bash(do grep \"^$id,\" data/tracks.csv)",
+      "Bash(sqlite3:*)",
+      "Bash(git fetch:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
