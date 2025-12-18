@@ -45,7 +45,7 @@ function parseTrackResults(content) {
   }
 }
 
-export function MessageBubble({ message, onShowMore, onSoundsLike }) {
+export function MessageBubble({ message, onShowMore, onSoundsLike, searchQuery = '' }) {
   const { isDark } = useTheme();
   const isUser = message.role === 'user';
   const isError = message.isError;
@@ -77,6 +77,7 @@ export function MessageBubble({ message, onShowMore, onSoundsLike }) {
             }}
             onShowMore={onShowMore}
             onSoundsLike={onSoundsLike}
+            searchQuery={searchQuery}
           />
 
           {/* Performance metrics if available */}
@@ -104,7 +105,12 @@ export function MessageBubble({ message, onShowMore, onSoundsLike }) {
     return (
       <div className="flex justify-start w-full">
         <div className="w-full max-w-4xl">
-          <TrackResultsList data={trackResults} onShowMore={onShowMore} onSoundsLike={onSoundsLike} />
+          <TrackResultsList
+            data={trackResults}
+            onShowMore={onShowMore}
+            onSoundsLike={onSoundsLike}
+            searchQuery={searchQuery}
+          />
         </div>
       </div>
     );

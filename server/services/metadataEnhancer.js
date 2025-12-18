@@ -233,9 +233,13 @@ export function enhanceTrackMetadata(track) {
 
   // Format duration from seconds to MM:SS for display
   let formattedDuration = track.duration;
-  if (track.duration && !track.duration.includes(':')) {
-    const durationSeconds = parseInt(track.duration, 10);
-    if (!isNaN(durationSeconds) && durationSeconds > 0) {
+  if (track.duration) {
+    // Handle both integer (new schema) and string (old schema)
+    const durationSeconds = typeof track.duration === 'number'
+      ? track.duration
+      : (track.duration.includes(':') ? null : parseInt(track.duration, 10));
+
+    if (durationSeconds !== null && !isNaN(durationSeconds) && durationSeconds > 0) {
       const minutes = Math.floor(durationSeconds / 60);
       const seconds = durationSeconds % 60;
       formattedDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;

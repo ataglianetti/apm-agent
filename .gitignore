@@ -23,3 +23,8 @@ client/dist/
 
 # Logs
 *.log
+
+# Solr
+solr/*/data/
+solr/*/core.properties
+!solr/*/conf/

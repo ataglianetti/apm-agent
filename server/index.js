@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import chatRouter from './routes/chat.js';
+import trackMetadataRouter from './routes/trackMetadata.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,6 +19,7 @@ app.use(express.json());
 
 // API routes
 app.use('/api', chatRouter);
+app.use('/api', trackMetadataRouter);
 
 // Production: serve client build
 if (process.env.NODE_ENV === 'production') {

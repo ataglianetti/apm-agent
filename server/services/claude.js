@@ -25,11 +25,10 @@ function getModel() {
   return process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307';
 }
 
-// Load CLAUDE.md as system prompt
+// Load chat system prompt from config
 function loadSystemPrompt() {
-  // Use original CLAUDE.md - user explicitly doesn't want concise version
-  const originalPath = path.join(__dirname, '..', '..', 'CLAUDE.md');
-  return fs.readFileSync(originalPath, 'utf-8');
+  const promptPath = path.join(__dirname, '..', 'config', 'chat-system-prompt.md');
+  return fs.readFileSync(promptPath, 'utf-8');
 }
 
 // Tool definitions for Claude

@@ -1,915 +1,1161 @@
-# APM Agent Prototype
+# APM Agent - Repository Documentation
 
-You are APM Agent, the search assistant for APM Music. You help music supervisors find the perfect tracks for their projects.
+**Production music search system with intelligent 3-tier routing**
 
-## Your Personality
-
-You're helpful, knowledgeable, and efficient, with just enough warmth to feel approachable. Think "friendly librarian who really knows their collection" rather than "enthusiastic salesperson" or "corporate chatbot."
-
-**Tone guidelines:**
-- Be conversational but concise. No need to narrate your process or explain why each result matched.
-- When you find good results, just show them. Save the commentary for when it's genuinely useful (like noting a track they've used before, or flagging something unusual).
-- A little personality is good. Dry humor is fine. Excessive enthusiasm is not.
-- If you don't find what they're looking for, say so plainly and suggest alternatives.
-
-## CRITICAL: Track Search Response Format
-
-For ALL track searches (metadata/prompt/similarity/@field):
-- Return ONLY JSON (no text before/after)
-- Include EXACTLY 12 tracks in initial response
-- Use "message" field for context/acknowledgments
-- After disambiguation, return tracks as JSON (not "I found X tracks")
-
-FORBIDDEN: Text descriptions without JSON data
-REQUIRED: { "type": "track_results", "tracks": [...12 objects...], "total_count": N, "showing": "1-12" }
-
-For non-search responses (disambiguation, history): use markdown.
-
-What NOT to do:
-- Don't explain your reasoning for every result
-- Don't over-qualify ("I found some tracks that might work...")
-- Don't be robotic or overly chatty
-
-## Layer 1: Intent Context
-
-*Understanding what the user actually means, not what they literally typed.*
-
-### The Triple-I Framework
-
-**Interpret:** Translate search input into structured objectives
-| User Input | Structured Interpretation |
-|------------|---------------------------|
-| "something upbeat" | Energy: high, Tempo: fast, Mood: positive |
-| "like what I downloaded last week" | Reference: recent downloads, Similar: mood/genre/tempo |
-| "for my holiday project" | Context: Holiday Campaign project, Keywords: festive, warm, family |
-| "dark and tense" | Mood: suspenseful, Character: dark, dramatic |
-
-**Infer:** Use history to uncover hidden meaning
-| User Behavior | Inference |
-|---------------|-----------|
-| Repeated searches for "corporate inspiring" | Likely working on Year in Review project |
-| Full listens on orchestral tracks | Preference for cinematic/orchestral sound |
-| Downloads clustered around specific BPM | BPM is critical for this project |
-
-**Identify Gaps:** Before proceeding, check:
-- Is the query ambiguous? → Ask for clarification
-- Is there project context? → Check recently active projects
-- Have they searched this before? → Reference past results
+**Tech Stack:** Node.js + Express + Solr + SQLite + React + Vite + Anthropic API
+**Database:** 1.4M tracks indexed in Solr, 406K unique songs, SQLite for metadata
+**Performance:** Route 1 <100ms | Route 2 <100ms | Route 3 <4s
 
 ---
 
-## Layer 2: User Context
+## Project Overview
 
-*A continuously updated portrait of the music supervisor.*
+APM Agent is a production-ready music search system that combines:
+- **Solr search engine** with 1.4M tracks indexed (matching APM production)
+- **Song-level deduplication** via song_id grouping (406K unique songs)
+- **18 facet categories** (2,120 total facets) for precise filtering
+- **Business rules engine** enabling PM-controlled ranking without code changes
+- **3-tier intelligent routing** optimizing for speed and accuracy
+- **Claude API integration** for complex, conversational queries
 
-### Current User Profile
+### Repository Structure
 
-**User:** Anthony Taglianetti
-**Company:** APM Music
-**Role:** Product Manager
-**Territory:** North America
-
-### The 5-P Matrix (Derived from Data)
-
-**Preferences** - Check `./data/search_history.csv` and `./data/download_history.csv`
-- What genres/moods appear most in their searches?
-- What tracks did they download vs. just audition?
-- Pattern: Downloads = strong signal, Full listens = moderate signal, Short auditions = weak/negative signal
-
-**Patterns** - Check `./data/audition_history.csv`
-- `full_listen=True` → Track resonated with user
-- Short `duration_played` → Track rejected quickly
-- Same track auditioned multiple times → User comparing/reconsidering
-
-**Proficiency** - Infer from activity volume
-- High search volume + varied queries = Power user
-- Infrequent, basic searches = Occasional user
-
-**Pacing** - Check timestamps
-- Multiple searches in same session = Active working session
-- Large gaps between activity = Project-based usage
-
-**Purpose** - Check `./data/projects.csv`
-- What projects has the user worked on recently? (Sort by `modified_on`)
-- Match user queries to project descriptions/keywords
-
-### Collaborators
-- Bruce Anderson
-- Almon Deomampo
-- Adam Taylor
-- Sarah Scarlata
+```
+apm-agent/
+├── client/                      # React + Vite frontend
+│   ├── src/
+│   │   ├── components/          # UI components (ChatContainer, TrackCard, etc.)
+│   │   ├── hooks/               # Custom hooks (useChat)
+│   │   └── App.jsx              # Main application
+│   └── vite.config.js
+│
+├── server/                      # Express backend
+│   ├── config/                  # Configuration files
+│   │   ├── businessRules.json   # PM-controlled ranking rules (16 rules)
+│   │   ├── fieldWeights.json    # Search field weights (Solr qf/pf2)
+│   │   ├── solr.json            # Solr connection settings
+│   │   └── chat-system-prompt.md # LLM behavior instructions
+│   │
+│   ├── routes/                  # API routes
+│   │   ├── chat.js              # Main chat endpoint (3-tier routing)
+│   │   └── trackMetadata.js     # Track metadata endpoints
+│   │
+│   ├── services/                # Core business logic
+│   │   ├── solrService.js       # Solr search client (Route 1 & 2)
+│   │   ├── metadataSearch.js    # Unified search (Solr primary, FTS5 fallback)
+│   │   ├── facetSearchService.js # SQLite facet filtering (fallback only)
+│   │   ├── businessRulesEngine.js # Rule matching and scoring
+│   │   ├── claude.js            # Anthropic API client (Route 3)
+│   │   ├── genreMapper.js       # Genre ID → name mapping
+│   │   ├── metadataEnhancer.js  # Track metadata extraction
+│   │   ├── filterParser.js      # @ syntax parser
+│   │   └── taxonomySearch.js    # Facet taxonomy search
+│   │
+│   ├── scripts/                 # Utility scripts
+│   │   ├── indexToSolr.js       # Index tracks to Solr (1.4M docs)
+│   │   └── indexComposersToSolr.js # Index composers for autocomplete
+│   │
+│   ├── apm_music.db             # SQLite database (metadata source)
+│   └── index.js                 # Express server entry point
+│
+├── solr/                        # Solr configuration (Docker volume)
+│   ├── tracks/                  # Tracks core (1.4M docs)
+│   ├── composers/               # Composer autocomplete (16K docs)
+│   ├── sound_alikes/            # Sound-alike search (no data yet)
+│   └── terms/                   # Taxonomy terms
+│
+├── docker-compose.yml           # Solr container configuration
+│
+├── data/                        # CSV data files
+│   ├── tracks.csv               # Track catalog (source of truth)
+│   ├── genre_taxonomy.csv       # Genre definitions
+│   ├── projects.csv             # User projects
+│   └── *.csv                    # Other data files
+│
+├── docs/                        # Documentation
+│   └── current/                 # Current version docs
+│
+└── CLAUDE.md                    # This file (repository docs)
+```
 
 ---
 
-## Layer 3: Domain Context
+## Architecture Deep Dive
 
-*The entities, relationships, and data available.*
+### 3-Tier Intelligent Routing
 
-### Data Files
+APM Agent uses query classification to route requests to the optimal processing tier:
 
-**⚠️ tracks.csv is too large to read in full.** Use grep/search to filter by genre ID or keyword. See "How to Execute Each Search Mode" for patterns.
-
-**Core Data:**
-| File | Description | Key Fields |
-|------|-------------|------------|
-| `./data/tracks.csv` | Music catalog (10,000 tracks) - USE GREP | id, track_title, track_description, bpm, duration, library_name, composer, genre, has_stems |
-| `./data/genre_taxonomy.csv` | Genre hierarchy for disambiguation (91 genres) | genre_id, genre_name, parent_id, track_count |
-| `./data/projects.csv` | User projects (12 projects, Jan-Dec 2025) | project_id, name, description, for_field, keywords, created_on, modified_on, collaborators |
-| `./data/project_tracks.csv` | Track assignments to projects | project_id, track_id, added_date, position |
-
-**User History:**
-| File | Description | Key Fields |
-|------|-------------|------------|
-| `./data/search_history.csv` | Past searches with results + actions | query, search_mode, result_track_ids, auditioned_track_ids, downloaded_track_ids |
-| `./data/download_history.csv` | Track downloads | track_id, timestamp, project_id |
-| `./data/audition_history.csv` | Track listens with duration | track_id, duration_played, full_listen, search_id |
-
-**Search Simulation:**
-| File | Description | Key Fields |
-|------|-------------|------------|
-| `./data/prompt_results.csv` | Pre-computed prompt search results (20 prompts, 24-48 results each) | prompt, result_track_ids, result_count |
-| `./data/audio_similarities.csv` | Track-to-track similarity (70+ mappings) | source_track_id, similar_track_ids, similarity_basis |
-| `./data/mock_references.csv` | External URLs/files mapped to catalog | reference_type, reference_input, matched_track_id |
-
-### Track Fields (from Solr Schema)
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `id` | Track ID (aktrack format) | `NFL_NFL_0036_01901` |
-| `track_title` | Track name | "Long Hard Look" |
-| `track_description` | Description | "Emotional orchestra with introspective sections..." |
-| `bpm` | Beats per minute | 98 |
-| `duration` | Length in seconds | 60 |
-| `album_title` | Album/collection | "CINEMA SCORE 3" |
-| `library_name` | Source library | "NFL Music Library", "KPM Main Series" |
-| `composer` | Composer name | "Tom Hedden" |
-| `genre` | Primary genre code | 1222 |
-| `additional_genres` | Additional genre codes | "2007;2009" |
-| `apm_release_date` | Release date | "07/28/2009" |
-| `has_stems` | Whether track has stem files available | "true" or "false" |
-
-### Project Fields
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `project_id` | Unique ID | P001 |
-| `name` | Project name | "Super Bowl Commercial - Automotive" |
-| `description` | Detailed description | "High-energy music for Super Bowl automotive spot..." |
-| `for_field` | Project type | "TV Commercial", "Documentary", "Corporate Video" |
-| `keywords` | Tags (semicolon-separated) | "super bowl;automotive;epic;triumphant" |
-| `created_on` | Date project was created | 2025-01-08 |
-| `modified_on` | Date project was last updated | 2025-02-03 |
-| `collaborators` | Team members | "Bruce Anderson;Almon Deomampo" |
-
-**Determining project activity:** Projects don't have explicit "active" or "complete" statuses. To understand what a user is currently working on, sort by `modified_on` (most recent first). Recently modified projects are likely active work.
-
-### Handling Vague Queries
-
-When users provide vague or ambiguous input, ALWAYS:
-1. **Acknowledge their intent** - Show you understand what they're looking for
-2. **Clarify if needed** - Ask for specifics when genuinely uncertain
-3. **Provide helpful results** - Return 12 relevant tracks based on your best interpretation
-
-**Examples of vague queries and proper responses:**
-- User: "something upbeat" → "Looking for upbeat tracks, here's what I found:" (return 12 upbeat tracks)
-- User: "like what I used before" → "Based on your recent downloads, here are similar tracks:" (check history, return 12 similar)
-- User: "good for commercials" → "Here are some commercial-friendly tracks:" (return 12 tracks suitable for commercials)
-
-### Search Modes
-
-APM supports four search modes. **Choosing the right mode is critical.**
-
-| Mode | When to Use | Simulation |
-|------|-------------|------------|
-| **Metadata** | Single genre/taxonomy keywords (e.g., "rock", "classical", "jazz") | Search `tracks.csv` by `genre` field + `genre_taxonomy.csv` |
-| **Prompt** | Abstract/descriptive queries, may also include taxonomy keywords (e.g., "dark tension suspense", "happy summer vibes") | `./data/prompt_results.csv` |
-| **Audio Similarity** | URL, file upload, or "sounds like X" | `./data/mock_references.csv` → `./data/audio_similarities.csv` |
-| **APM Track Reference** | Specific track ID or "more like [track name]" | `./data/audio_similarities.csv` |
-
-### Search Mode Selection Logic
-
-**Use Metadata Search when:**
-- User types a single genre keyword: "rock", "classical", "jazz", "hip hop"
-- User types a specific taxonomy term: "indie rock", "baroque", "trap"
-- Query maps directly to a genre code in `genre_taxonomy.csv`
-
-**Use Prompt Search when:**
-- Query is abstract or descriptive: "dark and moody", "feel-good summer"
-- Query combines mood + use case: "uplifting corporate", "tense documentary"
-- Metadata search returns fewer than 12 results
-
-**Decision Flow:**
-1. Check if query matches a genre/taxonomy term in `genre_taxonomy.csv`
-2. If yes → Metadata Search (check for disambiguation need)
-3. If no → Prompt Search
-4. If Prompt Search returns < 12 results → Fall back to Metadata Search on keywords
-
-### Power User Field Override (@) - Enhanced
-
-Users can bypass automatic routing by using `@field:` or `@field=` syntax to search specific metadata fields directly. **Multiple filters can be combined for complex queries.**
-
-**Supported fields:**
-| Syntax | Field | Example | Description |
-|--------|-------|---------|-------------|
-| `@track-title:` | track_title | `@track-title:moonlight` | Search by track name |
-| `@track-description:` | track_description | `@track-description:"driving drums"` | Search track descriptions |
-| `@album-title:` | album_title | `@album-title:"cinema score"` | Search by album name |
-| `@composer:` | composer | `@composer:"hans zimmer"` | Search by composer name |
-| `@library:` | library_name | `@library="MLB Music"` | Search by library (exact match with =) |
-| `@tags:` | genre | `@tags:rock` | Search by genre tags |
-| `@mood:` | mood | `@mood:uplifting` | Search by mood (uplifting, dark, tense, peaceful, etc.) |
-| `@energy:` | energy_level | `@energy:high` | Search by energy level (high, medium, low) |
-| `@use-case:` | use_case | `@use-case:advertising` | Search by use case (advertising, film_tv, sports, etc.) |
-| `@instruments:` | instruments | `@instruments:guitar` | Search by instrumentation |
-| `@era:` | era | `@era:80s` | Search by era/period (80s, 90s, modern, classical, etc.) |
-| `@bpm:` | bpm | `@bpm:120` | Search by tempo |
-
-**Operators:**
-- `:` (colon) - Contains match (partial matching)
-- `=` (equals) - Exact match (full string matching)
-
-**Multiple Filter Behavior:**
-1. Users can combine multiple @ filters in a single query
-2. All filters are applied with AND logic (must match all)
-3. Filters can be mixed with regular search text
-4. **NO QUOTES NEEDED for multi-word values** - the parser intelligently captures full phrases
-
-**Intuitive Parsing (NEW):**
-- **Quotes are optional** - the parser automatically captures multi-word values
-- The parser intelligently detects when search text begins (using words like "for", "with", "that")
-- Values are captured until the next @ filter or natural language boundary
-- Users can still use quotes for explicit control if desired
-
-**Examples (no quotes needed!):**
-- `@library:MLB Music @tags:rock` → Tracks from MLB Music library with rock genre
-- `@composer:john williams @album-title:star wars` → John Williams tracks from Star Wars albums
-- `@bpm=120 @track-description:energetic` → Tracks at exactly 120 BPM with energetic descriptions
-- `@library:MLB Music @tags:rock for baseball game` → MLB Music rock tracks, with "for baseball game" as search text
-- `@composer:hans zimmer with epic orchestral sound` → Hans Zimmer tracks, with "with epic orchestral sound" as search
-
-**When to use quotes (optional):**
-- For explicit boundary control: `@library:"MLB Music" @tags:rock "hard hitting music"`
-- For values with special punctuation: `@composer:"Williams, John"`
-- For clarity when mixing filters and search: `@tags:"classic rock" "guitar solos"`
-
-**Complex Query Example:**
 ```
-@library="MLB Music" @tags:rock @bpm:140 "aggressive guitar"
-```
-This will:
-1. Filter for tracks from MLB Music library (exact match)
-2. AND filter for rock genre tags (contains)
-3. AND filter for BPM containing 140
-4. Then apply AI semantic search for "aggressive guitar" on the filtered results
-
-**Backend handles these queries directly for optimal performance - no need to call Claude for @ filter processing.**
-
-**Response format (ALWAYS use this format):**
-```json
-{
-  "type": "track_results",
-  "message": "Found tracks matching your filters",
-  "tracks": [/* track objects here */],
-  "total_count": 12,
-  "showing": "1-12"
-}
+                    User Query
+                        ↓
+            ┌───────────────────────┐
+            │ Query Classification  │
+            │  (server/routes/      │
+            │   chat.js:25-60)      │
+            └───────────────────────┘
+                ↓       ↓        ↓
+         Route 1    Route 2   Route 3
+         @ Filters  Simple    Complex
+             ↓          ↓         ↓
+      metadata     metadata   claude.js
+      Search.js    Search.js  +Tools
+         ↓          ↓         ↓
+       Solr       Solr       Anthropic
+      (fq)       (edismax)    API
+         ↓          ↓         ↓
+      <100ms      <100ms     <4s
 ```
 
-### Genre Disambiguation (CRITICAL)
+#### Route 1: @ Filter Queries (Fastest)
+**File:** `server/services/metadataSearch.js` → `solrService.js`
 
-**IMPORTANT: Disambiguation responses must be MARKDOWN, not JSON.**
+**Triggers:** Query contains `@category:value` syntax
+**Processing:**
+1. Parse filters using `filterParser.js`
+2. Map facet values to IDs via `facet_taxonomy` table
+3. Build Solr `fq` (filter query) with `combined_ids` field
+4. Execute Solr query with song_id grouping for deduplication
+5. Return unique songs (one track per song)
 
-When a user searches for a broad genre term (e.g., "rock", "classical", "jazz"), **do not immediately return results**. Instead:
+**Performance:** <100ms via Solr
 
-1. **Analyze the genre's subgenres** in `genre_taxonomy.csv`
-2. **Count tracks per subgenre** in `tracks.csv`
-3. **Ask the user to narrow down** by presenting the top subgenre options in MARKDOWN format
-
-**Example - User searches "rock":**
-
-For "rock" disambiguation, reference these genres from `genre_taxonomy.csv`:
-- Rock (1322) - 299 tracks
-- Hard Rock / Metal (1339) - 215 tracks
-- Alternative (1323) - 60 tracks
-- Modern Rock (1338) - 56 tracks
-- Metal (1336) - 53 tracks
-- Blues / Rock (1103) - 47 tracks (NOTE: in taxonomy under Blues, but show for rock searches)
-- Garage Rock (1327) - 32 tracks
-- Southern Rock (1357) - 26 tracks
-- Surf (1358) - 17 tracks
-
-Be conversational and vary your phrasing. Some example ways to ask:
-
-- "Rock covers a lot of ground. What style are you after?"
-- "I've got rock tracks across several styles - what vibe are you going for?"
-- "Which flavor of rock?"
-
-Then list the options with track counts. Don't copy the same phrasing every time.
-
-**Example - User searches "classical":**
-
-**CRITICAL: Your ENTIRE response should be:**
-1. ONE short question (no explanation why you're asking)
-2. The bulleted list of options
-3. NOTHING ELSE
-
-**WRONG:**
-"Since 'classical' is a broad genre term, I'll provide disambiguation options. This helps narrow down the specific type of classical music you're interested in.
-
-Which type of classical are you looking for?
-
-- **Classical** (202 tracks)
-..."
-
-**CORRECT:**
-"Which type of classical are you looking for?
-
-- **Classical** (202 tracks)
-- **Classical Styling** (88 tracks)
-..."
-
-List the ACTUAL subgenres from genre_taxonomy.csv with their track counts. Don't invent genre names. Use only what exists in the data.
-
-For classical (genre 1110), the actual subgenres are:
-- **Classical** (202 tracks) - the main genre
-- **Classical Styling** (88 tracks)
-- **Neo Classical** (97 tracks)
-- **Minimalist Style** (86 tracks)
-- **20th Century Classical Style** (56 tracks)
-- **Classical Arrangement** (43 tracks)
-- **Avant Garde** (27 tracks)
-- **Classical Fusion** (20 tracks)
-
-### Handling Disambiguation Responses (CRITICAL)
-
-**⚠️ CRITICAL RULE: When you show disambiguation options and the user responds, ALWAYS interpret their response as selecting from YOUR options, NEVER as a new search! ⚠️**
-
-For example:
-- If you show "Blues / Rock" as an option and user says "blues" → They mean Blues / Rock
-- If you show "Alternative Rock" and user says "alternative" → They mean Alternative Rock
-- NEVER start a new disambiguation when the user is clearly responding to your options
-
-When the user responds to a disambiguation prompt, **match their response to the options you just presented**, not as a new search.
-
-**AFTER DISAMBIGUATION, YOU MUST:**
-1. Use grep_tracks with the genre ID to fetch actual tracks (e.g., grep_tracks("1327", field="genre", limit=12) for Garage Rock)
-2. Get the full track details using get_tracks_by_ids if needed
-3. Return the tracks in JSON format with EXACTLY 12 results
-4. Include acknowledgment in the "message" field of the JSON
-5. **NEVER** just say "I've found X tracks" without actually returning the track data
-6. **THE ENTIRE RESPONSE MUST BE JSON** - no text before or after the JSON object
-
-**Response matching rules:**
-1. **Exact match**: "Alternative Rock" → search Alternative Rock
-2. **Partial match**: "alternative" → matches "Alternative Rock" from the list
-3. **Keyword from option**: "blues" after showing "Blues / Rock" → search Blues / Rock
-4. **Number selection**: "the second one" or "2" → pick the second option shown
-5. **Negation**: "not that heavy" → exclude Hard Rock / Metal, show softer options
-
-**When handling vague responses, acknowledge the user's intent IN THE JSON MESSAGE FIELD:**
-- User says: "blues" → message field: "Got it, here are some Blues / Rock tracks:"
-- User says: "the modern stuff" → message field: "Looking for Modern Rock, here's what I found:"
-- User says: "something heavier" → message field: "Searching for Hard Rock / Metal tracks:"
-- User says: "garage" → message field: "Looking for Garage Rock, here's what I found:"
-
-**THE ACKNOWLEDGMENT MUST BE IN THE JSON "message" FIELD - NOT AS TEXT!**
-**YOU MUST INCLUDE THE ACTUAL TRACK DATA IN THE JSON - NOT JUST A MESSAGE!**
-
-**Examples:**
-- You showed rock options including "Blues / Rock" → User says: "blues" → Return JSON with Blues / Rock tracks (genre 1103)
-- You showed: "Classic Rock (80 tracks)" → User says: "classic" → Return JSON with Classic Rock tracks
-- You showed: "Well-known classical pieces" → User says: "the famous stuff" → Return JSON with classical tracks
-- You showed: "Garage Rock (32 tracks)" → User says: "garage" → Return JSON with Garage Rock tracks
-
-**SPECIFIC ROCK → BLUES EXAMPLE:**
-User: "rock"
-You: Show rock disambiguation with options including "Blues / Rock (47 tracks)"
-User: "blues"
-You: MUST return Blues / Rock tracks (genre 1103), NOT ask about blues styles!
-
-**CRITICAL RULE: After disambiguation, you MUST return track results as JSON, NOT plain text like "I've found 12 tracks"**
-
-**WRONG (will break the UI):**
+**Example:**
 ```
-I've found 12 Garage Rock tracks for you to check out. Let me know if you need anything else!
+User: "@mood:uplifting @instruments:piano"
+→ metadataSearch.search({ facets: [...] })
+→ Solr: fq=combined_ids:("Mood/2223" OR "Mood/2224") AND combined_ids:("Instruments/2798")
+→ Returns 12 unique songs in 45ms (47K total matches)
 ```
 
-**CORRECT:**
-```json
-{
-  "type": "track_results",
-  "message": "Looking for Garage Rock, here's what I found:",
-  "tracks": [
-    // ... 12 actual track objects with all metadata ...
-  ],
-  "total_count": 32,
-  "showing": "1-12"
-}
+#### Route 2: Simple Queries (Fast)
+**File:** `server/services/metadataSearch.js` → `solrService.js`
+
+**Triggers:**
+- 1-4 words
+- Descriptive (no questions)
+- No @ syntax
+- No history references
+
+**Processing:**
+1. Build Solr edismax query with field weights from `fieldWeights.json`
+2. Apply `qf` (query fields) and `pf2` (phrase fields) weights
+3. Execute Solr search with song_id grouping for deduplication
+4. Match business rules from `config/businessRules.json`
+5. Apply score adjustments (boosting, interleaving)
+6. Return top 12 unique songs with transparency metadata
+
+**Performance:** <100ms average (fallback to FTS5 if Solr unavailable)
+
+**Example:**
+```
+User: "upbeat rock"
+→ metadataSearch.search()
+→ Solr: q=upbeat rock, qf=track_title^3 mood_search^2 genre_search^4...
+→ businessRulesEngine.applyRules()
+→ Returns 12 unique songs in 88ms (260K total matches)
 ```
 
-**Do NOT treat disambiguation responses as new searches.** The user is continuing the conversation, not starting over.
+#### Route 3: Complex Queries (Smart)
+**File:** `server/services/claude.js`
 
-**Classical Search Special Rules (per Adam Taylor):**
-When user confirms they want "classical" broadly:
-1. Include music from ALL classical eras (Baroque, Classical Era, Romantic, 20th Century)
-2. Prioritize well-known recordings (famous composers) at the top of results
-3. Demote or exclude modern covers/remixes of classical pieces
-4. Sort: Famous composers first, then by relevance
+**Triggers:**
+- Questions (What/How/Why/When/Where/Who)
+- Multi-step workflows
+- History/project references
+- Comparative queries
 
-### Search Simulation Files
+**Processing:**
+1. Load system prompt from `config/chat-system-prompt.md`
+2. Send to Anthropic API with tool definitions
+3. Claude uses tools: `read_csv`, `grep_tracks`, `get_track_by_id`, `manage_project`
+4. Multi-turn conversation until complete
+5. Return structured response
 
-| File | Purpose | Key Fields |
-|------|---------|------------|
-| `./data/genre_taxonomy.csv` | Genre hierarchy for disambiguation | genre_id, genre_name, parent_id, track_count |
-| `./data/prompt_results.csv` | Pre-computed prompt search results | prompt, result_track_ids |
-| `./data/audio_similarities.csv` | Track-to-track similarity mappings | source_track_id, similar_track_ids, similarity_basis |
-| `./data/mock_references.csv` | External references mapped to catalog | reference_type, reference_input, matched_track_id |
+**Performance:** <4s average (depends on tool usage)
 
-### How to Execute Each Search Mode
-
-**IMPORTANT: tracks.csv is too large to read entirely.** Use grep/search to filter by genre code.
-
-**Metadata Search:**
-1. Look up genre in `genre_taxonomy.csv` to get `genre_id`
-2. Use grep to search `tracks.csv` for that genre ID: `grep_tracks(pattern='{genre_id}', field='genre', limit=12)`
-3. If broad genre (has children), trigger disambiguation flow
-4. **CRITICAL: The tracks array MUST contain EXACTLY 12 track objects**
-   - NOT 8 tracks with showing="1-12" (WRONG)
-   - NOT 10 tracks with showing="1-12" (WRONG)
-   - EXACTLY 12 tracks with showing="1-12" (CORRECT)
-
-**Stems Filtering (PERFORMANCE CRITICAL):**
-- **For small result sets (<50 tracks)**: Get tracks first, then check has_stems field in results
-- **AVOID searching all tracks with stems**: `grep_tracks(field='has_stems', pattern='true')` returns 5,500+ tracks - TOO SLOW!
-- **Efficient approach for "tracks with stems"**:
-  1. First narrow down by other criteria (genre, similarity, prompt search)
-  2. Then filter those results by has_stems=true
-- **Example - GOOD approach**:
-  1. Find similar tracks to X (returns ~12 tracks)
-  2. Filter those 12 for has_stems=true
-- **Example - BAD approach**:
-  1. Search all 5,500+ tracks with stems
-  2. Then filter for other criteria
-
-**Example grep patterns for genre search:**
-- Blues / Rock (1103): `grep ",1103," data/tracks.csv`
-- Classical (1110): `grep ",1110," data/tracks.csv`
-- The genre field is the 9th column, so pattern `,{id},` will match primary genre
-
-**Prompt Search:**
-1. First, use read_csv("./data/prompt_results.csv") to load all prompts
-2. Find exact match for the user's prompt in the "prompt" column (case-insensitive)
-3. Extract the `result_track_ids` field (it's a semicolon-separated string of track IDs)
-4. Split the result_track_ids by semicolon to get an array of track IDs
-5. Use get_tracks_by_ids(track_ids_array, limit=12) to fetch full track details
-6. Return JSON with exactly 12 tracks
-7. If prompt not found, see "Fallback Logic" section below
-
-**Audio Similarity (URL/File Upload):**
-1. Use read_csv("./data/mock_references.csv") to load references
-2. Find the URL or filename in the `reference_input` column
-3. Get the `matched_track_id` from that row
-4. Use read_csv("./data/audio_similarities.csv") to load similarities
-5. Find the row where `source_track_id` matches the matched_track_id
-6. Extract `similar_track_ids` (semicolon-separated string)
-7. Split by semicolon to get array of track IDs
-8. Use get_tracks_by_ids(track_ids_array, limit=12) to fetch full details
-9. **CRITICAL**: Return ONLY JSON, no text explanation like "The URL you provided matched..."
-10. Put any context in the "message" field of the JSON
-
-**Audio Similarity (APM Track Reference):**
-1. Look up the aktrack ID directly in `audio_similarities.csv`
-2. Return the `similar_track_ids`
-3. Join with `tracks.csv` for full track details
-
-### Fallback Search Logic
-
-**When a search returns no results or fewer than 12 tracks:**
-
-1. **Prompt Search Fails:**
-   - If exact prompt not found in prompt_results.csv
-   - Try partial matching on key words (e.g., "upbeat acoustic guitar" → check for "acoustic guitar")
-   - If still no match, break down query and search metadata:
-     - "upbeat acoustic guitar" → grep_tracks("acoustic", field="track_description") OR genre search
-   - Suggest similar available prompts from prompt_results.csv
-   - ALWAYS return JSON with 12 tracks from fallback search
-
-2. **Metadata Search Returns < 12 tracks:**
-   - Expand search to include additional_genres field
-   - Search track descriptions for keywords
-   - Include similar/related genres from genre_taxonomy.csv
-   - ALWAYS pad to exactly 12 results
-
-3. **No Results At All:**
-   - Return JSON with empty tracks array and helpful message
-   - Suggest alternative search terms
-   - List similar successful searches from search_history.csv
-
-**Example Fallback Response:**
-```json
-{
-  "type": "track_results",
-  "message": "Couldn't find 'upbeat acoustic guitar' but here are some acoustic guitar tracks:",
-  "tracks": [/* 12 acoustic guitar tracks from metadata search */],
-  "total_count": 12,
-  "showing": "1-12"
-}
+**Example:**
+```
+User: "What did I download for my Super Bowl project?"
+→ claude.js → Anthropic API
+→ Tool: read_csv("download_history.csv")
+→ Tool: read_csv("projects.csv")
+→ Tool: get_tracks_by_ids([...])
+→ Returns markdown summary in 2.3s
 ```
 
-### Pagination
+### Data Flow
 
-**CRITICAL: Always return exactly 12 results per page, NOT 3.**
-
-**Initial Search:**
-- MUST show results 1-12 (all 12 tracks)
-- Set showing="1-12" and total_count to actual total
-
-**"Show More" / "Next Page" Request:**
-- Recognize this is a continuation of the previous search
-- For prompt search: Get tracks 13-24 from result_track_ids
-- For metadata search: Use grep_tracks with same parameters but offset
-- For similarity search: Continue with next 12 similar tracks
-- Return JSON with tracks 13-24, showing="13-24"
-- **DO NOT** start a new search - continue from where you left off
-
-**State Management:**
-- Remember: search type, parameters, total results
-- Track current position (1-12, 13-24, 25-36, etc.)
-- Continue until all results shown
-
-**Example Pagination Response:**
-```json
-{
-  "type": "track_results",
-  "message": "Here are more results:",
-  "tracks": [/* tracks 13-24 */],
-  "total_count": 48,
-  "showing": "13-24"
-}
 ```
-
-### Supported Mock References
-
-| Type | Example Input | Description |
-|------|---------------|-------------|
-| `youtube` | `https://youtube.com/watch?v=dQw4w9WgXcQ` | YouTube video URL |
-| `spotify` | `https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT` | Spotify track URL |
-| `tiktok` | `https://tiktok.com/@user/video/7123456789` | TikTok video URL |
-| `file_upload` | `client_reference_track.wav` | Uploaded audio file |
-| `aktrack` | `NFL_NFL_0036_01901` | Direct APM track ID |
-
-### Agentic Workflows
-
-Multi-step tasks you can execute:
-
-| User Request | Agent Actions |
-|--------------|---------------|
-| "What did I download for my holiday project?" | 1. Find P010 in projects.csv<br>2. Filter download_history.csv by project_id=P010<br>3. Join with tracks.csv for track details<br>4. Return results |
-| "Find tracks similar to what I fully listened to" | 1. Filter audition_history.csv for full_listen=True<br>2. Get those track details from tracks.csv<br>3. Search for similar mood/genre/bpm<br>4. Exclude already-downloaded tracks |
-| "What's in my Year in Review project?" | 1. Find P011 in projects.csv<br>2. Join project_tracks.csv with tracks.csv<br>3. Return tracks with positions |
-| "Show me my recent search history" | 1. Read search_history.csv<br>2. Sort by timestamp descending<br>3. Summarize queries and what was downloaded |
-
-### Complex Multi-Step Workflows
-
-You can execute sophisticated workflows that combine searching, filtering, and project management:
-
-**Example: "Filter for tracks with stems, run an audio similarity search on 'Good Rockin Tonight A', and add the first 10 results to your Swinging into the New Year project"**
-
-**IMPORTANT: Order of operations matters for performance!**
-
-Agent Actions (EFFICIENT APPROACH):
-1. **Identify source track**: Look up "Good Rockin Tonight A" (RCK_RCK_0100_00101) in mock_references.csv or audio_similarities.csv
-2. **Find similar tracks FIRST**: Read audio_similarities.csv for similar_track_ids for RCK_RCK_0100_00101 (returns ~12 tracks)
-3. **Get track details**: Use get_tracks_by_ids to retrieve full track information for those 12 tracks
-4. **Filter for stems**: From those 12 tracks, keep only where has_stems=true
-5. **Take first 10**: Limit to first 10 tracks that meet criteria
-6. **Add to project**: Use manage_project tool with action='add_multiple_tracks' to add to P012
-7. **Confirm**: Report back with success message and track details
-
-**NEVER do this (inefficient):**
-- ❌ Search all tracks with stems first (grep_tracks with has_stems=true returns 5,500+ tracks - TOO SLOW)
-- ❌ Then try to find similar tracks
-
-**ALWAYS do this (efficient):**
-- ✅ Find similar tracks first (only ~12 tracks)
-- ✅ Then filter those 12 for stems
-
-**Other Complex Workflow Examples:**
-
-| Request | Workflow |
-|---------|----------|
-| "Find upbeat tracks with stems for my summer campaign" | 1. Search prompt_results.csv for "upbeat summer"<br>2. Get tracks with get_tracks_by_ids<br>3. Filter where has_stems=true<br>4. Return results |
-| "Add all classical tracks I downloaded this month to a new project" | 1. Filter download_history.csv by date and user<br>2. Get track details<br>3. Filter for classical genre<br>4. Create new project with manage_project<br>5. Add tracks with add_multiple_tracks |
-| "Replace all tracks without stems in my project" | 1. List tracks in project<br>2. Identify tracks where has_stems=false<br>3. Find similar tracks using audio_similarities<br>4. Filter replacements for has_stems=true<br>5. Remove old tracks, add new ones |
-
-### Project Tools
-
-You can manage projects using the `manage_project` tool, which provides these actions:
-
-**Tool Actions:**
-- `add_track`: Add a single track to a project
-- `add_multiple_tracks`: Add multiple tracks to a project at once
-- `remove_track`: Remove a track from a project
-- `list_tracks`: List all tracks in a project
-- `create_project`: Create a new project
-
-**Example Tool Usage in Agent:**
-
-```json
-// Add single track
-{
-  "action": "add_track",
-  "project_id": "P012",
-  "track_id": "NFL_NFL_0036_01901",
-  "notes": "Perfect for countdown sequence"
-}
-
-// Add multiple tracks
-{
-  "action": "add_multiple_tracks",
-  "project_id": "P012",
-  "track_ids": ["SOHO_SOHO_0363_04101", "NFL_NFL_0010_00101", "BRU_BTV_0299_05801"]
-}
-
-// Create new project
-{
-  "action": "create_project",
-  "name": "Summer Campaign 2025",
-  "description": "Upbeat summer tracks for retail campaign",
-  "for_field": "TV Commercial",
-  "keywords": "summer;upbeat;retail;fun",
-  "deadline": "2025-07-01"
-}
+1. Client sends POST /api/chat with message
+2. chat.js classifies query (lines 25-60)
+3. Routes to appropriate service:
+   - Route 1: metadataSearch.search() → solrService.search() with fq filters
+   - Route 2: metadataSearch.search() → solrService.search() with edismax
+   - Route 3: claude.chat() with tools
+4. Solr returns grouped results (one track per song_id)
+5. businessRulesEngine.applyRules() adjusts rankings
+6. Results formatted and returned to client
+7. Client renders TrackCard components or markdown
 ```
-
-**Tool Behavior:**
-- Auto-generates the next project ID (P013, P014, etc.) for new projects
-- Validates that both project and track exist before adding
-- Auto-assigns track position in project
-- Updates modified_on timestamp automatically
-- Prevents duplicate track additions
-- Returns confirmation with details of operation
 
 ---
 
-## Layer 4: Rule Context
+## Database Schema & Design
 
-*Boundaries and constraints governing agent behavior.*
+### Solr Cores (Primary Search)
 
-### Hard Wall (Never Violate)
+**Available cores:**
 
-| Rule | Rationale |
-|------|-----------|
-| Never fabricate track data | Only reference tracks that exist in tracks.csv |
-| Never invent search history | Only reference actual searches from search_history.csv |
-| Never assume project contents | Always check project_tracks.csv |
-| Respect data relationships | Track IDs must match across files |
+| Core | Documents | Purpose |
+|------|-----------|---------|
+| `tracks` | 1,403,568 | Main track search with song deduplication |
+| `composers` | 16,784 | Composer autocomplete (predictive text) |
+| `sound_alikes` | 0 | Sound-alike artist/song search (needs data) |
+| `terms` | - | Taxonomy terms (from production) |
 
-### Soft Wall (Advisory - Follow Unless User Indicates Otherwise)
+**tracks core features:**
+- **song_id grouping:** 406,675 unique songs (deduplication)
+- **combined_ids field:** All facet IDs in format `"Category/facet_id"` for unified filtering
+- **Field weights:** Applied via `qf` and `pf2` from `fieldWeights.json`
+- **Text analysis:** Synonyms for instruments, genres, places
 
-| Guideline | Default Behavior |
-|-----------|------------------|
-| Prioritize full-listened tracks | Tracks with full_listen=True are stronger recommendations |
-| Weight recent activity higher | More recent searches/downloads indicate current needs |
-| Consider project context | If user mentions a project, filter recommendations accordingly |
-| Avoid already-rejected tracks | Short audition duration suggests track wasn't right |
+**composers core features:**
+- **predict_composer field:** EdgeNGram tokenization for autocomplete
+- **Usage:** `q=predict_composer:greg` returns composers starting with "greg"
+
+### SQLite Tables (Metadata Source)
+
+#### tracks (1.4M rows)
+Primary catalog table with track metadata.
+
+```sql
+CREATE TABLE tracks (
+  id TEXT PRIMARY KEY,              -- e.g., "NFL_NFL_0036_01901"
+  track_title TEXT NOT NULL,
+  track_description TEXT,
+  library_name TEXT,
+  composer TEXT,
+  album_title TEXT,
+  bpm INTEGER,
+  duration TEXT,                    -- e.g., "2:45"
+  apm_release_date TEXT,
+  has_stems TEXT,                   -- "yes" or "no"
+
+  -- Enhanced metadata (extracted from descriptions)
+  moods TEXT,                       -- JSON array: ["uplifting", "happy"]
+  energy_level TEXT,                -- "high", "medium", "low"
+  use_cases TEXT,                   -- JSON array: ["advertising", "sports"]
+  instruments TEXT,                 -- JSON array: ["piano", "guitar"]
+  era TEXT,                         -- "contemporary", "vintage", "80s", "90s"
+
+  -- Computed fields
+  combined_genre TEXT               -- Human-readable genre names
+);
+
+CREATE INDEX idx_tracks_library ON tracks(library_name);
+CREATE INDEX idx_tracks_stems ON tracks(has_stems);
+```
+
+#### track_facets (35,000+ rows)
+Many-to-many relationship between tracks and facets.
+
+```sql
+CREATE TABLE track_facets (
+  track_id TEXT NOT NULL,
+  facet_id INTEGER NOT NULL,
+  PRIMARY KEY (track_id, facet_id),
+  FOREIGN KEY (track_id) REFERENCES tracks(id),
+  FOREIGN KEY (facet_id) REFERENCES facet_taxonomy(facet_id)
+);
+
+CREATE INDEX idx_track_facets_facet ON track_facets(facet_id);
+CREATE INDEX idx_track_facets_track ON track_facets(track_id);
+```
+
+#### facet_taxonomy (2,120 rows)
+Facet definitions across 18 categories.
+
+```sql
+CREATE TABLE facet_taxonomy (
+  facet_id INTEGER PRIMARY KEY,
+  category_name TEXT NOT NULL,      -- e.g., "Mood", "Instruments"
+  facet_name TEXT NOT NULL,         -- e.g., "uplifting", "piano"
+  parent_id INTEGER                 -- For hierarchical facets
+);
+
+CREATE INDEX idx_facet_category ON facet_taxonomy(category_name);
+CREATE INDEX idx_facet_name ON facet_taxonomy(facet_name);
+```
+
+#### genre_taxonomy (91 rows)
+Genre ID to human-readable name mapping.
+
+```sql
+CREATE TABLE genre_taxonomy (
+  genre_id TEXT PRIMARY KEY,        -- e.g., "1103"
+  genre_name TEXT NOT NULL,         -- e.g., "Classic Rock"
+  parent_genre TEXT                 -- For genre hierarchy
+);
+```
+
+#### tracks_fts (FTS5 virtual table)
+Full-text search index for fast text queries.
+
+```sql
+CREATE VIRTUAL TABLE tracks_fts USING fts5(
+  id UNINDEXED,
+  track_title,
+  track_description,
+  album_title,
+  composer,
+  combined_genre,
+  content=tracks
+);
+```
+
+### Design Decisions
+
+**Why Solr over SQLite FTS5?**
+- Production parity with APM's live system
+- 1.4M tracks requires enterprise-grade search
+- Field-level weighting via `qf` and `pf2` parameters
+- Song-level grouping for deduplication
+- Synonym expansion for instruments, genres, places
+- FTS5 retained as fallback when Solr unavailable
+
+**Why SQLite for metadata?**
+- Single-file database (easy deployment)
+- Source of truth for track data and facet taxonomy
+- Used by indexToSolr.js to populate Solr
+- Fast facet ID lookups via indexed tables
+
+**Why combined_ids for facet filtering?**
+- Unified field for all 18 facet categories
+- Format: `"Category/facet_id"` (e.g., `"Mood/2223"`)
+- Enables efficient `fq` queries with AND/OR logic
+- Single field vs. 18 separate `*_ids` fields
 
 ---
 
-## Layer 5: Environment Context
+## API Endpoints Reference
 
-*Real-time conditions shaping the current session.*
+### POST /api/chat
+Main search endpoint with 3-tier routing.
 
-### The N.O.W. Model
+**Request:**
+```json
+{
+  "messages": [
+    {"role": "user", "content": "upbeat rock"}
+  ]
+}
+```
 
-**Nearby Activity** - What is the user working on right now?
-- Check most recent entries in search_history.csv
-- Check recently modified projects in projects.csv (sort by `modified_on` descending)
-- What tracks are in their current project?
-
-**Operational Conditions** - Current state of the data
-- Total tracks available: 10,000
-- Total searches recorded: 58
-- Total downloads: 82
-
-**Window of Time** - Temporal context
-- Recent project activity indicates current focus
-- Projects modified in the last few weeks are likely active work
-- Older projects (months since last modification) are likely completed or paused
-
-### Session State Checks
-
-Before responding to a query:
-1. What projects has the user touched recently? → `projects.csv` sorted by `modified_on` descending
-2. What have they searched recently? → Last 5 entries in `search_history.csv`
-3. What have they downloaded recently? → Last 10 entries in `download_history.csv`
-4. What tracks are they comparing? → `audition_history.csv` grouped by search_id
-
----
-
-## Layer 6: Exposition Context
-
-*How to structure responses.*
-
-### Response Format
-
-**CRITICAL: For ALL track search results (including @field searches, metadata searches, prompt searches, and similarity searches), you MUST return ONLY JSON with no text before or after:**
-
-- **DO NOT** include any explanatory text before the JSON (e.g., NO "Here are the results:" before JSON)
-- **DO NOT** describe what you found in text (e.g., NO "The URL you provided matched...")
-- **DO NOT** add commentary after the JSON
-- **DO NOT** say things like "I've returned 12 tracks" or "Based on this, I found..."
-- **Use the "message" field INSIDE the JSON** for any acknowledgments or context
-- The response must be ONLY the JSON object below (starting with { and ending with }):
-
+**Response (Route 2 - Simple query):**
 ```json
 {
   "type": "track_results",
-  "message": "Optional message before results (use for disambiguation follow-up, etc.)",
+  "message": "Found tracks matching 'upbeat rock'",
   "tracks": [
     {
       "id": "NFL_NFL_0036_01901",
-      "track_title": "Long Hard Look",
-      "track_description": "Emotional orchestra with introspective sections...",
-      "album_title": "CINEMA SCORE 3",
-      "library_name": "NFL Music Library",
-      "composer": "Tom Hedden",
-      "genre": "Score / Cinematic",
-      "additional_genres": "Tension / Suspense, Orchestral, Dramatic",
-      "bpm": "98",
-      "duration": "2:30"
-    },
-    // ... track 2 ...
-    // ... track 3 ...
-    // ... track 4 ...
-    // ... track 5 ...
-    // ... track 6 ...
-    // ... track 7 ...
-    // ... track 8 ...
-    // ... track 9 ...
-    // ... track 10 ...
-    // ... track 11 ...
-    // ... track 12 ...
-  ],  // MUST have EXACTLY 12 track objects in this array
-  "total_count": 48,
-  "showing": "1-12"  // showing field must match actual number of tracks returned
-}
-```
-
-**Rules for track results:**
-- **CRITICAL: Always include exactly 12 tracks in the first response, NEVER just 3**
-- Always return JSON when showing track search results
-- Include all available metadata fields
-- `message` is optional, use for context like "Here are some Blues / Rock tracks:"
-- `total_count` and `showing` enable pagination ("Showing 1-12 of 48", NOT "1-3")
-- The `tracks` array MUST contain 12 track objects for initial results
-- The frontend will render these as formatted cards
-
-**For non-track responses (disambiguation, project lists, history, etc.), use regular markdown.**
-
-Examples of when NOT to use JSON:
-- Disambiguation prompts ("Which style of rock are you looking for?")
-- Project lists
-- Search history summaries
-- Conversational responses
-
-**For project lists:**
-```
-**[Project Name]**
-[for_field] · Last updated [modified_on]
-[description snippet]
-```
-
-Don't add status labels like "Active" or "Overdue." Just show the projects sorted by recent activity.
-
-**For search history summaries:**
-```
-[date] - "[query]" → [downloaded_count] downloads
-```
-
-### Behavioral Guidelines
-
-1. **Just show results** - When someone searches, give them the results. Don't explain your methodology.
-2. **No unsolicited analysis** - Don't add observations, patterns, or insights the user didn't ask for. If they ask for search history, show the history. Don't add "You seem to prefer X" or "I notice you search for Y a lot."
-3. **Note useful context sparingly** - Only mention context when it's *actionable*: "Heads up, you already have this one in your Holiday project." Don't add commentary.
-4. **Be concise** - Music supervisors are busy. Get to the point.
-5. **Ask if genuinely uncertain** - If a query is ambiguous, ask. But don't ask for clarification you don't need.
-6. **Don't over-interpret** - If they ask for "upbeat tracks," search for upbeat tracks. Don't add unsolicited suggestions about what project it might be for.
-7. **Answer exactly what was asked** - Nothing more, nothing less.
-
-### Example Interactions
-
-**Complete Disambiguation Workflow Example:**
-
-**User:** "rock"
-**Assistant:** (returns markdown disambiguation)
-```
-Rock covers a lot of ground. What style are you after?
-
-- **Rock** (299 tracks)
-- **Hard Rock / Metal** (215 tracks)
-- **Alternative** (60 tracks)
-- **Modern Rock** (56 tracks)
-- **Metal** (53 tracks)
-- **Blues / Rock** (47 tracks)
-- **Garage Rock** (32 tracks)
-- **Southern Rock** (26 tracks)
-- **Surf** (17 tracks)
-```
-
-**User:** "garage"
-**Assistant:** (MUST return JSON with actual tracks, NOT text)
-```json
-{
-  "type": "track_results",
-  "message": "Looking for Garage Rock, here's what I found:",
-  "tracks": [
-    {
-      "id": "BRU_BR_0526_00401",
-      "track_title": "Garage Band Stomp",
-      "track_description": "Raw, energetic garage rock with distorted guitars",
-      "album_title": "Indie Rock Collection",
-      "library_name": "Bruton",
-      "composer": "John Smith",
-      "genre": "1327",
-      "additional_genres": "Rock, Alternative",
-      "bpm": "145",
-      "duration": "2:15"
-    },
-    {
-      "id": "track2_id",
-      "track_title": "Track 2",
-      // ... all fields ...
-    },
-    // ... tracks 3-11 with all fields ...
-    {
-      "id": "track12_id",
-      "track_title": "Track 12",
-      // ... all fields ...
+      "track_title": "Gridiron Glory",
+      "track_description": "Epic rock anthem...",
+      "moods": ["powerful", "energetic"],
+      "energy_level": "high",
+      "instruments": ["electric_guitar", "drums"],
+      "use_cases": ["sports", "advertising"],
+      "bpm": 128,
+      "duration": "2:45",
+      "library_name": "NFL Music",
+      "_relevance_score": 0.92
     }
-  ],  // MUST be exactly 12 tracks
-  "total_count": 32,
-  "showing": "1-12"
+    // ... 11 more tracks
+  ],
+  "total_count": 70,
+  "showing": "1-12",
+  "_meta": {
+    "appliedRules": [
+      {
+        "ruleId": "genre_simplification_rock",
+        "type": "genre_simplification",
+        "description": "Auto-expand rock search to include subgenres"
+      }
+    ],
+    "scoreAdjustments": []
+  }
 }
 ```
 
-**Project Queries:**
+### GET /api/tracks/:id/metadata
+Comprehensive track metadata with facets and scores.
 
-**User:** "What's in my Super Bowl project?"
-→ Find the project, list the tracks. No preamble needed.
-
-**User:** "What are my recent projects?"
-→ Sort projects by `modified_on`, show the most recently touched ones first.
-
-**History Queries:**
-
-**User:** "What have I been searching for lately?"
-→ Read search_history.csv, summarize recent queries, note which resulted in downloads.
-
-**User:** "Show me tracks I fully listened to but didn't download"
-→ Filter audition_history.csv for full_listen=True, exclude tracks in download_history.csv, return those tracks.
-
-**Prompt Search:**
-
-**User:** "Find me dark tension suspense music"
-→ Look up "dark tension suspense" in prompt_results.csv, return the 6 matching tracks with details from tracks.csv.
-
-**User:** "I need uplifting inspiring corporate tracks"
-→ Look up in prompt_results.csv, return MPATH_MPATH_0099_05901, BRU_BTV_0221_05001, etc.
-
-**Audio Similarity (URL):**
-
-**User:** "Find me something like this: https://youtube.com/watch?v=dQw4w9WgXcQ"
-→ Look up URL in mock_references.csv → matched to CEZ_CEZ_4639_00201 → look up in audio_similarities.csv → return JSON with 12 similar 80s synth tracks:
-
+**Response:**
 ```json
 {
-  "type": "track_results",
-  "message": "Found tracks similar to your YouTube reference:",
-  "tracks": [
-    // ... 12 actual track objects with all metadata ...
-  ],
-  "total_count": 12,
-  "showing": "1-12"
+  "track": {
+    "id": "NFL_NFL_0036_01901",
+    "track_title": "Gridiron Glory",
+    // ... all track fields
+  },
+  "facets": {
+    "Mood": ["powerful", "energetic", "dramatic"],
+    "Instruments": ["electric_guitar", "drums", "brass"],
+    "Genre": ["Orchestral Rock", "Sports Anthem"],
+    // ... all 13 categories
+  },
+  "facet_count": 35,
+  "score_breakdown": {
+    "track_title": 3.0,
+    "combined_genre": 1.0,
+    "fts_rank": 0.92
+  }
 }
 ```
 
-**User:** "Here's a Spotify reference: https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b"
-→ Look up in mock_references.csv → NFL_NFL_0036_01901 → return similar orchestral/emotional tracks.
+### GET /api/tracks/:id/similar
+Find tracks with most shared facets.
 
-**Audio Similarity (File Upload):**
+**Response:**
+```json
+{
+  "track_id": "NFL_NFL_0036_01901",
+  "similar_tracks": [
+    {
+      "id": "NFL_NFL_0042_02101",
+      "track_title": "Victory March",
+      "similarity_score": 0.85,
+      "shared_facets": 28
+    }
+    // ... more similar tracks
+  ]
+}
+```
 
-**User:** "The client sent this reference: client_reference_track.wav"
-→ Look up "client_reference_track.wav" in mock_references.csv → KPM_KPM_2117_01101 → return similar dark/ominous tracks.
+### GET /api/tracks/:id/facets
+Facets grouped by category.
 
-**Audio Similarity (APM Track):**
-
-**User:** "Find me tracks similar to NFL_NFL_0036_01901"
-→ Look up directly in audio_similarities.csv → return KPM_KPM_0817_04401, KPM_KPM_2312_00701, PMY_PMY_0080_00301, BRU_BTV_0221_05001 (orchestral, emotional, cinematic).
-
-**User:** "More like the track I just downloaded"
-→ Get last download from download_history.csv → look up in audio_similarities.csv → return similar tracks.
+**Response:**
+```json
+{
+  "track_id": "NFL_NFL_0036_01901",
+  "facets_by_category": {
+    "Mood": [
+      {"facet_id": 123, "facet_name": "powerful"},
+      {"facet_id": 456, "facet_name": "energetic"}
+    ],
+    "Instruments": [
+      {"facet_id": 789, "facet_name": "electric_guitar"}
+    ]
+    // ... all categories
+  },
+  "category_counts": {
+    "Mood": 5,
+    "Instruments": 4,
+    "Genre": 2
+    // ...
+  },
+  "total_facets": 35
+}
+```
 
 ---
 
-*This prototype demonstrates how context engineering enables intelligent music search assistance.*
+## Configuration System
+
+### businessRules.json
+**File:** `server/config/businessRules.json`
+**Purpose:** PM-controlled search ranking without code changes
+
+**Structure:**
+```json
+[
+  {
+    "id": "unique_rule_id",
+    "type": "genre_simplification | library_boost | recency_interleaving | feature_boost | filter_optimization",
+    "enabled": true,
+    "priority": 90,
+    "pattern": "\\b(keyword1|keyword2)\\b",
+    "description": "Human-readable description",
+    "action": {
+      // Type-specific action config
+    }
+  }
+]
+```
+
+**16 Active Rules:**
+- 5 Genre Simplification: rock, classical, electronic, hip hop, jazz
+- 4 Library Boosting: MLB Music, NFL Music, Corporate, Cinematic
+- 4 Recency Interleaving: pop, electronic, hip hop, balanced
+- 1 Feature Boost: stems preference
+- 2 Filter Optimization: instrumental, vocal preference
+
+**How to modify:**
+1. Edit `server/config/businessRules.json`
+2. Change `boost_factor`, `pattern`, `enabled`, or add new rule
+3. Restart server (rules loaded at startup)
+4. Test with sample queries
+
+**No code deployment needed!**
+
+### fieldWeights.json
+**File:** `server/config/fieldWeights.json`
+**Purpose:** Solr-style field weights for relevance scoring
+
+**Format:**
+```json
+{
+  "qf": "track_title^3.0 combined_genre^4.0 composer^0.8 album_title^0.6 track_description^0.15",
+  "pf2": "track_title^2.0 combined_genre^2.0"
+}
+```
+
+**Field Weights:**
+- `track_title`: 3.0 (highest priority for exact matches)
+- `combined_genre`: 4.0 (genre matches ranked very high)
+- `composer`: 0.8 (medium-high)
+- `album_title`: 0.6 (medium)
+- `track_description`: 0.15 (low - catch-all)
+
+**How to modify:**
+1. Edit `server/config/fieldWeights.json`
+2. Adjust weights (higher = more important)
+3. Restart server
+4. Test relevance with sample queries
+
+### chat-system-prompt.md
+**File:** `server/config/chat-system-prompt.md`
+**Purpose:** LLM behavior instructions for Route 3 queries
+
+**Loaded by:** `server/services/claude.js:loadSystemPrompt()`
+**Used in:** Anthropic API calls for complex queries
+
+**How to modify:**
+1. Edit `server/config/chat-system-prompt.md`
+2. Update instructions, examples, or tool guidance
+3. Restart server
+4. Test with complex queries
+
+---
+
+## Services Architecture
+
+### solrService.js
+**Purpose:** Solr search client (Route 1 & 2)
+
+**Key Functions:**
+- `search(options)` - Execute Solr edismax query
+- `buildQf()` - Build query fields from fieldWeights.json
+- `buildPf2()` - Build phrase fields from fieldWeights.json
+- `buildFacetFilters(facetsByCategory)` - Build fq for combined_ids
+- `buildSort(mode)` - Build sort clause (featured, explore, rdate, etc.)
+- `mapResponse(solrData)` - Convert grouped response to app format
+
+**Key Features:**
+- Song deduplication via `group.field=song_id`
+- Field weight mapping: config names → `*_search` fields
+- Facet filtering: `combined_ids:("Category/id")`
+
+### metadataSearch.js
+**Purpose:** Unified search routing (Solr primary, FTS5 fallback)
+
+**Key Functions:**
+- `search(options)` - Main search entry point
+- `searchWithSolr(options)` - Route to Solr
+- `searchWithFTS5(options)` - Fallback to SQLite FTS5
+- `getFacetIds(category, value)` - Map facet values to `"Category/id"` format
+
+**Uses:**
+- `solrService.js` for Solr queries
+- `facet_taxonomy` table for facet ID lookups
+- Falls back to FTS5 when `SEARCH_ENGINE=fts5` or Solr unavailable
+
+### businessRulesEngine.js
+**Purpose:** Pattern matching and score adjustment (Route 2)
+
+**Key Functions:**
+- `applyRules(query, results, allRules)` - Main rule application
+- `matchRules(query, rules)` - Find rules matching query pattern
+- `adjustScores(results, rule)` - Apply score boosts/adjustments
+- `interleaveResults(results, pattern)` - Reorder by recency pattern
+
+**Rule Types:**
+- Genre Simplification: Expand genres to subgenres
+- Library Boosting: Multiply scores for specific libraries
+- Recency Interleaving: Mix recent/vintage by pattern
+- Feature Boost: Boost tracks with features (stems, etc.)
+- Filter Optimization: Auto-apply filters
+
+### claude.js
+**Purpose:** Anthropic API integration (Route 3)
+
+**Key Functions:**
+- `chat(messages, conversationHistory)` - Main chat entry point
+- `loadSystemPrompt()` - Load chat-system-prompt.md
+- `getClient()` - Lazy-initialize Anthropic client
+- `getModel()` - Get model from env (default: Haiku)
+
+**Tool Definitions:**
+- `read_csv` - Read CSV files (projects, history, etc.)
+- `grep_tracks` - Search tracks by field
+- `get_track_by_id` - Single track details
+- `get_tracks_by_ids` - Multiple track details
+- `manage_project` - Project management
+
+**Model Selection:**
+- Default: `claude-3-haiku-20240307` (fast, cheap)
+- Override: Set `CLAUDE_MODEL` env var
+- Options: `claude-3-sonnet-20240229`, `claude-3-opus-20240229`
+
+### facetSearchService.js
+**Purpose:** SQLite facet filtering (fallback only)
+
+**Note:** This service is now only used as a fallback when Solr is unavailable.
+Primary facet filtering goes through `metadataSearch.js` → `solrService.js`.
+
+**Key Functions:**
+- `searchByFacetCategory(category, value)` - Search by single facet category
+- `searchByFacets(facets)` - Intersect multiple facet filters (AND logic)
+
+### genreMapper.js
+**Purpose:** Map numeric genre IDs to human-readable names
+
+**Key Functions:**
+- `mapGenreIds(tracks)` - Map genre IDs for all tracks
+- `getGenreName(genreId)` - Single genre ID lookup
+- `loadGenreTaxonomy()` - Load genre_taxonomy.csv
+
+**Example:**
+```javascript
+// Input: genre_id = "1103"
+// Output: "Classic Rock"
+```
+
+---
+
+## Development Guides
+
+### Adding a New Business Rule
+
+1. **Edit businessRules.json:**
+```json
+{
+  "id": "library_boost_holiday_music",
+  "type": "library_boost",
+  "enabled": true,
+  "priority": 85,
+  "pattern": "\\b(holiday|christmas|winter)\\b",
+  "description": "Boost holiday music library for seasonal queries",
+  "action": {
+    "boost_libraries": [
+      {
+        "library_name": "Holiday Music",
+        "boost_factor": 2.0
+      }
+    ]
+  }
+}
+```
+
+2. **Restart server:**
+```bash
+npm run dev
+```
+
+3. **Test:**
+```bash
+curl -X POST http://localhost:3001/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "christmas music"}]}'
+```
+
+4. **Verify in logs:**
+```
+Matched 1 rules for query "christmas music": library_boost_holiday_music
+```
+
+### Modifying Search Field Weights
+
+1. **Edit fieldWeights.json:**
+```json
+{
+  "qf": "track_title^5.0 combined_genre^4.0 ...",
+  "pf2": "track_title^3.0 combined_genre^2.0"
+}
+```
+
+2. **Restart server**
+
+3. **Test relevance:**
+```bash
+# Should rank exact title matches higher
+curl ... -d '{"messages": [{"role": "user", "content": "Epic Cinematic"}]}'
+```
+
+### Adding a New Facet Category
+
+**Database changes:**
+1. Add facets to `facet_taxonomy` table:
+```sql
+INSERT INTO facet_taxonomy (facet_id, category_name, facet_name)
+VALUES (2121, 'Mood Types', 'contemplative');
+```
+
+2. Add track-to-facet mappings to `track_facets`:
+```sql
+INSERT INTO track_facets (track_id, facet_id)
+VALUES ('NFL_NFL_0036_01901', 2121);
+```
+
+**Code changes:**
+1. Update `filterParser.js` to recognize new category syntax:
+```javascript
+const FACET_CATEGORIES = [
+  'mood', 'instruments', ..., 'mood-types'  // Add new category
+];
+```
+
+2. Update chat-system-prompt.md with new category documentation
+
+3. Restart and test
+
+### Adding a New API Endpoint
+
+1. **Create route file:**
+```javascript
+// server/routes/trackAnalytics.js
+import express from 'express';
+const router = express.Router();
+
+router.get('/tracks/:id/analytics', async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Fetch analytics...
+    res.json({ track_id: id, analytics: {...} });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+export default router;
+```
+
+2. **Register in server/index.js:**
+```javascript
+import trackAnalyticsRoutes from './routes/trackAnalytics.js';
+app.use('/api', trackAnalyticsRoutes);
+```
+
+3. **Test:**
+```bash
+curl http://localhost:3001/api/tracks/NFL_NFL_0036_01901/analytics
+```
+
+---
+
+## Testing Strategy
+
+### Current Test Coverage
+**Status:** Minimal (needs expansion)
+
+### Manual Testing
+
+**Route 1 (@ filters):**
+```bash
+curl -X POST http://localhost:3001/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "@mood:uplifting @instruments:piano"}]}'
+```
+**Expected:** <100ms, 12 unique songs, 47K+ total matches
+
+**Route 2 (simple queries):**
+```bash
+curl -X POST http://localhost:3001/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "upbeat rock"}]}'
+```
+**Expected:** <100ms, 12 unique songs, business rules applied
+
+**Route 3 (complex queries):**
+```bash
+curl -X POST http://localhost:3001/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "What did I download last week?"}]}'
+```
+**Expected:** <4s, uses tools, markdown response
+
+### Performance Benchmarks
+
+**Maintain these targets (Solr):**
+- Route 1: <100ms (average: 50ms)
+- Route 2: <100ms (average: 90ms)
+- Route 3: <4s (average: 2.3s)
+
+**How to test:**
+```bash
+time curl -X POST http://localhost:3001/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "upbeat rock"}]}'
+```
+
+---
+
+## Performance Metrics & Optimization
+
+### Current Benchmarks
+
+| Operation | Target | Actual | Status |
+|-----------|--------|--------|--------|
+| @ filter queries | <100ms | ~45ms | ✅ 2x better |
+| Simple queries | <2s | ~24ms | ✅ 100x better |
+| Complex queries | <4s | ~2.3s | ✅ 2x better |
+
+### Database Optimization
+
+**Indexes (already created):**
+```sql
+CREATE INDEX idx_tracks_library ON tracks(library_name);
+CREATE INDEX idx_tracks_stems ON tracks(has_stems);
+CREATE INDEX idx_track_facets_facet ON track_facets(facet_id);
+CREATE INDEX idx_track_facets_track ON track_facets(track_id);
+CREATE INDEX idx_facet_category ON facet_taxonomy(category_name);
+CREATE INDEX idx_facet_name ON facet_taxonomy(facet_name);
+```
+
+**When to add more indexes:**
+- Frequent filtering by new fields → Create index
+- Slow queries in logs → EXPLAIN QUERY PLAN
+- Example: If filtering by `bpm` frequently, add `CREATE INDEX idx_tracks_bpm ON tracks(bpm)`
+
+**When NOT to index:**
+- Low cardinality fields (e.g., `has_stems` only has 2 values)
+- Fields rarely queried
+- Text fields (use FTS5 instead)
+
+### FTS5 Optimization
+
+**Current strategy:**
+- Index 5 fields: title, description, album, composer, genre
+- Exclude `id` from indexing (UNINDEXED)
+- Rebuild index: `INSERT INTO tracks_fts(tracks_fts) VALUES('rebuild');`
+
+**Maintenance:**
+```sql
+-- Check FTS5 stats
+SELECT * FROM tracks_fts WHERE tracks_fts MATCH 'rank';
+
+-- Optimize FTS5 index
+INSERT INTO tracks_fts(tracks_fts) VALUES('optimize');
+```
+
+### Query Performance Monitoring
+
+**Add timing logs:**
+```javascript
+const start = Date.now();
+const results = await metadataSearch.search(query);
+const duration = Date.now() - start;
+console.log(`Search completed in ${duration}ms`);
+```
+
+**Track in production:**
+- Average query time per route
+- p95, p99 latency
+- Slow query log (>1s for Route 2)
+
+---
+
+## Error Handling Patterns
+
+### Graceful Degradation
+
+**FTS5 Search Fails:**
+```javascript
+try {
+  results = await db.all(`SELECT * FROM tracks_fts WHERE tracks_fts MATCH ?`, [query]);
+} catch (error) {
+  console.error('FTS5 search failed, falling back to LIKE:', error);
+  results = await db.all(
+    `SELECT * FROM tracks WHERE track_title LIKE ? OR track_description LIKE ?`,
+    [`%${query}%`, `%${query}%`]
+  );
+}
+```
+
+**Business Rules Error:**
+```javascript
+try {
+  appliedRules = await businessRulesEngine.applyRules(query, results, allRules);
+} catch (error) {
+  console.error('Business rule error, skipping rule:', error);
+  // Continue with unadjusted results
+}
+```
+
+**Database Connection Error:**
+```javascript
+try {
+  const db = await openDatabase();
+} catch (error) {
+  console.error('Database connection failed:', error);
+  res.status(500).json({
+    error: 'Database unavailable',
+    details: process.env.NODE_ENV === 'development' ? error.message : 'Internal error'
+  });
+  return;
+}
+```
+
+### Logging Patterns
+
+**Development:**
+```javascript
+console.log(`Detected simple query, using metadata search + business rules`);
+console.log(`Matched ${matchedRules.length} rules for query "${query}"`);
+console.log(`Metadata search returned ${results.length} tracks (total: ${totalCount})`);
+```
+
+**Production (future):**
+```javascript
+logger.info('query_processed', {
+  route: 'Route 2',
+  query_length: query.length,
+  results_count: results.length,
+  duration_ms: duration,
+  rules_applied: matchedRules.map(r => r.id)
+});
+```
+
+---
+
+## Deployment & Operations
+
+### Environment Setup
+
+**Required:**
+- Node.js v18+ (for native ESM support)
+- Docker Desktop (for Solr)
+- npm or yarn
+
+**Environment Variables:**
+```bash
+# .env
+ANTHROPIC_API_KEY=sk-ant-...          # Required for Route 3
+CLAUDE_MODEL=claude-3-haiku-20240307  # Optional (default: Haiku)
+PORT=3001                              # Optional (default: 3001)
+NODE_ENV=development                   # development | production
+SEARCH_ENGINE=solr                     # Optional: 'solr' (default) or 'fts5'
+```
+
+### Solr Setup
+
+**Start Solr:**
+```bash
+docker compose up -d        # Start Solr container
+# Wait for Solr to be ready at http://localhost:8983
+```
+
+**Index tracks to Solr:**
+```bash
+node server/scripts/indexToSolr.js --delete-first
+# Indexes 1.4M tracks in ~10 minutes
+```
+
+**Index composers for autocomplete:**
+```bash
+node server/scripts/indexComposersToSolr.js --delete-first
+# Indexes 16,784 unique composers in ~1 second
+```
+
+**Verify Solr:**
+```bash
+curl "http://localhost:8983/solr/tracks/select?q=*:*&rows=0"
+# Should show numFound: 1403568
+
+curl "http://localhost:8983/solr/composers/select?q=*:*&rows=0"
+# Should show numFound: 16784
+```
+
+### SQLite Database
+
+**Location:** `server/apm_music.db` (1.4M tracks, metadata source for Solr)
+
+**Tables used:**
+- `tracks` - Source data for Solr indexing
+- `facet_taxonomy` - Facet ID lookups for search queries
+
+### Server Startup
+
+**Development:**
+```bash
+docker compose up -d   # Start Solr first
+npm run dev            # Starts both server and client with hot reload
+npm run dev:server     # Server only
+npm run dev:client     # Client only
+```
+
+**Production:**
+```bash
+npm run build          # Build client
+npm start              # Start server (serves built client)
+```
+
+### Health Checks
+
+**Endpoint:** `GET /api/health` (future)
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "solr": "connected",
+  "solr_docs": 1403568,
+  "solr_songs": 406675,
+  "sqlite": "connected",
+  "anthropic_api": "configured"
+}
+```
+
+### Configuration Updates
+
+**After editing config files:**
+1. Edit `server/config/businessRules.json` or `fieldWeights.json`
+2. Restart server: `npm run dev:server`
+3. Test changes with sample queries
+4. Monitor logs for errors
+
+**No code deployment needed for config changes!**
+
+---
+
+## Repository Etiquette
+
+**Branching:**
+- ALWAYS create a feature branch before starting major changes
+- NEVER commit directly to `main`
+- Branch naming: `feature/description` or `fix/description`
+
+**Git workflow for major changes:**
+1. Create a new branch: `git checkout -b feature/your-feature-name`
+2. Develop and commit on the feature branch
+3. Test locally before pushing:
+   - `npm run dev` - start dev server at localhost:3001 (server) and localhost:5173 (client)
+   - Test all 3 routes with curl commands (see Testing After Changes)
+4. Push the branch: `git push -u origin feature/your-feature-name`
+5. Create a PR to merge into `main`
+
+**Commits:**
+- Write clear commit messages describing the change
+- Keep commits focused on single changes
+- Reference issue numbers if applicable
+
+**Pull Requests:**
+- Create PRs for all changes to `main`
+- NEVER force push to `main`
+- Include description of what changed and why
+- Test all 3 routing tiers before requesting review
+
+**Before pushing:**
+1. Test Route 1 (@ filters): `curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "@mood:uplifting"}]}'`
+2. Test Route 2 (simple query): `curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "upbeat rock"}]}'`
+3. Test Route 3 (complex query): `curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "What tracks are in my project?"}]}'`
+4. Verify performance targets: Route 1 <100ms, Route 2 <2s, Route 3 <4s
+
+---
+
+## Claude Code Instructions
+
+When working on this codebase:
+
+### General Guidelines
+1. **Follow existing patterns** - Check services/ for similar code before creating new patterns
+2. **Prefer editing over creating** - Edit existing files rather than creating new ones
+3. **Update configs before code** - Modify businessRules.json or fieldWeights.json before changing code
+4. **Test all 3 routes** - Changes may affect routing logic, test each tier
+5. **Maintain performance** - Keep Route 1 <100ms, Route 2 <2s, Route 3 <4s
+
+### Adding Features
+1. **Check configuration first** - Can this be solved with businessRules.json?
+2. **Use existing services** - Extend metadataSearch.js or businessRulesEngine.js
+3. **Follow service layer** - Business logic in services/, routes/ just handle HTTP
+4. **Update system prompt** - If adding tools or changing behavior, update chat-system-prompt.md
+
+### Modifying Search Behavior
+1. **Field weights** - Edit fieldWeights.json (no code changes)
+2. **Business rules** - Edit businessRules.json (no code changes)
+3. **Query routing** - Edit server/routes/chat.js (lines 25-60)
+4. **FTS5 queries** - Edit server/services/metadataSearch.js
+
+### Database Changes
+1. **Schema changes** - Update CREATE TABLE statements and rebuild database
+2. **Adding indexes** - Run ALTER TABLE, test query performance
+3. **FTS5 changes** - Rebuild FTS5 index after schema changes
+
+### Testing After Changes
+```bash
+# Route 1: @ filters
+curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "@mood:uplifting"}]}'
+
+# Route 2: Simple query
+curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "upbeat rock"}]}'
+
+# Route 3: Complex query
+curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "What tracks are in my project?"}]}'
+```
+
+---
+
+## Quick Reference
+
+**Key Files:**
+- Routing: `server/routes/chat.js`
+- Route 1: `server/services/facetSearchService.js`
+- Route 2: `server/services/metadataSearch.js` + `businessRulesEngine.js`
+- Route 3: `server/services/claude.js`
+- Config: `server/config/` (businessRules.json, fieldWeights.json, chat-system-prompt.md)
+- Database: `server/apm_music.db`
+
+**Performance Targets:**
+- Route 1: <100ms | Route 2: <2s | Route 3: <4s
+
+**PM-Controlled Config:**
+- Business rules: `server/config/businessRules.json` (16 rules)
+- Field weights: `server/config/fieldWeights.json` (Solr format)
+
+**Common Commands:**
+```bash
+# Development
+npm run dev           # Start both server (3001) and client (5173) with hot reload
+npm run dev:server    # Start server only
+npm run dev:client    # Start client only
+
+# Production
+npm run build         # Build client for production
+npm start             # Start production server
+
+# Client-specific (run from /client)
+npm run preview       # Preview production build locally
+
+# Testing endpoints
+curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "upbeat rock"}]}'
+
+# Database queries (run from /server)
+sqlite3 apm_music.db "SELECT COUNT(*) FROM tracks;"           # Count tracks
+sqlite3 apm_music.db "SELECT * FROM facet_taxonomy LIMIT 10;" # View facets
+
+# Environment
+export CLAUDE_MODEL=claude-3-haiku-20240307    # Set Claude model (default)
+export CLAUDE_MODEL=claude-sonnet-4-20250514   # Use Sonnet for better quality
+```
+
+---
+
+**Last Updated:** December 18, 2025
+**Status:** Production-ready
+**Version:** 2.0

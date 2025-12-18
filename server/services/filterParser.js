@@ -27,25 +27,58 @@ const FIELD_MAPPING = {
   'publisher': 'publisher',
   'release-date': 'apm_release_date',
   'duration': 'duration',
-  'mood': 'mood',
-  'tempo': 'tempo_description',
-  'key': 'musical_key',
-  'instruments': 'instruments',
-  'vocals': 'vocals',
   'has-stems': 'has_stems',
   'isrc': 'isrc',
   'label': 'label',
   'catalog': 'catalog_number',
   'energy': 'energy_level',
-  'use-case': 'use_case',
-  'use-cases': 'use_cases',
-  'era': 'era',
-  'period': 'era',
+
+  // Facet category filters (mapped to special 'facet:CategoryName' format)
+  'mood': 'facet:Mood',
+  'moods': 'facet:Mood',
+  'instruments': 'facet:Instruments',
+  'instrument': 'facet:Instruments',
+  'vocals': 'facet:Vocals',
+  'vocal': 'facet:Vocals',
+  'tempo': 'facet:Tempo',
+  'tempos': 'facet:Tempo',
+  'genre': 'facet:Master Genre',
+  'genres': 'facet:Master Genre',
+  'master-genre': 'facet:Master Genre',
+  'additional-genre': 'facet:Additional Genre',
+  'additional-genres': 'facet:Additional Genre',
+  'music-for': 'facet:Music For',
+  'use-case': 'facet:Music For',
+  'use-cases': 'facet:Music For',
+  'character': 'facet:Character',
+  'characters': 'facet:Character',
+  'country': 'facet:Country & Region',
+  'region': 'facet:Country & Region',
+  'country-region': 'facet:Country & Region',
+  'instrumental-vocal': 'facet:Instrumental & Vocal Groupings',
+  'groupings': 'facet:Instrumental & Vocal Groupings',
+  'key': 'facet:Key',
+  'keys': 'facet:Key',
+  'musical-key': 'facet:Key',
+  'language': 'facet:Language',
+  'languages': 'facet:Language',
+  'lyric-subject': 'facet:Lyric Subject',
+  'lyrics-subject': 'facet:Lyric Subject',
+  'movement': 'facet:Movement',
+  'movements': 'facet:Movement',
+  'musical-form': 'facet:Musical Form',
+  'form': 'facet:Musical Form',
+  'sound-effects': 'facet:Sound Effects',
+  'sfx': 'facet:Sound Effects',
+  'time-period': 'facet:Time Period',
+  'period': 'facet:Time Period',
+  'era': 'facet:Time Period',
+  'track-type': 'facet:Track Type',
+  'type': 'facet:Track Type',
 
   // Legacy mappings for backward compatibility
   'title': 'track_title',
   'album': 'album_title',
-  'genre': 'genre',
   'description': 'track_description',
   'date': 'apm_release_date',
   'stems': 'has_stems'
@@ -303,24 +336,37 @@ export function hasFilters(message) {
  */
 export function getAvailableFields() {
   return [
+    // Metadata fields
     { key: '@track-title', field: 'track_title', description: 'Search by track name' },
     { key: '@track-description', field: 'track_description', description: 'Search track descriptions' },
     { key: '@album-title', field: 'album_title', description: 'Search by album name' },
     { key: '@composer', field: 'composer', description: 'Search by composer name' },
     { key: '@artist', field: 'artist', description: 'Search by artist name' },
     { key: '@library', field: 'library_name', description: 'Search by library' },
-    { key: '@tags', field: 'genre', description: 'Search by genre tags' },
-    { key: '@mood', field: 'mood', description: 'Search by mood' },
-    { key: '@tempo', field: 'tempo_description', description: 'Search by tempo description' },
     { key: '@bpm', field: 'bpm', description: 'Search by BPM (supports ranges: 120-140)' },
     { key: '@duration', field: 'duration', description: 'Search by duration (2:30 or seconds)' },
     { key: '@release-date', field: 'apm_release_date', description: 'Search by release date' },
     { key: '@has-stems', field: 'has_stems', description: 'Filter by stem availability (true/false)' },
     { key: '@lyrics-text', field: 'lyrics', description: 'Search lyrics content' },
     { key: '@inspired-by', field: 'inspired_by', description: 'Search inspiration references' },
-    { key: '@instruments', field: 'instruments', description: 'Search by instruments' },
-    { key: '@vocals', field: 'vocals', description: 'Search by vocal type' },
-    { key: '@key', field: 'musical_key', description: 'Search by musical key' }
+
+    // Facet category filters (all 18 categories)
+    { key: '@mood', field: 'facet:Mood', description: 'Search by mood (e.g., upbeat, dark, peaceful)' },
+    { key: '@genre', field: 'facet:Master Genre', description: 'Search by genre (e.g., rock, classical, electronic)' },
+    { key: '@instruments', field: 'facet:Instruments', description: 'Search by instruments (e.g., piano, guitar, drums)' },
+    { key: '@vocals', field: 'facet:Vocals', description: 'Search by vocal type (e.g., male, female, none)' },
+    { key: '@tempo', field: 'facet:Tempo', description: 'Search by tempo (e.g., fast, slow, medium)' },
+    { key: '@music-for', field: 'facet:Music For', description: 'Search by use case (e.g., chase, love scene, montage)' },
+    { key: '@character', field: 'facet:Character', description: 'Search by character/personality' },
+    { key: '@country', field: 'facet:Country & Region', description: 'Search by country or region' },
+    { key: '@key', field: 'facet:Key', description: 'Search by musical key (e.g., C major, A minor)' },
+    { key: '@language', field: 'facet:Language', description: 'Search by language' },
+    { key: '@lyric-subject', field: 'facet:Lyric Subject', description: 'Search by lyric subject matter' },
+    { key: '@movement', field: 'facet:Movement', description: 'Search by musical movement' },
+    { key: '@musical-form', field: 'facet:Musical Form', description: 'Search by musical form' },
+    { key: '@sfx', field: 'facet:Sound Effects', description: 'Search by sound effects type' },
+    { key: '@time-period', field: 'facet:Time Period', description: 'Search by time period/era' },
+    { key: '@track-type', field: 'facet:Track Type', description: 'Search by track type' }
   ];
 }
 
@@ -337,11 +383,23 @@ Use @ filters to search specific metadata fields directly:
 - \`@field:value\` - Contains match (partial)
 - \`@field=value\` - Exact match (full string)
 
-**Examples:**
-- \`@library:MLB Music @tags:rock\` - MLB Music library with rock genre
+**Metadata Field Examples:**
+- \`@library:MLB Music\` - MLB Music library tracks
 - \`@composer=John Williams\` - Exactly "John Williams"
 - \`@bpm:120-140\` - BPM between 120 and 140
 - \`@has-stems:true\` - Only tracks with stems
+
+**Facet Category Examples (18 categories):**
+- \`@mood:upbeat\` - Upbeat mood tracks
+- \`@genre:rock\` - Rock genre tracks
+- \`@instruments:piano\` - Tracks with piano
+- \`@vocals:female\` - Female vocal tracks
+- \`@tempo:fast\` - Fast tempo tracks
+- \`@music-for:chase\` - Chase scene music
+- \`@key:C major\` - C major key tracks
+- \`@language:spanish\` - Spanish language tracks
+- \`@sfx:explosion\` - Explosion sound effects
+- \`@time-period:1980s\` - 1980s era tracks
 
 **Pro Tips:**
 - Combine multiple filters (all must match)
@@ -350,6 +408,6 @@ Use @ filters to search specific metadata fields directly:
 - Use = for exact library/composer names
 - Use : for flexible matching
 
-Type \`@\` to see available fields while typing!
+Type \`@\` to see all 18 facet categories + metadata fields!
 `;
 }

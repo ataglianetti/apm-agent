@@ -1,30 +1,49 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { TrackMetadataModal } from './TrackMetadataModal';
 
-export function TrackCard({ track, index, onSoundsLike }) {
+export function TrackCard({ track, index, onSoundsLike, searchQuery = '' }) {
   const { isDark } = useTheme();
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [showMetadataModal, setShowMetadataModal] = useState(false);
 
-  // Parse duration string (e.g., "2:15") to seconds
+  // Parse duration - can be string (e.g., "2:15") or number (seconds)
   const durationSeconds = useMemo(() => {
     if (!track.duration) return 60;
-    const parts = track.duration.split(':');
-    if (parts.length === 2) {
-      const minutes = parseInt(parts[0], 10);
-      const seconds = parseInt(parts[1], 10);
-      // Validate that both parts are valid numbers
-      if (!isNaN(minutes) && !isNaN(seconds) && minutes >= 0 && seconds >= 0 && seconds < 60) {
-        return minutes * 60 + seconds;
+
+    // If duration is already a number (from database), use it directly
+    if (typeof track.duration === 'number') {
+      return track.duration > 0 ? track.duration : 60;
+    }
+
+    // If duration is a string, parse it
+    if (typeof track.duration === 'string') {
+      const parts = track.duration.split(':');
+      if (parts.length === 2) {
+        const minutes = parseInt(parts[0], 10);
+        const seconds = parseInt(parts[1], 10);
+        // Validate that both parts are valid numbers
+        if (!isNaN(minutes) && !isNaN(seconds) && minutes >= 0 && seconds >= 0 && seconds < 60) {
+          return minutes * 60 + seconds;
+        }
+      }
+      // Try parsing as a single number (seconds)
+      const totalSeconds = parseInt(track.duration, 10);
+      if (!isNaN(totalSeconds) && totalSeconds > 0) {
+        return totalSeconds;
       }
     }
-    // Try parsing as a single number (seconds)
-    const totalSeconds = parseInt(track.duration, 10);
-    if (!isNaN(totalSeconds) && totalSeconds > 0) {
-      return totalSeconds;
-    }
+
     return 60; // Default fallback
   }, [track.duration]);
+
+  // Format duration for display (convert seconds to M:SS)
+  const formattedDuration = useMemo(() => {
+    const minutes = Math.floor(durationSeconds / 60);
+    const seconds = durationSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }, [durationSeconds]);
 
   // Generate stable random heights for waveform bars (more bars = narrower)
   const barHeights = useMemo(() => {
@@ -61,10 +80,37 @@ export function TrackCard({ track, index, onSoundsLike }) {
     ? track.additional_genres.split(',').map(g => g.trim()).filter(Boolean)
     : [];
 
+  // Build enhanced metadata tags (moods, energy, instruments)
+  const enhancedTags = [];
+
+  // Add moods
+  if (track.moods && Array.isArray(track.moods)) {
+    enhancedTags.push(...track.moods);
+  }
+
+  // Add energy level
+  if (track.energy_level) {
+    const energyLabel = track.energy_level.replace(/_/g, ' ');
+    enhancedTags.push(energyLabel);
+  }
+
+  // Add instruments
+  if (track.instruments && Array.isArray(track.instruments)) {
+    enhancedTags.push(...track.instruments);
+  }
+
+  // Add use cases
+  if (track.use_cases && Array.isArray(track.use_cases)) {
+    enhancedTags.push(...track.use_cases);
+  }
+
+  // Combine with additional genres
+  const allTags = [...enhancedTags, ...additionalGenres];
+
   // Limit visible tags
-  const maxVisibleTags = 8;
-  const visibleTags = additionalGenres.slice(0, maxVisibleTags);
-  const hasMoreTags = additionalGenres.length > maxVisibleTags;
+  const maxVisibleTags = 10;
+  const visibleTags = allTags.slice(0, maxVisibleTags);
+  const hasMoreTags = allTags.length > maxVisibleTags;
 
   return (
     <div className={`rounded-lg p-4 transition-colors ${
@@ -143,8 +189,10 @@ export function TrackCard({ track, index, onSoundsLike }) {
         </p>
 
         {/* Metadata columns (right side): Genre, Duration, BPM */}
-        <div className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-light' : 'text-gray-800'}`}>{track.genre}</div>
-        <div className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>{track.duration}</div>
+        <div className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-light' : 'text-gray-800'}`}>
+          {track.genre_name || track.genre || '—'}
+        </div>
+        <div className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>{formattedDuration}</div>
         <div className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>{track.bpm} BPM</div>
       </div>
 
@@ -188,26 +236,50 @@ export function TrackCard({ track, index, onSoundsLike }) {
         )}
       </div>
 
-      {/* Additional Genre Tags */}
-      {visibleTags.length > 0 && (
-        <div className="flex flex-wrap gap-2 ml-[52px]">
-          {visibleTags.map((tag, i) => (
-            <span
-              key={i}
-              className={`px-3 py-1 text-xs rounded-full transition-colors cursor-pointer ${
-                isDark ? 'bg-apm-dark/60 text-apm-gray-light hover:bg-apm-dark' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {tag}
-            </span>
-          ))}
-          {hasMoreTags && (
-            <button className="px-3 py-1 bg-apm-purple/20 text-apm-purple text-xs rounded-full hover:bg-apm-purple/30 transition-colors">
-              See More
-            </button>
-          )}
-        </div>
-      )}
+      {/* Enhanced Metadata Tags & View Metadata Button */}
+      <div className="flex flex-wrap gap-2 ml-[52px]">
+        {/* Display enhanced metadata tags */}
+        {visibleTags.map((tag, i) => (
+          <span
+            key={i}
+            className={`px-3 py-1 text-xs rounded-full transition-colors cursor-pointer ${
+              isDark ? 'bg-apm-dark/60 text-apm-gray-light hover:bg-apm-dark' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {tag}
+          </span>
+        ))}
+
+        {/* See More button if there are more tags */}
+        {hasMoreTags && (
+          <button
+            onClick={() => setShowMetadataModal(true)}
+            className="px-3 py-1 bg-apm-purple/20 text-apm-purple text-xs rounded-full hover:bg-apm-purple/30 transition-colors"
+          >
+            +{allTags.length - maxVisibleTags} more
+          </button>
+        )}
+
+        {/* View Metadata Button - Always show for transparency */}
+        <button
+          onClick={() => setShowMetadataModal(true)}
+          className={`px-3 py-1 text-xs rounded-full transition-colors ${
+            isDark
+              ? 'bg-apm-purple/20 text-apm-purple hover:bg-apm-purple/30'
+              : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+          }`}
+        >
+          View Metadata
+        </button>
+      </div>
+
+      {/* Metadata Modal */}
+      <TrackMetadataModal
+        track={track}
+        isOpen={showMetadataModal}
+        onClose={() => setShowMetadataModal(false)}
+        searchQuery={searchQuery}
+      />
     </div>
   );
 }

@@ -28,14 +28,29 @@ export function ChatContainer({ messages, isLoading, onSoundsLike, onSendMessage
 
   return (
     <div className="flex-1 overflow-y-auto chat-scroll p-4 space-y-4">
-      {messages.map((msg, index) => (
-        <MessageBubble
-          key={index}
-          message={msg}
-          onSoundsLike={onSoundsLike}
-          onShowMore={handleShowMore}
-        />
-      ))}
+      {messages.map((msg, index) => {
+        // For assistant messages with track results, find the preceding user message as searchQuery
+        let searchQuery = '';
+        if (msg.role === 'assistant' && index > 0) {
+          // Look backwards for the most recent user message
+          for (let i = index - 1; i >= 0; i--) {
+            if (messages[i].role === 'user') {
+              searchQuery = messages[i].content;
+              break;
+            }
+          }
+        }
+
+        return (
+          <MessageBubble
+            key={index}
+            message={msg}
+            onSoundsLike={onSoundsLike}
+            onShowMore={handleShowMore}
+            searchQuery={searchQuery}
+          />
+        );
+      })}
       {isLoading && <LoadingIndicator />}
       <div ref={messagesEndRef} />
     </div>

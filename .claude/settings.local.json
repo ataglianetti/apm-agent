@@ -41,7 +41,10 @@
       "Bash(do grep \"^$id,\" data/tracks.csv)",
       "Bash(sqlite3:*)",
       "Bash(git fetch:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
