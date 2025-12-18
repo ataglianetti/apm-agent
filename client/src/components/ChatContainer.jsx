@@ -43,7 +43,7 @@ export function ChatContainer({ messages, isLoading, onSoundsLike, onSendMessage
 
         return (
           <MessageBubble
-            key={index}
+            key={msg.id || `fallback-${index}`}
             message={msg}
             onSoundsLike={onSoundsLike}
             onShowMore={handleShowMore}

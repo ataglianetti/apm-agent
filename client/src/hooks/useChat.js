@@ -1,5 +1,11 @@
 import { useState, useCallback, useRef } from 'react';
 
+// Generate unique message IDs for React keys
+let messageIdCounter = 0;
+function generateMessageId(role) {
+  return `${role}-${Date.now()}-${++messageIdCounter}`;
+}
+
 export function useChat() {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -21,7 +27,7 @@ export function useChat() {
   }, []);
 
   const sendMessage = useCallback(async (content) => {
-    const userMessage = { role: 'user', content };
+    const userMessage = { id: generateMessageId('user'), role: 'user', content };
 
     // Build API messages synchronously BEFORE state update (fixes race condition)
     // Use messagesRef for synchronous access to current messages
@@ -60,6 +66,7 @@ export function useChat() {
       if (data.type === 'track_results') {
         // Track results with metadata
         assistantMessage = {
+          id: generateMessageId('assistant'),
           role: 'assistant',
           type: 'track_results',
           message: data.message,
@@ -73,6 +80,7 @@ export function useChat() {
       } else if (data.disambiguationOptions) {
         // Disambiguation response with options
         assistantMessage = {
+          id: generateMessageId('assistant'),
           role: 'assistant',
           content: data.reply,
           disambiguationOptions: data.disambiguationOptions,
@@ -83,6 +91,7 @@ export function useChat() {
       } else {
         // Regular text response
         assistantMessage = {
+          id: generateMessageId('assistant'),
           role: 'assistant',
           content: data.reply,
           timings: data.timings,
@@ -100,6 +109,7 @@ export function useChat() {
 
       // Add error message to chat
       const errorMessage = {
+        id: generateMessageId('error'),
         role: 'assistant',
         content: 'Sorry, something went wrong. Please try again.',
         isError: true

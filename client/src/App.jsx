@@ -2,6 +2,7 @@ import { Header } from './components/Header';
 import { ChatContainer } from './components/ChatContainer';
 import { MessageInput } from './components/MessageInput';
 import { DemoControls } from './components/DemoControls';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { useChat } from './hooks/useChat';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 
@@ -23,12 +24,14 @@ function AppContent() {
   return (
     <div className={`h-screen flex flex-col font-poppins ${isDark ? 'bg-apm-dark' : 'bg-gray-100'}`}>
       <Header onClear={clearChat} />
-      <ChatContainer
-        messages={messages}
-        isLoading={isLoading}
-        onSoundsLike={handleSoundsLike}
-        onSendMessage={sendMessage}
-      />
+      <ErrorBoundary>
+        <ChatContainer
+          messages={messages}
+          isLoading={isLoading}
+          onSoundsLike={handleSoundsLike}
+          onSendMessage={sendMessage}
+        />
+      </ErrorBoundary>
       <MessageInput onSend={sendMessage} disabled={isLoading} />
       <DemoControls onSettingsChange={handleSettingsChange} />
     </div>
