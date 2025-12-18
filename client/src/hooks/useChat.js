@@ -4,6 +4,10 @@ export function useChat() {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Ref to track current messages for synchronous access (fixes race condition)
+  const messagesRef = useRef([]);
+
   const settingsRef = useRef({
     llmProvider: 'claude',
     demoMode: false,
@@ -19,17 +23,16 @@ export function useChat() {
   const sendMessage = useCallback(async (content) => {
     const userMessage = { role: 'user', content };
 
-    // Add user message immediately and capture the updated messages
-    let allMessages;
-    setMessages(prev => {
-      const updated = [...prev, userMessage];
-      // Build messages array for API (all previous messages + new one)
-      allMessages = updated.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
-      return updated;
-    });
+    // Build API messages synchronously BEFORE state update (fixes race condition)
+    // Use messagesRef for synchronous access to current messages
+    const apiMessages = [...messagesRef.current, userMessage].map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
+
+    // Update both the ref and state
+    messagesRef.current = [...messagesRef.current, userMessage];
+    setMessages(messagesRef.current);
 
     setIsLoading(true);
     setError(null);
@@ -39,7 +42,7 @@ export function useChat() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: allMessages,
+          messages: apiMessages,
           options: settingsRef.current
         })
       });
@@ -50,10 +53,13 @@ export function useChat() {
 
       const data = await response.json();
 
+      console.log('API Response:', data);
+
       // Handle different response types
+      let assistantMessage;
       if (data.type === 'track_results') {
         // Track results with metadata
-        setMessages(prev => [...prev, {
+        assistantMessage = {
           role: 'assistant',
           type: 'track_results',
           message: data.message,
@@ -63,43 +69,50 @@ export function useChat() {
           timings: data.timings,
           performance: data.performance,
           architecture: data.architecture
-        }]);
+        };
       } else if (data.disambiguationOptions) {
         // Disambiguation response with options
-        setMessages(prev => [...prev, {
+        assistantMessage = {
           role: 'assistant',
           content: data.reply,
           disambiguationOptions: data.disambiguationOptions,
           timings: data.timings,
           performance: data.performance,
           architecture: data.architecture
-        }]);
+        };
       } else {
         // Regular text response
-        setMessages(prev => [...prev, {
+        assistantMessage = {
           role: 'assistant',
           content: data.reply,
           timings: data.timings,
           performance: data.performance,
           architecture: data.architecture
-        }]);
+        };
       }
+
+      // Update both ref and state
+      messagesRef.current = [...messagesRef.current, assistantMessage];
+      setMessages(messagesRef.current);
     } catch (err) {
       console.error('Chat error:', err);
       setError(err.message);
 
       // Add error message to chat
-      setMessages(prev => [...prev, {
+      const errorMessage = {
         role: 'assistant',
         content: 'Sorry, something went wrong. Please try again.',
         isError: true
-      }]);
+      };
+      messagesRef.current = [...messagesRef.current, errorMessage];
+      setMessages(messagesRef.current);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   const clearChat = useCallback(() => {
+    messagesRef.current = [];
     setMessages([]);
     setError(null);
   }, []);

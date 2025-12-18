@@ -7,6 +7,13 @@ import { enhanceTracksMetadata, enhanceTrackMetadata } from './metadataEnhancer.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, '..', 'apm_music.db');
 
+// Security: Whitelist of allowed table names to prevent SQL injection
+const ALLOWED_TABLES = new Set([
+  'tracks', 'projects', 'project_tracks', 'download_history',
+  'search_history', 'audition_history', 'users', 'facet_taxonomy',
+  'track_facets', 'genre_taxonomy', 'sound_alikes'
+]);
+
 // Create a single database connection (reused for all queries)
 let db = null;
 
@@ -69,14 +76,20 @@ export async function executeFileTool(toolName, params) {
 async function readCsv(filename, limit) {
   const tableName = filename.replace('.csv', '').replace(/-/g, '_');
 
-  try {
-    let sql = `SELECT * FROM ${tableName}`;
-    if (limit) {
-      sql += ` LIMIT ${limit}`;
-    }
+  // Security: Validate table name against whitelist to prevent SQL injection
+  if (!ALLOWED_TABLES.has(tableName)) {
+    console.error(`Security: Rejected access to non-whitelisted table "${tableName}"`);
+    throw new Error(`Access to table "${tableName}" is not allowed`);
+  }
 
+  // Security: Validate and sanitize limit parameter
+  const safeLimit = Math.min(Math.max(1, parseInt(limit, 10) || 1000), 10000);
+
+  try {
+    // Table name is now validated against whitelist, safe to interpolate
+    const sql = `SELECT * FROM ${tableName} LIMIT ?`;
     const stmt = getDb().prepare(sql);
-    const rows = stmt.all();
+    const rows = stmt.all(safeLimit);
     return rows;
   } catch (error) {
     console.error(`Error reading table ${tableName}:`, error);
@@ -209,16 +222,20 @@ async function getTracksByIds(trackIds, limit = 12) {
     return [];
   }
 
+  // Security: Validate and sanitize limit parameter
+  const safeLimit = Math.min(Math.max(1, parseInt(limit, 10) || 12), 1000);
+
   // Take only the first 'limit' track IDs
-  const idsToFetch = trackIds.slice(0, limit);
+  const idsToFetch = trackIds.slice(0, safeLimit);
 
   // Create placeholders for the IN clause
   const placeholders = idsToFetch.map(() => '?').join(',');
-  const sql = `SELECT * FROM tracks WHERE id IN (${placeholders}) LIMIT ${limit}`;
+  // Use parameterized limit for security
+  const sql = `SELECT * FROM tracks WHERE id IN (${placeholders}) LIMIT ?`;
 
   try {
     const stmt = getDb().prepare(sql);
-    const rows = stmt.all(...idsToFetch);
+    const rows = stmt.all(...idsToFetch, safeLimit);
 
     // Sort results to match the order of input IDs
     const idToTrack = {};
