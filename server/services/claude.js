@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { executeFileTool } from './fileToolsDb.js';  // Using SQLite version for speed
 import { executeProjectTool } from './projectTools.js';
+import { getLLMMode } from '../routes/settings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,9 +26,14 @@ function getModel() {
   return process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307';
 }
 
-// Load chat system prompt from config
+// Load chat system prompt based on LLM_MODE
 function loadSystemPrompt() {
-  const promptPath = path.join(__dirname, '..', 'config', 'chat-system-prompt.md');
+  const llmMode = getLLMMode();
+  const promptFile = llmMode === 'primary'
+    ? 'chat-system-prompt-conversational.md'
+    : 'chat-system-prompt.md';
+  const promptPath = path.join(__dirname, '..', 'config', promptFile);
+  console.log(`Loading system prompt: ${promptFile} (LLM_MODE=${llmMode})`);
   return fs.readFileSync(promptPath, 'utf-8');
 }
 

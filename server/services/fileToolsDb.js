@@ -136,10 +136,9 @@ async function grepTracks(pattern, field = 'all', limit = 12) {
 
   switch (field) {
     case 'genre':
-      // Exact match on genre field for genre IDs
-      sql = `SELECT * FROM tracks WHERE genre = @pattern OR additional_genres LIKE @likePattern LIMIT @limit`;
-      params.pattern = pattern;
-      params.likePattern = `%${pattern}%`;
+      // Search in facet_labels which contains human-readable genre names
+      sql = `SELECT * FROM tracks WHERE facet_labels LIKE @pattern LIMIT @limit`;
+      params.pattern = `%${pattern}%`;
       params.limit = limit;
       break;
 
@@ -156,7 +155,8 @@ async function grepTracks(pattern, field = 'all', limit = 12) {
       break;
 
     case 'composer':
-      sql = `SELECT * FROM tracks WHERE composer LIKE @pattern LIMIT @limit`;
+      // Use composer_fullname column (actual schema)
+      sql = `SELECT * FROM tracks WHERE composer_fullname LIKE @pattern LIMIT @limit`;
       params.pattern = `%${pattern}%`;
       params.limit = limit;
       break;
@@ -174,8 +174,9 @@ async function grepTracks(pattern, field = 'all', limit = 12) {
       break;
 
     case 'has_stems':
-      sql = `SELECT * FROM tracks WHERE has_stems = @pattern LIMIT @limit`;
-      params.pattern = pattern;
+      // Search in facet_labels for "Stems" indicator
+      sql = `SELECT * FROM tracks WHERE facet_labels LIKE @pattern LIMIT @limit`;
+      params.pattern = pattern.toLowerCase() === 'yes' ? '%Stems%' : '%No Stems%';
       params.limit = limit;
       break;
 
@@ -186,14 +187,13 @@ async function grepTracks(pattern, field = 'all', limit = 12) {
         SELECT * FROM tracks
         WHERE track_title LIKE @pattern
            OR track_description LIKE @pattern
-           OR composer LIKE @pattern
+           OR composer_fullname LIKE @pattern
            OR library_name LIKE @pattern
            OR album_title LIKE @pattern
-           OR genre = @exactPattern
+           OR facet_labels LIKE @pattern
         LIMIT @limit
       `;
       params.pattern = `%${pattern}%`;
-      params.exactPattern = pattern;
       params.limit = limit;
       break;
   }

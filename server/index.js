@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import chatRouter from './routes/chat.js';
 import trackMetadataRouter from './routes/trackMetadata.js';
 import healthRouter from './routes/health.js';
+import settingsRouter from './routes/settings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -20,6 +21,7 @@ app.use(express.json({ limit: '10mb' })); // Add size limit for security
 
 // API routes
 app.use('/api', healthRouter);  // Health checks first (no auth needed)
+app.use('/api', settingsRouter);  // Settings API
 app.use('/api', chatRouter);
 app.use('/api', trackMetadataRouter);
 

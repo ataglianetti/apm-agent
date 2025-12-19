@@ -6,10 +6,21 @@ export function DemoControls({ onSettingsChange }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [settings, setSettings] = useState({
     llmProvider: 'claude',
+    llmMode: 'fallback',  // 'fallback' = fast search, 'primary' = AI conversation
     demoMode: false,
     showTimings: false,
     showArchitecture: false
   });
+
+  // Fetch initial LLM mode from server
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => {
+        setSettings(prev => ({ ...prev, llmMode: data.llmMode }));
+      })
+      .catch(err => console.error('Failed to fetch settings:', err));
+  }, []);
 
   // Notify parent of settings changes
   useEffect(() => {
@@ -32,6 +43,20 @@ export function DemoControls({ onSettingsChange }) {
     setSettings(prev => ({ ...prev, showArchitecture: !prev.showArchitecture }));
   };
 
+  const toggleLLMMode = async () => {
+    try {
+      const response = await fetch('/api/settings/llm-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'toggle' })
+      });
+      const data = await response.json();
+      setSettings(prev => ({ ...prev, llmMode: data.llmMode }));
+    } catch (err) {
+      console.error('Failed to toggle LLM mode:', err);
+    }
+  };
+
   return (
     <div className={`fixed bottom-4 right-4 z-50 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
       {/* Toggle Button */}
@@ -51,6 +76,11 @@ export function DemoControls({ onSettingsChange }) {
                 d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
         <span className="text-sm font-medium">Demo Controls</span>
+        {settings.llmMode === 'primary' && (
+          <span className="px-2 py-0.5 bg-purple-500 text-white text-xs rounded-full">
+            AI
+          </span>
+        )}
         {settings.demoMode && (
           <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">
             DEMO
@@ -66,6 +96,40 @@ export function DemoControls({ onSettingsChange }) {
           animate-slide-up
         `}>
           <h3 className="font-semibold mb-4">Demo Settings</h3>
+
+          {/* AI Mode Toggle - Primary Feature */}
+          <div className="mb-4 pb-4 border-b border-gray-600">
+            <label className="flex items-center justify-between cursor-pointer">
+              <div>
+                <span className="text-sm font-medium">AI Conversation Mode</span>
+                <p className="text-xs opacity-60 mt-0.5">
+                  {settings.llmMode === 'primary'
+                    ? 'All queries go through Claude AI'
+                    : 'Simple searches use fast database'}
+                </p>
+              </div>
+              <button
+                onClick={toggleLLMMode}
+                className={`
+                  relative w-12 h-6 rounded-full transition-colors
+                  ${settings.llmMode === 'primary'
+                    ? 'bg-purple-500'
+                    : isDark ? 'bg-gray-600' : 'bg-gray-300'
+                  }
+                `}
+              >
+                <span className={`
+                  absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform
+                  ${settings.llmMode === 'primary' ? 'translate-x-6' : 'translate-x-0.5'}
+                `} />
+              </button>
+            </label>
+            {settings.llmMode === 'primary' && (
+              <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700'}`}>
+                Conversational mode enabled - Claude handles all queries
+              </div>
+            )}
+          </div>
 
           {/* LLM Provider Toggle */}
           <div className="mb-4">

@@ -43,11 +43,13 @@ export function enhanceTrackMetadata(track) {
     // Keep original duration in seconds for sorting/filtering
     duration_seconds: typeof track.duration === 'number' ? track.duration : parseInt(track.duration, 10) || null,
 
-    // Genre display: use mapped name or fallback to genre_name field
-    genre: enrichedTrack.genre_name || track.genre,
+    // Genre display: use mapped name, or handle array format from Claude, or fallback
+    genre: enrichedTrack.genre_name
+      || (Array.isArray(track.genre) ? track.genre[0] : track.genre)
+      || null,
 
     // Keep original genre ID for backward compatibility
-    genre_id: track.master_genre_id || track.genre
+    genre_id: track.master_genre_id || (Array.isArray(track.genre) ? null : track.genre)
   };
 }
 
