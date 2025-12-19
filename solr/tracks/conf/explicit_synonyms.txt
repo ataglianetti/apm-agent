@@ -1,0 +1,59 @@
+# fuck
+fuck,f_ck,f__k,fucks,fuck_ => explicit
+fucking,f_cking,fucking_ => explicit
+fucker,fuckers => explicit
+fucked => explicit
+fuckin,____ing,fucken,f_cken => explicit
+clusterfuck => explicit
+motherfucker,motherfuckers => explicit
+mothafucker,mothafuckers_,mothafucka,mothafuckin,motherfucking => explicit
+muthafuckin => explicit
+muthafuuuhhh => explicit
+mindfuck => explicit
+
+# goddamn
+goddamn => explicit
+
+# ass
+ass => explicit
+asshole,assholes => explicit
+
+# bitch
+bitch,b_tch,b___h,bitches,bitchin,bitching => explicit
+
+# pussy
+pussy,pussys => explicit
+pussie,pussies => explicit
+
+# cunt
+cunt,cunts => explicit
+
+# tit
+tit,tits => explicit
+
+# shit
+shit,sh_t,s__t,shit_,shits => explicit
+shitty => explicit
+shithole,shitholes => explicit
+bullshit,bullshitter,bullshitting => explicit
+shitting,shittin => explicit
+shithead => explicit
+
+# whore
+whore,whores => explicit
+slut,sluts => explicit
+
+# nigger
+nigger,niggers,n_____ => explicit
+nigga,niggas,n_gga,n___a,nigga_s,nigga_ => explicit
+niggah,niggahs => explicit
+niiiggghhh => explicit
+
+# cocksucker
+cocksucker,cocksuckers => explicit
+
+# piss
+piss,pissed => explicit
+
+# explicit
+explicite,expliit => explicit

@@ -1,0 +1,24 @@
+#**
+ *  Called for each matching document but then
+ *  calls one of product_doc, join_doc or richtext_doc
+ *  depending on which fields the doc has
+ *#
+
+#set($docId = $doc.getFieldValue('id'))
+
+
+#if($request.params.get('view') == 'table')
+<div class="result-document-table">
+
+  #parse("hit_track_table.vm")
+
+</div>
+#else
+<div class="result-document">
+
+  #parse("hit_track.vm")
+
+</div>
+#end
+
+

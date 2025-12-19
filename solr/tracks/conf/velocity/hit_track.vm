@@ -1,0 +1,39 @@
+#**
+ *  Render a hit representing a Product
+ *  assumed to have a field called "name"
+ *#
+
+#set($trackName = $doc.getFieldValue('track_title'))
+
+<div class="result-title">
+  <b>#field('track_title')</b>
+  &#x21FE;
+<!--   <span class="related_tracks"><a href="#url_for_lens&fq=id:$docId&relate=true&relatedName=$trackName&relatedId=$docId">Find Related Tracks</a></span> -->
+  <span>Score: #field('score')</span>
+</div>
+
+<div id="content-body-wrapper">
+  <div id="content-body">
+    <div class="content-row"><div class="meta-label">Id:</div><div class="meta-content">#field('id')</div></div>
+    <div class="content-row"><div class="meta-label">Released:</div><div class="meta-content">#field('apm_release_date')</div></div>
+    <div class="content-row"><div class="meta-label">Genre:</div><div class="meta-content">#mvField('genre')</div></div>
+    <div class="content-row"><div class="meta-label">Additional Genre:</div><div class="meta-content">#mvField('additional_genre')</div></div>
+    <div class="content-row"><div class="meta-label">Mood:</div><div class="meta-content">#field('mood')</div></div>
+    <div class="content-row"><div class="meta-label">Character:</div><div class="meta-content">#field('character')</div></div>
+    <div class="content-row"><div class="meta-label">Album Title:</div><div class="meta-content">#field('album_title')</div></div>
+    <div class="content-row"><div class="meta-label">Album Description:</div><div class="meta-content">#field('album_description')</div></div>
+    <div class="content-row"><div class="meta-label">Track Description:</div><div class="meta-content">#field('track_description')</div></div>
+    <div class="content-row"><div class="meta-label">Track Type:</div><div class="meta-content">#field('track_type')</div></div>
+    <div class="content-row"><div class="meta-label">Composer:</div><div class="meta-content">#field('composer')</div></div>
+    <div class="content-row"><div class="meta-label">Library:</div><div class="meta-content">#field('library')</div></div>
+    <div class="content-row"><div class="meta-label">Form:</div><div class="meta-content">#field('musical_form')</div></div>
+    <div class="content-row"><div class="meta-label">Voices:</div><div class="meta-content">#field('vocals')</div></div>
+    <div class="content-row"><div class="meta-label">Sound Effect:</div><div id="meta-cont2ent">#field('sound_effects')</div></div>
+    <div class="content-row"><div class="meta-label">Time Period:</div><div class="meta-content">#field('time_period')</div></div>
+    <div class="content-row"><div class="meta-label">Music For:</div><div class="meta-content">#field('music_for')</div></div>
+    <div class="content-row"><div class="meta-label">Is a:</div><div class="meta-content">#field('is_a')</div></div>
+  </div>
+</div>
+
+
+#parse('debug.vm')

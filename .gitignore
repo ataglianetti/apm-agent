@@ -28,3 +28,4 @@ client/dist/
 solr/*/data/
 solr/*/core.properties
 !solr/*/conf/
+server/apm_music.db

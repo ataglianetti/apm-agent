@@ -1,0 +1,126 @@
+# Things
+Children,Child
+Choir,Chorus
+Fairground,Carnival
+Horn Honk,Hooter,Car horn
+School,Skool
+Television,TV
+Truck,Lorry
+
+# Other POS
+Prog,Progressive
+Groove,Groovy
+Sport,Sporty
+Storm,Stormy
+Funk,Funky
+Jazz,Jazzy
+Folk,Folksy
+Dialog,Dialogue
+Color,Colour
+analog,analogue
+
+# Places
+Africa,Afrika
+Austria,Osterreich
+Bahrain,Bahrein,Bahrayn
+Belarus,Byelorussia
+Brazil,Brasil
+Cambodia,Khmer,Kampuchea
+Caribbean,West Indies
+Caribou,Manitoba
+Czechia,Czech Republic
+Hawaii,Hawaiian Islands
+Hong Kong,Hongkong
+India,Gharat
+Iran,Persia
+Israel,Yisrael
+Japan,Nippon,Nihon
+Latvia,Latvija
+Lesotho,Basutoland
+Malawi,Nyasaland
+Mauritania,Mauretania
+Moldavia,Moldova
+Netherlands,Holland,Nederland
+New Zealand,Aotearoa
+Norway,Noreg,Norge
+Poland,Polska
+Puerto Rico,Porto Rico
+Qatar,Katara
+Romania,Rumania
+Scandinavia,Nordic
+Scotland,Scots
+South Africa,S Africa,Suid Afrika,Zuid Afrika
+Spain,Espana
+Swaziland,KaNgwane,Eswatini
+USA,United States of America
+Wales,Welsh,Cymru
+Zimbabwe,Rhodesia
+
+# Instruments
+Autoharp,Zither
+Bendir,Douf
+Birbyne,Birbini,Lithuanian Clarinet
+Cimablom,Cymbalom,Cymbalum
+Daf,Daff,Duff
+Darbuka,Derbouka
+Digeridoo,Didgeridoo,Didjeridu
+Djembe,Jembe,Djeme
+Doudouk,Duduk
+Gaida,Balkan Bagpipe
+Ghuzhen,Guzheng,Zheng
+Hajouj,Hejhouj,Sintir,Guembri,Gimbri
+Jakhay,Jakay
+Kalimba,Sanza,Mbira,Thumb Piano
+Khaen,Kaen,Kaen,Khen,Khene
+Kora,Cora
+Myanmar,Burma
+Ney,Nay
+Ocarina,Nose Flute
+Oud,Ud
+Penny Whistle,Tin Whistle,Flageolet
+Ranat,Ranad,Ranaat
+Req,Rek,Riq,Riqq,Rik
+Rhumba,Rumba
+Sagad,Sagat,Zils,Sajat
+Santor,Santoor,Santour,Santur
+Saw Duang,Sor Duang
+Shenai,Shehnai
+Tar,Taar,Armenian Lute
+Veena,Vina
+Yangqin,Yangxin
+Ukulele,Ukelele
+
+# People / Artists
+Credence Clearwater Revival,CCR
+Deadmau5,Deadmaus,Deadmouse
+Future Sound of London,FSOL
+Nine Inch Nails,NIN
+Orchestral Manoeuvres in the Dark,OMD
+Red Hot Chili Peppers,RHCP
+Yazoo,Yaz
+Alexander,Alexandre
+Scriabin,Skrjabin,Skriabin
+
+# Events
+World War 1,World War One,World War I,WW 1,WWI
+World War 2,World War Two,World War II,WW 2,WWII
+Christmas,Xmas,X-mas
+
+# Genres
+Boom Bap,Boombap
+Go-go,Gogo
+Drum Line,Drum-line,Drumline
+Rocksteady,Rock Steady
+
+# Languages
+Dutch,Flemish,Netherlandic
+Farsi,Persian
+Ka'apor,Kaapor,Urubu,Caapor
+Karitiana,Caritiana,Yjxa
+Malay,Malaysian,Bahasa
+Portuguese,Portoguese,Portugese
+Spanish,Español
+Surui-Paiter,Surui Paiter
+
+# Concepts
+urban,city

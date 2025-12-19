@@ -1,0 +1,122 @@
+#**
+ *  Renders the main query form
+ *#
+
+<div class="query-box">
+  <form id="query-form" action="#{url_for_home}" method="GET">
+
+    <div class="inputs">
+      <span id="controls-toggle"><a href="#">&#9881;</a></span>
+      <span #annTitle("Add the query using the &q= parameter")>
+        Find:
+        <input type="text" id="q" name="q" value="$!esc.html($params.get('q'))"/>
+        <input type="submit" id="querySubmit"/>
+        <input type="reset"/>
+      </span>
+
+      <div class="query-boost">
+      <!--
+        <input type="checkbox" name="boost" value="termfreq(library_name,Sonoton)" #if($request.params.get('boost') == 'termfreq(library_name,Sonoton)')checked="true"#end>
+          Boost Sonoton
+        </input>
+      -->
+
+        <div id="controls">
+          <div id="controls-config">
+              <!--
+                <input type="checkbox" name="bf" value="div(mod(sum(product(scale(ord(song_number),0,100000),field(track_number)),$modId),100000),400000)" #if($request.params.get('bf') == 'div(mod(sum(product(scale(ord(song_number),0,100000),field(track_number)),$modId),100000),400000)')checked="true"#end>
+                  Boost by Random
+                </input>                
+                <input type="text" name="modId" value="$request.params.get('modId')"/><br/>
+                <input type="checkbox" name="boost" value="recip(ms(NOW/HOUR,apm_release_date),3.16e-11,1,1)" #if($request.params.get('boost') == 'recip(ms(NOW/HOUR,apm_release_date),3.16e-11,1,1)')checked="true"#end>
+                  Boost by Release Date
+                </input>                
+                <br/>
+                <input type="checkbox" name="sort" value="map(div(ms(NOW,apm_release_date),86400000),0,$newDays,1,0) desc, score desc" #if($request.params.get('sort') == 'map(div(ms(NOW,apm_release_date),86400000),0,$newDays,1,0) desc, score desc')checked="true"#end>
+                  Sort by            
+                </input>
+                # of Days Newly Released
+                <input type="text" name="newDays" value="$request.params.get('newDays')"/><br/>
+              -->
+              <!--                
+                Genre Boosting
+                <input type="text" style="width:50%" name="genreBoost" value="$request.params.get('genreBoost')"/><br/>
+              -->
+
+                qf: <input type="text" style="width:60%" id="config_qf" name="qf" value="$request.params.get('qf')"/><br/>
+                <div id="controls-qf-anchor"/>
+                pf: <input type="text" style="width:60%" id="config_pf2" name="pf2" value="$request.params.get('pf2')"/><br/>
+                <div id="controls-pf-anchor"/>
+                fl: <input type="text" style="width:60%" name="fl" value="$request.params.get('fl')"/><br/>
+                tie: <input type="text" id="config_tie" name="tie" value="$request.params.get('tie')"/><br/>
+                bf: <input type="text" style="width:40%"  id="config_bf" name="bf" value="#if($request.params.get('bf'))$request.params.get('bf')#end"/><br/>
+
+                
+                <div id="config_bq_anchor" style="display: none;">
+                </div>
+                #if($request.params.getParams('bq'))
+
+                  #foreach($bq in $request.params.getParams('bq'))
+                    bq: <input type="text" name="bq" value="$esc.html($bq)"/>
+                  #end
+                  <br/>
+                #else
+                  <div id="config_default_bq">
+                    bq: <input type="text" name="bq"/>
+                    <br/>
+                  </div>
+                #end
+
+
+                rows: <input type="text" name="rows" value="$request.params.get('rows')"/><br/>
+                view: <select name="view"><option value="grid" #if($request.params.get('view') == 'grid')selected="true"#end>Detail</option><option value="table" #if($request.params.get('view') == 'table')selected="true"#end>Table</option></select>
+                <br/>
+                <textarea id="logEntry" style="width:40%; height: 100px;" name="logEntry" placeholder="Paste Full Log Entry Here..."></textarea>
+                <input type="button" name="solrQuery" value="Parse Log" onclick="parseSolrQuery(); return false;"/>
+
+          </div>
+        </div>
+        </div>
+      </div>
+      </div>
+
+
+  </div>
+
+    #if($request.params.get('debugQuery'))
+      <input type="hidden" name="debugQuery" value="true"/>
+    #end
+    #if($annotate == true)
+      <input type="hidden" name="annotateBrowse" value="true"/>
+    #end
+    #foreach($fq in $request.params.getParams('fq'))
+      #if ($fq != "{!bbox}")
+        <input type="hidden" name="fq" id="allFQs" value="$esc.html($fq)"/>
+      #end
+    #end
+
+    <div class="constraints" #annTitle("Lists out the &fq filters.  Click to remove.")>
+      #foreach($fq in $params.getParams('fq'))
+        #set($previous_fq_count=$velocityCount - 1)
+        #if($fq != '')
+          &gt;
+          <a style="{text-decoration: line-through;}"
+            href="#url_for_filters($request.params.getParams('fq').subList(0,$previous_fq_count))"
+          >$fq</a>
+        #end
+      #end
+    </div>
+
+    <div class="parsed_query_header">
+      #if($request.params.get('debugQuery'))
+        <a href="#" onclick='jQuery(this).siblings("div").toggle(); return false;'>toggle parsed query</a>
+        <div class="parsed_query" style="display:none">$response.response.debug.parsedquery</div>
+      #end
+      #set($queryOpts = $request.params.get("queryOpts"))
+      #if($queryOpts && $queryOpts != "")
+        <input type="hidden" name="queryOpts" value="$queryOpts"/>
+      #end
+    </div>
+
+  </form>
+</div>

@@ -1,0 +1,40 @@
+#**
+ *  Render a hit representing a Product
+ *#
+
+#set($trackName = $doc.getFieldValue('track_title'))
+
+<div class="content-body-wrapper">
+  <div class="content-body">
+    <div class="meta-row">
+     <div class="meta-content-table-field" style="min-width: 40px; max-width: auto;">#parse('debug_table.vm')</div>
+     <!-- <div class="meta-content-table-field" style="min-width: 50px; max-width: 50px;">#field('id')</div> -->
+     <div class="meta-content-table-field" style="min-width: 200px; max-width: 200px;">#field('track_title')</div>
+     <div class="meta-content-table-field" style="min-width: 80; max-width: 80;">#field('score')</div>
+     <div class="meta-content-table-field" style="min-width: 120px; max-width: 120px;">$date.format('MMMM dd, yyyy', $doc.getFieldValue('apm_release_date'))</div>
+     <div class="meta-content-table-field" style="min-width: 160px; max-width: 160px;">#mvField('genre')</div>
+     <div class="meta-content-table-field" style="min-width: 160px; max-width: 160px;">#mvField('additional_genre')</div>
+     <div class="meta-content-table-field" style="min-width: 100px; max-width: 100px;">#field('library')</div>
+     <!--
+     <div class="meta-content-table-field">#mvField('additional_genre')</div>
+     <div class="meta-content-table-field">#mvField('mood')</div>
+     <div class="meta-content-table-field">#mvField('character')</div>
+     <div class="meta-content-table-field">#field('album_title')</div>
+     <div class="meta-content-table-field">#field('album_description')</div>
+     <div class="meta-content-table-field">#field('track_description')</div>
+     <div class="meta-content-table-field">#field('track_type')</div>
+     <div class="meta-content-table-field">#field('composer')</div>
+     <div class="meta-content-table-field">#field('library')</div>
+     <div class="meta-content-table-field">#field('musical_form')</div>
+     <div class="meta-content-table-field">#field('vocals')</div>
+     <div class="meta-content-table-field">#field('sound_effects')</div>
+     <div class="meta-content-table-field">#field('time_period')</div>
+     <div class="meta-content-table-field">#field('music_for')</div>
+     <div class="meta-content-table-field">#field('is_a')</div>
+     -->
+    </div>
+  </div>
+</div>
+
+
+

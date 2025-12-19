@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  solr:
+    image: solr:8.11
+    container_name: apm-solr
+    ports:
+      - "8983:8983"
+    volumes:
+      - ./solr:/var/solr/data
+    environment:
+      - SOLR_HEAP=2g
+    restart: unless-stopped
+
+# Usage:
+#   Start:   docker compose up -d
+#   Stop:    docker compose down
+#   Logs:    docker compose logs -f solr
+#   Shell:   docker compose exec solr bash
+#   Admin:   http://localhost:8983/solr/

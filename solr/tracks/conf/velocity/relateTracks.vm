@@ -1,0 +1,9 @@
+
+ #if($request.params.get('relate') == 'true')
+
+	 <div>
+	 	Related Track:  $request.params.get('relatedName') - $request.params.get('relatedId')
+	 </div>
+
+
+ #end

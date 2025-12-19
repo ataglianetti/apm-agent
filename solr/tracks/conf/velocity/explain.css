@@ -1,0 +1,102 @@
+
+.graph { 
+    position: relative; /* IE is dumb */
+    width: 50%; 
+    border: 0px solid #B1D632; 
+    font-size:0.85em;
+    color: #6f6f6f;
+    font-family: Verdana,Geneva,sans-serif;
+    font-size: 12px;
+    font-weight: normal;
+    
+}
+
+.metrics{
+    overflow-x:visible;
+    float:left;
+    position:relative;
+    border:0px solid red;
+    margin-left: 0px;
+    margin-right: 5px;
+    font-size: 0.9em;
+    width: 35%;
+    line-height: 2em; 
+}
+
+.graph .bars{
+    float:left;
+    position:relative;
+    margin-left:3px;
+    border:0px solid green;
+    width: 60%;
+}
+
+.graph .bar{ 
+    display: block;
+    position: relative;
+    text-align: center; 
+    color: #333; 
+    height: 1.5em; 
+    width: 100%; 
+    line-height: 1.5em; 
+    margin-bottom: 3px;           
+}
+
+.above50 { 
+    background: #6ea204; 
+    border-color: #5d8903;
+}
+.below50 { 
+    background: #FF6347; 
+    border-color: #800000;
+}
+
+.price-stack {
+    width: 15em;
+    padding-bottom: 8px;
+    float: left;
+}
+
+.firstcol{
+    width: 14em;
+}
+
+.score-wrapper {
+    margin-bottom: 1.4em;
+    padding: 0.4em;
+}
+
+.score-bar{
+    background-color:#568ED0;
+    border-radius: 3px;
+    display: block;
+    position: relative;
+    text-align: center; 
+    height: 0.5em; 
+    width: 90%; 
+    line-height: 0.5em; 
+    margin: 0 1em .4em 0em;
+    margin-left: 1em;       
+}
+
+.score-term {
+    margin: 0em 1em .4em .2em;
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+/* make this thing word-wrap for that massive Boost  */
+.score-field {
+    margin: 0.6em 1em 0em 1em;
+    white-space: pre-wrap;       /* css-3 */
+    white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+    white-space: -pre-wrap;      /* Opera 4-6 */
+    white-space: -o-pre-wrap;    /* Opera 7 */
+    word-wrap: break-word;       /* Internet Explorer 5.5+ */    
+}
+
+.score-percent {
+    font-weight: bold;
+    font-size: 0.8em;
+
+}

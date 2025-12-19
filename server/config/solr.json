@@ -1,0 +1,13 @@
+{
+  "host": "localhost",
+  "port": 8983,
+  "core": "tracks",
+  "protocol": "http",
+  "timeout": 30000,
+  "defaultParams": {
+    "defType": "edismax",
+    "q.op": "AND",
+    "mm": "100%",
+    "tie": 0.01
+  }
+}

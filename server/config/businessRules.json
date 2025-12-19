@@ -1,0 +1,308 @@
+{
+  "version": "1.0.0",
+  "description": "PM-controlled business rules for search behavior. Edit this file to change search results without code changes.",
+  "rules": [
+    {
+      "id": "genre_simplification_rock",
+      "type": "genre_simplification",
+      "enabled": true,
+      "priority": 100,
+      "pattern": "\\b(rock|rocks|rocky)\\b",
+      "description": "Auto-expand rock search to include major rock subgenres",
+      "action": {
+        "auto_apply_facets": [
+          "Classic Rock",
+          "Alternative Rock",
+          "Indie Rock",
+          "Hard Rock",
+          "Punk Rock",
+          "Garage Rock",
+          "Southern Rock",
+          "Blues / Rock",
+          "Modern Rock",
+          "Surf"
+        ],
+        "mode": "expand"
+      }
+    },
+    {
+      "id": "genre_simplification_classical",
+      "type": "genre_simplification",
+      "enabled": true,
+      "priority": 100,
+      "pattern": "\\b(classical|classic)\\b",
+      "description": "Auto-expand classical search to include classical periods and styles",
+      "action": {
+        "auto_apply_facets": [
+          "Classical",
+          "Classical Styling",
+          "Neo Classical",
+          "Minimalist Style",
+          "20th Century Classical Style",
+          "Classical Arrangement",
+          "Avant Garde",
+          "Classical Fusion",
+          "Baroque",
+          "Romantic",
+          "Modern Classical"
+        ],
+        "mode": "expand"
+      }
+    },
+    {
+      "id": "genre_simplification_electronic",
+      "type": "genre_simplification",
+      "enabled": true,
+      "priority": 100,
+      "pattern": "\\b(electronic|electronica|edm)\\b",
+      "description": "Auto-expand electronic search to include electronic subgenres",
+      "action": {
+        "auto_apply_facets": [
+          "Club / Electronica",
+          "House",
+          "Deep House",
+          "Tech House",
+          "Techno",
+          "Trance",
+          "Drum and Bass",
+          "Dubstep",
+          "Ambient",
+          "IDM",
+          "Synthwave"
+        ],
+        "mode": "expand"
+      }
+    },
+    {
+      "id": "genre_simplification_hip_hop",
+      "type": "genre_simplification",
+      "enabled": true,
+      "priority": 100,
+      "pattern": "\\b(hip hop|hip-hop|hiphop|rap)\\b",
+      "description": "Auto-expand hip hop search to include rap and hip hop styles",
+      "action": {
+        "auto_apply_facets": [
+          "Hip Hop",
+          "Rap",
+          "Trap",
+          "Boom Bap",
+          "Lo-Fi Hip Hop",
+          "Alternative Hip Hop",
+          "East Coast Hip Hop",
+          "West Coast Hip Hop",
+          "Southern Hip Hop"
+        ],
+        "mode": "expand"
+      }
+    },
+    {
+      "id": "genre_simplification_jazz",
+      "type": "genre_simplification",
+      "enabled": true,
+      "priority": 100,
+      "pattern": "\\b(jazz|jazzy)\\b",
+      "description": "Auto-expand jazz search to include jazz styles",
+      "action": {
+        "auto_apply_facets": [
+          "Jazz",
+          "Bebop",
+          "Cool Jazz",
+          "Hard Bop",
+          "Modal Jazz",
+          "Free Jazz",
+          "Fusion",
+          "Latin Jazz",
+          "Smooth Jazz",
+          "Swing",
+          "Big Band"
+        ],
+        "mode": "expand"
+      }
+    },
+    {
+      "id": "library_boost_sports_mlb",
+      "type": "library_boost",
+      "enabled": true,
+      "priority": 90,
+      "pattern": "\\b(sports?|baseball|stadium|game|athletic)\\b",
+      "description": "Boost MLB Music library for sports-related queries",
+      "action": {
+        "boost_libraries": [
+          {
+            "library_name": "MLB Music",
+            "boost_factor": 1.5
+          }
+        ]
+      }
+    },
+    {
+      "id": "library_boost_sports_nfl",
+      "type": "library_boost",
+      "enabled": true,
+      "priority": 90,
+      "pattern": "\\b(football|nfl|sports?|stadium|game)\\b",
+      "description": "Boost NFL Music library for football/sports queries",
+      "action": {
+        "boost_libraries": [
+          {
+            "library_name": "NFL Music Library",
+            "boost_factor": 1.5
+          }
+        ]
+      }
+    },
+    {
+      "id": "library_boost_corporate",
+      "type": "library_boost",
+      "enabled": true,
+      "priority": 90,
+      "pattern": "\\b(corporate|business|professional|office|presentation)\\b",
+      "description": "Boost corporate-focused libraries",
+      "action": {
+        "boost_libraries": [
+          {
+            "library_name": "Corporate",
+            "boost_factor": 1.3
+          },
+          {
+            "library_name": "Foundation Music",
+            "boost_factor": 1.2
+          }
+        ]
+      }
+    },
+    {
+      "id": "library_boost_cinematic",
+      "type": "library_boost",
+      "enabled": true,
+      "priority": 90,
+      "pattern": "\\b(cinematic|epic|orchestral|film|trailer|score)\\b",
+      "description": "Boost cinematic libraries for film/trailer queries",
+      "action": {
+        "boost_libraries": [
+          {
+            "library_name": "KPM Main Series",
+            "boost_factor": 1.4
+          },
+          {
+            "library_name": "Bruton",
+            "boost_factor": 1.3
+          }
+        ]
+      }
+    },
+    {
+      "id": "recency_interleaving_pop",
+      "type": "recency_interleaving",
+      "enabled": true,
+      "priority": 80,
+      "pattern": "\\b(pop|contemporary|modern|current|fresh)\\b",
+      "description": "Interleave recent and vintage pop tracks (favor recent)",
+      "action": {
+        "recent_count": 8,
+        "vintage_count": 4,
+        "recent_threshold_months": 12,
+        "pattern": "RRRR VRRR VRRR"
+      }
+    },
+    {
+      "id": "recency_interleaving_electronic",
+      "type": "recency_interleaving",
+      "enabled": true,
+      "priority": 80,
+      "pattern": "\\b(electronic|edm|house|techno|dubstep)\\b",
+      "description": "Interleave recent and vintage electronic (heavily favor recent)",
+      "action": {
+        "recent_count": 9,
+        "vintage_count": 3,
+        "recent_threshold_months": 18,
+        "pattern": "RRRR RRRR VRRV"
+      }
+    },
+    {
+      "id": "recency_interleaving_hip_hop",
+      "type": "recency_interleaving",
+      "enabled": true,
+      "priority": 80,
+      "pattern": "\\b(hip hop|hip-hop|rap|trap)\\b",
+      "description": "Interleave recent and vintage hip hop (heavily favor recent)",
+      "action": {
+        "recent_count": 9,
+        "vintage_count": 3,
+        "recent_threshold_months": 12,
+        "pattern": "RRRR RRRR VRRV"
+      }
+    },
+    {
+      "id": "recency_interleaving_balanced",
+      "type": "recency_interleaving",
+      "enabled": true,
+      "priority": 70,
+      "pattern": "\\b(new|latest|recent|updated)\\b",
+      "description": "Generic recent search - heavily favor new releases",
+      "action": {
+        "recent_count": 10,
+        "vintage_count": 2,
+        "recent_threshold_months": 6,
+        "pattern": "RRRR RRRR RRVR"
+      }
+    },
+    {
+      "id": "stems_preference",
+      "type": "feature_boost",
+      "enabled": true,
+      "priority": 60,
+      "pattern": "\\b(stems?|separate|isolated|multitrack)\\b",
+      "description": "Boost tracks with stems when stems are mentioned",
+      "action": {
+        "boost_field": "has_stems",
+        "boost_value": "true",
+        "boost_factor": 2.0
+      }
+    },
+    {
+      "id": "instrumental_preference",
+      "type": "filter_optimization",
+      "enabled": true,
+      "priority": 60,
+      "pattern": "\\b(instrumental|no vocals?|without vocals?|music only)\\b",
+      "description": "Auto-filter for instrumental tracks when specified",
+      "action": {
+        "auto_apply_filter": {
+          "field": "vocals",
+          "value": "No Vocals",
+          "operator": "contains"
+        }
+      }
+    },
+    {
+      "id": "vocal_preference",
+      "type": "filter_optimization",
+      "enabled": true,
+      "priority": 60,
+      "pattern": "\\b(vocals?|sung|singing|lyrics?|singer)\\b",
+      "description": "Filter for tracks with vocals when vocals mentioned",
+      "action": {
+        "auto_apply_filter": {
+          "field": "vocals",
+          "value": "Female,Male,Children,Choir",
+          "operator": "contains_any"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "last_updated": "2025-12-17",
+    "updated_by": "Product Team",
+    "notes": [
+      "Priority determines rule application order (higher = earlier)",
+      "Pattern is a JavaScript regex (use \\\\b for word boundaries)",
+      "Genre simplification expands queries to include related subgenres",
+      "Library boosting multiplies relevance scores for specified libraries",
+      "Recency interleaving mixes new/vintage tracks by pattern (R=recent, V=vintage)",
+      "Feature boost increases scores for tracks with specific attributes",
+      "Filter optimization auto-applies filters based on query text",
+      "All rules can be enabled/disabled without code changes"
+    ]
+  }
+}

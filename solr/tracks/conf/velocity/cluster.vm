@@ -1,0 +1,5 @@
+#**
+ *  Check if Clustering is Enabled and then
+ *  call cluster_results.vm
+ *#
+
