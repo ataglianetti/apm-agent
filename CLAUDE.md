@@ -55,7 +55,7 @@ apm-agent/
 │   │   ├── indexToSolr.js       # Index tracks to Solr (1.4M docs)
 │   │   └── indexComposersToSolr.js # Index composers for autocomplete
 │   │
-│   ├── apm_music.db             # SQLite database (metadata source)
+│   ├── apm_music.db             # SQLite database (NOT in git, generate locally)
 │   └── index.js                 # Express server entry point
 │
 ├── solr/                        # Solr configuration (Docker volume)
@@ -982,6 +982,26 @@ curl "http://localhost:8983/solr/composers/select?q=*:*&rows=0"
 
 **Location:** `server/apm_music.db` (1.4M tracks, metadata source for Solr)
 
+**Note:** The database file is NOT tracked in git (7GB file exceeds GitHub's 100MB limit).
+New developers must generate it locally using the scripts below.
+
+**To generate the database:**
+```bash
+cd server
+
+# 1. Load the full track catalog from CSV
+node scripts/loadFullCatalog.js
+
+# 2. Load facet taxonomy (for filtering)
+node scripts/loadFacetTaxonomy.js
+
+# 3. Load track-facet mappings
+node scripts/loadTrackFacets.js
+
+# 4. Enable FTS5 full-text search (optional, for fallback when Solr unavailable)
+node scripts/enableFTS5.js
+```
+
 **Tables used:**
 - `tracks` - Source data for Solr indexing
 - `facet_taxonomy` - Facet ID lookups for search queries
@@ -1041,6 +1061,7 @@ npm start              # Start server (serves built client)
 1. Create a new branch: `git checkout -b feature/your-feature-name`
 2. Develop and commit on the feature branch
 3. Test locally before pushing:
+   - `docker compose up -d` - start Solr container
    - `npm run dev` - start dev server at localhost:3001 (server) and localhost:5173 (client)
    - Test all 3 routes with curl commands (see Testing After Changes)
 4. Push the branch: `git push -u origin feature/your-feature-name`
@@ -1061,7 +1082,8 @@ npm start              # Start server (serves built client)
 1. Test Route 1 (@ filters): `curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "@mood:uplifting"}]}'`
 2. Test Route 2 (simple query): `curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "upbeat rock"}]}'`
 3. Test Route 3 (complex query): `curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "What tracks are in my project?"}]}'`
-4. Verify performance targets: Route 1 <100ms, Route 2 <2s, Route 3 <4s
+4. Verify performance targets: Route 1 <100ms, Route 2 <100ms, Route 3 <4s
+5. Ensure Solr is running: `curl "http://localhost:8983/solr/tracks/admin/ping"`
 
 ---
 
@@ -1074,7 +1096,7 @@ When working on this codebase:
 2. **Prefer editing over creating** - Edit existing files rather than creating new ones
 3. **Update configs before code** - Modify businessRules.json or fieldWeights.json before changing code
 4. **Test all 3 routes** - Changes may affect routing logic, test each tier
-5. **Maintain performance** - Keep Route 1 <100ms, Route 2 <2s, Route 3 <4s
+5. **Maintain performance** - Keep Route 1 <100ms, Route 2 <100ms, Route 3 <4s
 
 ### Adding Features
 1. **Check configuration first** - Can this be solved with businessRules.json?
@@ -1083,15 +1105,17 @@ When working on this codebase:
 4. **Update system prompt** - If adding tools or changing behavior, update chat-system-prompt.md
 
 ### Modifying Search Behavior
-1. **Field weights** - Edit fieldWeights.json (no code changes)
+1. **Field weights** - Edit fieldWeights.json (Solr qf/pf2 format, no code changes)
 2. **Business rules** - Edit businessRules.json (no code changes)
 3. **Query routing** - Edit server/routes/chat.js (lines 25-60)
-4. **FTS5 queries** - Edit server/services/metadataSearch.js
+4. **Solr queries** - Edit server/services/solrService.js
+5. **FTS5 fallback** - Edit server/services/metadataSearch.js (used when Solr unavailable)
 
-### Database Changes
-1. **Schema changes** - Update CREATE TABLE statements and rebuild database
-2. **Adding indexes** - Run ALTER TABLE, test query performance
-3. **FTS5 changes** - Rebuild FTS5 index after schema changes
+### Search Engine Changes
+1. **Solr schema changes** - Update solr/tracks/conf/managed-schema, restart Solr
+2. **Reindex tracks** - Run `node server/scripts/indexToSolr.js --delete-first`
+3. **Reindex composers** - Run `node server/scripts/indexComposersToSolr.js --delete-first`
+4. **SQLite schema** - Update CREATE TABLE and rebuild database (source for Solr)
 
 ### Testing After Changes
 ```bash
@@ -1129,6 +1153,20 @@ curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" 
 
 **Common Commands:**
 ```bash
+# Solr (must be running for search)
+docker compose up -d                              # Start Solr container
+docker compose down                               # Stop Solr container
+docker compose logs -f solr                       # View Solr logs
+
+# Solr indexing (run from project root)
+node server/scripts/indexToSolr.js --delete-first       # Index 1.4M tracks (~10 min)
+node server/scripts/indexComposersToSolr.js --delete-first  # Index 16K composers (~1 sec)
+
+# Solr verification
+curl "http://localhost:8983/solr/tracks/select?q=*:*&rows=0"     # Count: 1,403,568
+curl "http://localhost:8983/solr/composers/select?q=*:*&rows=0"  # Count: 16,784
+curl "http://localhost:8983/solr/tracks/admin/ping"              # Health check
+
 # Development
 npm run dev           # Start both server (3001) and client (5173) with hot reload
 npm run dev:server    # Start server only
@@ -1138,20 +1176,18 @@ npm run dev:client    # Start client only
 npm run build         # Build client for production
 npm start             # Start production server
 
-# Client-specific (run from /client)
-npm run preview       # Preview production build locally
-
 # Testing endpoints
 curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" \
   -d '{"messages": [{"role": "user", "content": "upbeat rock"}]}'
 
-# Database queries (run from /server)
-sqlite3 apm_music.db "SELECT COUNT(*) FROM tracks;"           # Count tracks
+# SQLite queries (metadata source, run from /server)
+sqlite3 apm_music.db "SELECT COUNT(*) FROM tracks;"           # Count tracks (1.4M)
 sqlite3 apm_music.db "SELECT * FROM facet_taxonomy LIMIT 10;" # View facets
 
 # Environment
 export CLAUDE_MODEL=claude-3-haiku-20240307    # Set Claude model (default)
 export CLAUDE_MODEL=claude-sonnet-4-20250514   # Use Sonnet for better quality
+export SEARCH_ENGINE=fts5                       # Force FTS5 fallback (skip Solr)
 ```
 
 ---

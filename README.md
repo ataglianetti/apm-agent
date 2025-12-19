@@ -80,7 +80,17 @@ Claude Code automatically reads `CLAUDE.md` as system instructions and has acces
    npm run dev
    ```
 
-3. Open http://localhost:5173 in your browser
+3. **Generate the SQLite database** (not tracked in git due to 7GB size):
+   ```bash
+   cd server
+   node scripts/loadFullCatalog.js      # Load tracks from CSV
+   node scripts/loadFacetTaxonomy.js    # Load facet taxonomy
+   node scripts/loadTrackFacets.js      # Load track-facet mappings
+   node scripts/enableFTS5.js           # Enable full-text search
+   cd ..
+   ```
+
+4. Open http://localhost:5173 in your browser
 
 **Changing the model:**
 
