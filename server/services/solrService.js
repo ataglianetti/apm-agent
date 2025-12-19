@@ -196,6 +196,7 @@ export async function search(options = {}) {
     text = '*:*',
     facetsByCategory = {},  // { "Mood": ["Mood/123", "Mood/456"], "Instruments": ["Instruments/789"] }
     excludeFacetIds = [],
+    fieldFilters = [],      // [{field, value, operator}] for text field filtering
     sort = 'featured',
     limit = 12,
     offset = 0,
@@ -247,6 +248,19 @@ export async function search(options = {}) {
   }
   if (ranges.releaseDate) {
     fq.push(`apm_release_date:[${ranges.releaseDate.min || '*'} TO ${ranges.releaseDate.max || '*'}]`);
+  }
+
+  // Text field filters (composer, library, album, etc.)
+  for (const filter of fieldFilters) {
+    const escapedValue = filter.value.replace(/"/g, '\\"');
+    if (filter.operator === 'exact') {
+      // Exact match - use quotes
+      fq.push(`${filter.field}:"${escapedValue}"`);
+    } else {
+      // Contains match - use wildcards
+      fq.push(`${filter.field}:*${escapedValue}*`);
+    }
+    console.log(`Added field filter: ${filter.field} ${filter.operator} "${filter.value}"`);
   }
 
   // Add all filter queries

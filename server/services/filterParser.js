@@ -10,28 +10,22 @@
  */
 
 // Complete field mapping with all supported fields
+// Uses SOLR *_search field names (these are the indexed/searchable fields)
 const FIELD_MAPPING = {
-  // Primary fields
-  'track-title': 'track_title',
-  'track-description': 'track_description',
-  'album-title': 'album_title',
-  'composer': 'composer',
-  'library': 'library_name',
-  'tags': 'genre',
-  'lyrics-text': 'lyrics',
-  'inspired-by': 'inspired_by',
-  'bpm': 'bpm',
+  // Primary text search fields (Solr *_search fields are indexed)
+  'track-title': 'track_title_search',
+  'track-description': 'track_description_search',
+  'album-title': 'album_title_search',
+  'composer': 'composer_search',
+  'library': 'library_search',
 
-  // Additional metadata fields
-  'artist': 'artist',
-  'publisher': 'publisher',
-  'release-date': 'apm_release_date',
+  // Numeric/date fields (these don't need _search suffix)
+  'bpm': 'bpm',
   'duration': 'duration',
-  'has-stems': 'has_stems',
-  'isrc': 'isrc',
-  'label': 'label',
-  'catalog': 'catalog_number',
-  'energy': 'energy_level',
+  'release-date': 'apm_release_date',
+
+  // Genre search via @tags (maps to Master Genre facet)
+  'tags': 'facet:Master Genre',
 
   // Facet category filters (mapped to special 'facet:CategoryName' format)
   'mood': 'facet:Mood',
@@ -80,8 +74,7 @@ const FIELD_MAPPING = {
   'title': 'track_title',
   'album': 'album_title',
   'description': 'track_description',
-  'date': 'apm_release_date',
-  'stems': 'has_stems'
+  'date': 'apm_release_date'
 };
 
 // Operators and their meanings
@@ -107,6 +100,7 @@ const VALUE_PARSERS = {
 
   duration: (value) => {
     // Handle duration in various formats: "2:30", "150", ">60"
+    // Note: duration is stored in seconds in the database
     if (value.includes(':')) {
       const [minutes, seconds] = value.split(':').map(v => parseInt(v));
       return (minutes * 60) + seconds;
@@ -116,16 +110,6 @@ const VALUE_PARSERS = {
       return { type: operator === '>' ? 'greater' : 'less', value: seconds };
     }
     return parseInt(value);
-  },
-
-  'has-stems': (value) => {
-    // Convert various boolean representations
-    const truthy = ['true', 'yes', '1', 'y'];
-    const falsy = ['false', 'no', '0', 'n'];
-    const normalized = value.toLowerCase().trim();
-    if (truthy.includes(normalized)) return 'true';
-    if (falsy.includes(normalized)) return 'false';
-    return value;
   },
 
   'release-date': (value) => {
@@ -336,25 +320,23 @@ export function hasFilters(message) {
  */
 export function getAvailableFields() {
   return [
-    // Metadata fields
-    { key: '@track-title', field: 'track_title', description: 'Search by track name' },
-    { key: '@track-description', field: 'track_description', description: 'Search track descriptions' },
-    { key: '@album-title', field: 'album_title', description: 'Search by album name' },
-    { key: '@composer', field: 'composer', description: 'Search by composer name' },
-    { key: '@artist', field: 'artist', description: 'Search by artist name' },
-    { key: '@library', field: 'library_name', description: 'Search by library' },
+    // Metadata fields (Solr *_search fields are indexed)
+    { key: '@track-title', field: 'track_title_search', description: 'Search by track name' },
+    { key: '@track-description', field: 'track_description_search', description: 'Search track descriptions' },
+    { key: '@album-title', field: 'album_title_search', description: 'Search by album name' },
+    { key: '@composer', field: 'composer_search', description: 'Search by composer name' },
+    { key: '@library', field: 'library_search', description: 'Search by library' },
     { key: '@bpm', field: 'bpm', description: 'Search by BPM (supports ranges: 120-140)' },
-    { key: '@duration', field: 'duration', description: 'Search by duration (2:30 or seconds)' },
+    { key: '@duration', field: 'duration', description: 'Search by duration in seconds' },
     { key: '@release-date', field: 'apm_release_date', description: 'Search by release date' },
-    { key: '@has-stems', field: 'has_stems', description: 'Filter by stem availability (true/false)' },
-    { key: '@lyrics-text', field: 'lyrics', description: 'Search lyrics content' },
-    { key: '@inspired-by', field: 'inspired_by', description: 'Search inspiration references' },
+    { key: '@tags', field: 'facet:Master Genre', description: 'Search by genre tags (e.g., rock, hip hop)' },
 
-    // Facet category filters (all 18 categories)
+    // Facet category filters (all 18 categories from facet_taxonomy)
     { key: '@mood', field: 'facet:Mood', description: 'Search by mood (e.g., upbeat, dark, peaceful)' },
     { key: '@genre', field: 'facet:Master Genre', description: 'Search by genre (e.g., rock, classical, electronic)' },
+    { key: '@additional-genre', field: 'facet:Additional Genre', description: 'Search by additional genre' },
     { key: '@instruments', field: 'facet:Instruments', description: 'Search by instruments (e.g., piano, guitar, drums)' },
-    { key: '@vocals', field: 'facet:Vocals', description: 'Search by vocal type (e.g., male, female, none)' },
+    { key: '@vocals', field: 'facet:Vocals', description: 'Search by vocal type (e.g., male, female, choir)' },
     { key: '@tempo', field: 'facet:Tempo', description: 'Search by tempo (e.g., fast, slow, medium)' },
     { key: '@music-for', field: 'facet:Music For', description: 'Search by use case (e.g., chase, love scene, montage)' },
     { key: '@character', field: 'facet:Character', description: 'Search by character/personality' },
@@ -366,7 +348,8 @@ export function getAvailableFields() {
     { key: '@musical-form', field: 'facet:Musical Form', description: 'Search by musical form' },
     { key: '@sfx', field: 'facet:Sound Effects', description: 'Search by sound effects type' },
     { key: '@time-period', field: 'facet:Time Period', description: 'Search by time period/era' },
-    { key: '@track-type', field: 'facet:Track Type', description: 'Search by track type' }
+    { key: '@track-type', field: 'facet:Track Type', description: 'Search by track type' },
+    { key: '@instrumental-vocal', field: 'facet:Instrumental & Vocal Groupings', description: 'Instrumental or vocal grouping' }
   ];
 }
 
@@ -387,7 +370,7 @@ Use @ filters to search specific metadata fields directly:
 - \`@library:MLB Music\` - MLB Music library tracks
 - \`@composer=John Williams\` - Exactly "John Williams"
 - \`@bpm:120-140\` - BPM between 120 and 140
-- \`@has-stems:true\` - Only tracks with stems
+- \`@album-title:christmas\` - Albums with "christmas" in title
 
 **Facet Category Examples (18 categories):**
 - \`@mood:upbeat\` - Upbeat mood tracks

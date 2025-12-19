@@ -106,8 +106,10 @@ async function searchWithSolr(options) {
     facetsByCategory[facet.category].push(...ids);
   }
 
-  // Build range filters from additional filters
+  // Separate range filters from text field filters
   const ranges = {};
+  const fieldFilters = [];
+
   for (const filter of filters) {
     if (filter.operator === 'range') {
       ranges[filter.field] = filter.value;
@@ -115,13 +117,23 @@ async function searchWithSolr(options) {
       ranges[filter.field] = { min: filter.value };
     } else if (filter.operator === 'less') {
       ranges[filter.field] = { max: filter.value };
+    } else {
+      // Text field filter (contains, exact) - pass to Solr fq
+      fieldFilters.push({
+        field: filter.field,
+        value: filter.value,
+        operator: filter.operator
+      });
     }
   }
+
+  console.log(`Solr search: ${Object.keys(facetsByCategory).length} facet categories, ${fieldFilters.length} field filters, text="${text}"`);
 
   // Execute Solr search with facets grouped by category
   const result = await solrService.search({
     text: text || '*:*',
-    facetsByCategory,  // New parameter: grouped facet IDs
+    facetsByCategory,  // Grouped facet IDs for combined_ids
+    fieldFilters,      // Text field filters (composer, library, etc.)
     limit,
     offset,
     ranges

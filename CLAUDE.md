@@ -47,7 +47,7 @@ apm-agent/
 │   │   ├── businessRulesEngine.js # Rule matching and scoring
 │   │   ├── claude.js            # Anthropic API client (Route 3)
 │   │   ├── genreMapper.js       # Genre ID → name mapping
-│   │   ├── metadataEnhancer.js  # Track metadata extraction
+│   │   ├── metadataEnhancer.js  # Genre name mapping and duration formatting
 │   │   ├── filterParser.js      # @ syntax parser
 │   │   └── taxonomySearch.js    # Facet taxonomy search
 │   │
@@ -232,29 +232,60 @@ Primary catalog table with track metadata.
 ```sql
 CREATE TABLE tracks (
   id TEXT PRIMARY KEY,              -- e.g., "NFL_NFL_0036_01901"
+  parent_aktrack TEXT,              -- Parent track ID for alternates
   track_title TEXT NOT NULL,
+  track_number TEXT,
+  track_index INTEGER,
   track_description TEXT,
-  library_name TEXT,
-  composer TEXT,
-  album_title TEXT,
+  duration INTEGER,                 -- Duration in seconds
   bpm INTEGER,
-  duration TEXT,                    -- e.g., "2:45"
+  internal_release_date TEXT,
   apm_release_date TEXT,
-  has_stems TEXT,                   -- "yes" or "no"
+  recording_date TEXT,
 
-  -- Enhanced metadata (extracted from descriptions)
-  moods TEXT,                       -- JSON array: ["uplifting", "happy"]
-  energy_level TEXT,                -- "high", "medium", "low"
-  use_cases TEXT,                   -- JSON array: ["advertising", "sports"]
-  instruments TEXT,                 -- JSON array: ["piano", "guitar"]
-  era TEXT,                         -- "contemporary", "vintage", "80s", "90s"
+  -- Facet data (real metadata from APM)
+  facet_ids TEXT,                   -- Semicolon-separated facet IDs: "1011;1034;1224..."
+  facet_labels TEXT,                -- Semicolon-separated labels: "Accelerating;Alarms & Sirens..."
 
-  -- Computed fields
-  combined_genre TEXT               -- Human-readable genre names
+  -- Genre IDs (reference genre_taxonomy)
+  master_genre_id INTEGER,
+  additional_genre_ids TEXT,        -- Semicolon-separated genre IDs
+
+  -- Language and artist info
+  language_iso TEXT,
+  artists TEXT,
+  isrc_main TEXT,
+  isrc_all TEXT,
+
+  -- Song-level grouping (for deduplication)
+  song_id TEXT,
+  song_title TEXT,
+  song_composers TEXT,
+  song_lyricists TEXT,
+  song_arrangers TEXT,
+
+  -- Album info
+  album_id TEXT,
+  album_title TEXT,
+  album_description TEXT,
+  album_release_date TEXT,
+  album_artists TEXT,
+
+  -- Library info
+  library_id TEXT,
+  library_name TEXT,
+
+  -- Composer details
+  composer_lastname TEXT,
+  composer_firstname TEXT,
+  composer_fullname TEXT,
+  composer_affiliation TEXT,
+  composer_cae_number TEXT
 );
 
 CREATE INDEX idx_tracks_library ON tracks(library_name);
-CREATE INDEX idx_tracks_stems ON tracks(has_stems);
+CREATE INDEX idx_tracks_song_id ON tracks(song_id);
+CREATE INDEX idx_tracks_master_genre ON tracks(master_genre_id);
 ```
 
 #### track_facets (35,000+ rows)
@@ -300,7 +331,7 @@ CREATE TABLE genre_taxonomy (
 ```
 
 #### tracks_fts (FTS5 virtual table)
-Full-text search index for fast text queries.
+Full-text search index for fast text queries (fallback when Solr unavailable).
 
 ```sql
 CREATE VIRTUAL TABLE tracks_fts USING fts5(
@@ -308,8 +339,8 @@ CREATE VIRTUAL TABLE tracks_fts USING fts5(
   track_title,
   track_description,
   album_title,
-  composer,
-  combined_genre,
+  composer_fullname,
+  facet_labels,
   content=tracks
 );
 ```
@@ -362,13 +393,14 @@ Main search endpoint with 3-tier routing.
       "id": "NFL_NFL_0036_01901",
       "track_title": "Gridiron Glory",
       "track_description": "Epic rock anthem...",
-      "moods": ["powerful", "energetic"],
-      "energy_level": "high",
-      "instruments": ["electric_guitar", "drums"],
-      "use_cases": ["sports", "advertising"],
       "bpm": 128,
       "duration": "2:45",
       "library_name": "NFL Music",
+      "composer_fullname": "John Smith",
+      "album_title": "Sports Anthems Vol. 1",
+      "facet_labels": "Powerful;Energetic;Electric Guitar;Drums;Sports",
+      "master_genre_id": 1103,
+      "genre_name": "Rock",
       "_relevance_score": 0.92
     }
     // ... 11 more tracks
@@ -817,7 +849,8 @@ time curl -X POST http://localhost:3001/api/chat \
 **Indexes (already created):**
 ```sql
 CREATE INDEX idx_tracks_library ON tracks(library_name);
-CREATE INDEX idx_tracks_stems ON tracks(has_stems);
+CREATE INDEX idx_tracks_song_id ON tracks(song_id);
+CREATE INDEX idx_tracks_master_genre ON tracks(master_genre_id);
 CREATE INDEX idx_track_facets_facet ON track_facets(facet_id);
 CREATE INDEX idx_track_facets_track ON track_facets(track_id);
 CREATE INDEX idx_facet_category ON facet_taxonomy(category_name);
@@ -830,7 +863,7 @@ CREATE INDEX idx_facet_name ON facet_taxonomy(facet_name);
 - Example: If filtering by `bpm` frequently, add `CREATE INDEX idx_tracks_bpm ON tracks(bpm)`
 
 **When NOT to index:**
-- Low cardinality fields (e.g., `has_stems` only has 2 values)
+- Low cardinality fields
 - Fields rarely queried
 - Text fields (use FTS5 instead)
 
