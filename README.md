@@ -1,264 +1,202 @@
-# APM Agent Prototype
+# APM Agent
 
-A demonstration of context engineering for music search, built with real APM catalog data and simulated user activity.
+Production music search system with intelligent 3-tier routing.
 
-## What This Is
+## Overview
 
-This prototype shows how **context engineering** transforms a basic LLM into an intelligent music search assistant. Instead of just answering questions, the agent understands:
+APM Agent is a music search application that combines:
+- **Solr search engine** with 1.4M tracks indexed (matching APM production)
+- **Song-level deduplication** via song_id grouping (406K unique songs)
+- **18 facet categories** (2,120 total facets) for precise filtering
+- **Business rules engine** for PM-controlled ranking without code changes
+- **3-tier intelligent routing** optimizing for speed and accuracy
+- **Claude API integration** for complex, conversational queries
 
-- **User history** - What you've searched, auditioned, and downloaded
-- **Project context** - What you're working on and recent activity
-- **Behavioral signals** - Full listens vs. quick skips indicate preference
-- **Patterns over time** - Recurring searches suggest ongoing needs
+## Tech Stack
 
-## The Context Engineering Approach
+- **Frontend:** React + Vite
+- **Backend:** Node.js + Express
+- **Search:** Apache Solr (primary), SQLite FTS5 (fallback)
+- **Database:** SQLite (metadata source)
+- **AI:** Anthropic Claude API
 
-The instructions in `CLAUDE.md` follow a 6-layer framework:
+## Performance
 
-| Layer | Purpose |
-|-------|---------|
-| **Intent** | Interpret what the user actually means |
-| **User** | Build a portrait from behavioral data |
-| **Domain** | Understand entities and relationships |
-| **Rules** | Define hard constraints and soft guidelines |
-| **Environment** | Track real-time session state |
-| **Exposition** | Structure responses appropriately |
+| Route | Use Case | Target | Actual |
+|-------|----------|--------|--------|
+| Route 1 | @ filter queries | <100ms | ~45ms |
+| Route 2 | Simple text queries | <100ms | ~90ms |
+| Route 3 | Complex/conversational | <4s | ~2.3s |
 
 ## Project Structure
 
 ```
-apm-agent-prototype/
-├── CLAUDE.md              # Agent instructions (the context layer)
-├── README.md              # This file
-├── DEMO.md                # Test cases and demo flow
-├── scripts/
-│   └── project_ops.py     # Create projects, add/remove tracks
-└── data/
-    ├── tracks.csv             # 10,000 tracks from APM catalog
-    ├── projects.csv           # 12 projects (Jan-Dec 2025)
-    ├── project_tracks.csv     # Track assignments to projects
-    ├── search_history.csv     # 58 searches with results + actions
-    ├── download_history.csv   # 82 downloads
-    ├── audition_history.csv   # 212 auditions with duration signals
-    ├── prompt_results.csv     # 30 pre-computed prompt search results
-    ├── audio_similarities.csv # 70+ track-to-track similarity mappings
-    └── mock_references.csv    # YouTube/Spotify/TikTok/file mappings
+apm-agent/
+├── client/                      # React + Vite frontend
+│   ├── src/
+│   │   ├── components/          # UI components (ChatContainer, TrackCard, etc.)
+│   │   ├── hooks/               # Custom hooks (useChat)
+│   │   └── App.jsx              # Main application
+│   └── vite.config.js
+│
+├── server/                      # Express backend
+│   ├── config/                  # Configuration files
+│   │   ├── businessRules.json   # PM-controlled ranking rules
+│   │   ├── fieldWeights.json    # Search field weights (Solr qf/pf2)
+│   │   ├── solr.json            # Solr connection settings
+│   │   └── chat-system-prompt.md
+│   │
+│   ├── routes/                  # API routes
+│   │   ├── chat.js              # Main chat endpoint (3-tier routing)
+│   │   └── trackMetadata.js     # Track metadata endpoints
+│   │
+│   ├── services/                # Core business logic
+│   │   ├── solrService.js       # Solr search client
+│   │   ├── metadataSearch.js    # Unified search routing
+│   │   ├── businessRulesEngine.js
+│   │   └── claude.js            # Anthropic API client
+│   │
+│   ├── scripts/                 # Database setup scripts
+│   └── apm_music.db             # SQLite database (NOT in git)
+│
+├── solr/                        # Solr configuration
+│   ├── tracks/                  # 1.4M tracks
+│   ├── composers/               # 16K composers (autocomplete)
+│   └── ...
+│
+├── data/                        # CSV source files
+│   └── tracks.csv               # Track catalog
+│
+├── docker-compose.yml           # Solr container
+├── CLAUDE.md                    # Full documentation
+└── README.md                    # This file
 ```
 
 ## Setup
 
-### Option 1: Claude Code (Anthropic)
+### Prerequisites
 
-1. Install Claude Code CLI:
-   ```bash
-   npm install -g @anthropic-ai/claude-code
-   ```
+- Node.js v18+
+- Docker Desktop (for Solr)
+- Anthropic API key
 
-2. Navigate to the project directory:
-   ```bash
-   cd /path/to/apm-agent-prototype
-   ```
-
-3. Start Claude Code:
-   ```bash
-   claude
-   ```
-
-Claude Code automatically reads `CLAUDE.md` as system instructions and has access to all files in the directory.
-
-### Option 1b: Web UI (React + Express)
-
-1. Copy `.env.example` to `.env` and add your API key:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your ANTHROPIC_API_KEY
-   ```
-
-2. Install dependencies and start the dev server:
-   ```bash
-   npm install
-   npm run dev
-   ```
-
-3. **Generate the SQLite database** (not tracked in git due to 7GB size):
-   ```bash
-   cd server
-   node scripts/loadFullCatalog.js      # Load tracks from CSV
-   node scripts/loadFacetTaxonomy.js    # Load facet taxonomy
-   node scripts/loadTrackFacets.js      # Load track-facet mappings
-   node scripts/enableFTS5.js           # Enable full-text search
-   cd ..
-   ```
-
-4. Open http://localhost:5173 in your browser
-
-**Changing the model:**
-
-The web UI defaults to `claude-sonnet-4-20250514`. To use a different model:
+### 1. Clone and Install
 
 ```bash
-# Option 1: Set in .env file
-CLAUDE_MODEL=claude-3-5-haiku-20241022
-
-# Option 2: Set inline when starting
-CLAUDE_MODEL=claude-opus-4-20250514 npm run dev
+git clone https://github.com/ataglianetti/apm-agent.git
+cd apm-agent
+npm install
 ```
 
-Available models:
-- `claude-sonnet-4-20250514` (default, balanced)
-- `claude-3-5-haiku-20241022` (faster, cheaper)
-- `claude-opus-4-20250514` (most capable)
+### 2. Environment Setup
 
-### Option 2: ChatGPT Codex / OpenAI CLI
-
-1. Install the OpenAI Codex CLI:
-   ```bash
-   npm install -g @openai/codex
-   ```
-
-2. Navigate to the project directory:
-   ```bash
-   cd /path/to/apm-agent-prototype
-   ```
-
-3. Start Codex with the instructions file:
-   ```bash
-   codex --instructions CLAUDE.md
-   ```
-
-Alternatively, copy the contents of `CLAUDE.md` into your system prompt when using the OpenAI API directly.
-
-### Option 3: Manual Setup (Any LLM)
-
-1. Copy the contents of `CLAUDE.md`
-2. Paste as the system prompt in your LLM interface
-3. Ensure the LLM has access to read the CSV files in `./data/`
-
-## Example Interactions
-
-Once set up, try these prompts:
-
-**Project queries:**
-```
-What's in my Year in Review project?
-Show me the tracks in P011 sorted by position.
-What have I been working on recently?
+```bash
+cp .env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY
 ```
 
-**History queries:**
-```
-What have I been searching for lately?
-Show me tracks I fully listened to but didn't download.
-What did I download for my holiday campaign?
-```
+### 3. Start Solr
 
-**Prompt search (simulated AIMS):**
-```
-Find me dark tension suspense music
-I need uplifting inspiring corporate tracks
-Search for tropical summer fun
+```bash
+docker compose up -d
+# Wait for Solr to be ready at http://localhost:8983
 ```
 
-**Audio similarity - URL reference:**
-```
-Find me something like this: https://youtube.com/watch?v=dQw4w9WgXcQ
-Here's a Spotify reference: https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b
-The client loves this TikTok: https://tiktok.com/@user/video/7123456789
-```
+### 4. Generate the SQLite Database
 
-**Audio similarity - File upload:**
-```
-The client sent this reference: client_reference_track.wav
-Find tracks like agency_reference.wav
-```
+The database file (7GB) is not tracked in git. Generate it locally:
 
-**Audio similarity - APM track:**
-```
-Find me tracks similar to NFL_NFL_0036_01901
-More like the last track I downloaded
-Show me tracks that sound like "Long Hard Look"
+```bash
+cd server
+node scripts/loadFullCatalog.js      # Load 1.4M tracks from CSV
+node scripts/loadFacetTaxonomy.js    # Load facet taxonomy
+node scripts/loadTrackFacets.js      # Load track-facet mappings
+node scripts/enableFTS5.js           # Enable full-text search fallback
+cd ..
 ```
 
-**Behavioral analysis:**
-```
-Which searches resulted in the most downloads?
-What's my average audition duration before downloading?
-Are there tracks I've auditioned multiple times without downloading?
-```
+### 5. Index Tracks to Solr
 
-**Project management (write operations):**
-```
-Create a new project called "Spring Launch" for a TV commercial
-Add "Long Hard Look" to my Spring Launch project
-Find uplifting tracks and add the top 3 to my project
-Show me what's in the Spring Launch project
+```bash
+node server/scripts/indexToSolr.js --delete-first
+# Indexes 1.4M tracks (~10 minutes)
+
+node server/scripts/indexComposersToSolr.js --delete-first
+# Indexes 16K composers (~1 second)
 ```
 
-## Mock Data Overview
+### 6. Start the Application
 
-The data represents Anthony Taglianetti (Product Manager at APM Music) working on 12 projects throughout 2025:
+```bash
+npm run dev
+```
 
-| Project | Type | Last Modified |
-|---------|------|---------------|
-| P001 | Super Bowl Commercial | 2025-02-05 |
-| P002 | Valentine's Day Promo | 2025-02-12 |
-| P003 | Tech Conference Keynote | 2025-03-18 |
-| P004 | Spring Fashion Campaign | 2025-04-22 |
-| P005 | Documentary - Climate Change | 2025-05-30 |
-| P006 | Summer Beverage Campaign | 2025-07-10 |
-| P007 | Fitness App Update | 2025-08-05 |
-| P008 | Back to School Campaign | 2025-08-28 |
-| P009 | Halloween Special | 2025-10-25 |
-| P010 | Holiday Campaign - Retail | 2025-12-01 |
-| P011 | Year in Review - Corporate | 2025-12-05 |
-| P012 | New Year's Eve Broadcast | 2025-12-08 |
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3001
 
-## Search Mode Simulation
+## Usage
 
-This prototype simulates all four APM search modes without requiring API connections:
+### Search Examples
 
-| Mode | How It's Simulated |
-|------|-------------------|
-| **Metadata** | Grep search of `tracks.csv` (10K tracks) by genre, keywords, BPM |
-| **Prompt** | Pre-computed results in `prompt_results.csv` (30 common prompts) |
-| **Audio Similarity (URL/file)** | `mock_references.csv` maps URLs → tracks → `audio_similarities.csv` |
-| **Audio Similarity (APM track)** | Direct lookup in `audio_similarities.csv` |
+**@ Filter Queries (Route 1 - fastest):**
+```
+@mood:uplifting @instruments:piano
+@genre:rock @energy:high
+```
 
-### Supported Mock References
+**Simple Text Queries (Route 2):**
+```
+upbeat rock
+epic cinematic trailer
+calm ambient piano
+```
 
-- **YouTube:** 8 video URLs mapped to catalog tracks
-- **Spotify:** 8 track URLs mapped to catalog tracks
-- **TikTok:** 5 video URLs mapped to catalog tracks
-- **File uploads:** 5 common filenames (client_reference_track.wav, etc.)
-- **APM tracks:** All 70+ tracks have similarity mappings
+**Complex Queries (Route 3 - uses Claude):**
+```
+What tracks are in my project?
+Find something similar to the last track I downloaded
+What did I download last week?
+```
 
-## Key Concepts Demonstrated
+## Configuration
 
-### Behavioral Signals
-- `full_listen=True` in audition_history indicates strong interest
-- Short `duration_played` suggests rejection
-- Downloads are the strongest positive signal
+### Business Rules
 
-### Context-Aware Search
-- Agent checks what you've already downloaded before recommending
-- Project keywords inform relevance
-- Search history reveals patterns
+Edit `server/config/businessRules.json` to adjust search ranking:
+- Genre simplification (expand rock to subgenres)
+- Library boosting (prioritize specific catalogs)
+- Recency interleaving (mix new and classic)
 
-### Agentic Workflows
-- Multi-step queries: "Find tracks similar to what I fully listened to"
-- Cross-file joins: Project → Project Tracks → Tracks
-- Temporal filtering: "What did I download last month?"
+### Field Weights
 
-## Why This Matters
+Edit `server/config/fieldWeights.json` to adjust relevance scoring:
+```json
+{
+  "qf": "track_title^3.0 combined_genre^4.0 composer^0.8 ...",
+  "pf2": "track_title^2.0 combined_genre^2.0"
+}
+```
 
-AI vendors (AIMS, Harmix) sell to all competitors. The **context layer is the moat**:
+Changes take effect on server restart. No code deployment needed.
 
-- Models are commodities (swap Claude for GPT anytime)
-- Search AI is commoditized (everyone can buy AIMS)
-- **User context is proprietary** (only APM has APM user data)
+## API Endpoints
 
-This prototype demonstrates that the intelligence comes from context, not the model.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat` | POST | Main search endpoint (3-tier routing) |
+| `/api/tracks/:id/metadata` | GET | Track metadata with facets |
+| `/api/tracks/:id/similar` | GET | Similar tracks by shared facets |
+| `/api/health` | GET | System health check |
 
----
+## Documentation
 
-*Built to demonstrate context engineering principles for APM Music's AI search initiative.*
+See [CLAUDE.md](./CLAUDE.md) for comprehensive documentation including:
+- Architecture deep dive
+- Database schema
+- Service layer details
+- Development guides
+- Testing strategy
+
+## License
+
+Proprietary - APM Music
