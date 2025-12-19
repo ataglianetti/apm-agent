@@ -104,11 +104,16 @@ APM Agent uses query classification to route requests to the optimal processing 
        Solr       Solr       Anthropic
       (fq)       (edismax)    API
          ↓          ↓         ↓
+         ↓      Business   Business
+         ↓       Rules      Rules
+         ↓          ↓         ↓
       <100ms      <100ms     <4s
+    (no rules)  (+ rules)  (+ rules)
 ```
 
-#### Route 1: @ Filter Queries (Fastest)
+#### Route 1: @ Filter Queries (Fastest - Power User)
 **File:** `server/services/metadataSearch.js` → `solrService.js`
+**Business Rules:** ❌ Bypassed (intentional for power users who want precise control)
 
 **Triggers:** Query contains `@category:value` syntax
 **Processing:**
@@ -116,7 +121,7 @@ APM Agent uses query classification to route requests to the optimal processing 
 2. Map facet values to IDs via `facet_taxonomy` table
 3. Build Solr `fq` (filter query) with `combined_ids` field
 4. Execute Solr query with song_id grouping for deduplication
-5. Return unique songs (one track per song)
+5. Return unique songs (one track per song) - **no business rule modifications**
 
 **Performance:** <100ms via Solr
 
@@ -130,6 +135,7 @@ User: "@mood:uplifting @instruments:piano"
 
 #### Route 2: Simple Queries (Fast)
 **File:** `server/services/metadataSearch.js` → `solrService.js`
+**Business Rules:** ✅ Applied (PM-controlled ranking adjustments)
 
 **Triggers:**
 - 1-4 words
@@ -158,6 +164,7 @@ User: "upbeat rock"
 
 #### Route 3: Complex Queries (Smart)
 **File:** `server/services/claude.js`
+**Business Rules:** ✅ Applied to track results (PM-controlled ranking adjustments)
 
 **Triggers:**
 - Questions (What/How/Why/When/Where/Who)
@@ -170,7 +177,8 @@ User: "upbeat rock"
 2. Send to Anthropic API with tool definitions
 3. Claude uses tools: `read_csv`, `grep_tracks`, `get_track_by_id`, `manage_project`
 4. Multi-turn conversation until complete
-5. Return structured response
+5. If returning track results, apply business rules from `config/businessRules.json`
+6. Return structured response with transparency metadata
 
 **Performance:** <4s average (depends on tool usage)
 
@@ -194,8 +202,10 @@ User: "What did I download for my Super Bowl project?"
    - Route 2: metadataSearch.search() → solrService.search() with edismax
    - Route 3: claude.chat() with tools
 4. Solr returns grouped results (one track per song_id)
-5. businessRulesEngine.applyRules() adjusts rankings
-6. Results formatted and returned to client
+5. Business rules applied (Route 2 & 3 only):
+   - Route 1: Bypassed (power user feature for precise control)
+   - Route 2 & 3: businessRulesEngine.applyRules() adjusts rankings
+6. Results formatted and returned to client with _meta transparency data
 7. Client renders TrackCard components or markdown
 ```
 

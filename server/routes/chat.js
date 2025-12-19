@@ -5,6 +5,8 @@ import { search as metadataSearch } from '../services/metadataSearch.js';
 import { matchRules, applyRules } from '../services/businessRulesEngine.js';
 import { searchByTaxonomy, getTracksByFacetIds, searchFacets } from '../services/taxonomySearch.js';
 import { enrichTracksWithGenreNames } from '../services/genreMapper.js';
+import { getLLMMode } from './settings.js';
+import { enhanceTracksMetadata } from '../services/metadataEnhancer.js';
 
 const router = express.Router();
 
@@ -365,7 +367,14 @@ router.post('/chat', async (req, res) => {
     // Detect simple, unambiguous queries that can be handled directly
     const queryComplexity = classifyQueryComplexity(lastMessage.content);
 
-    if (queryComplexity === 'simple') {
+    // LLM_MODE toggle: 'primary' sends ALL queries to Claude, 'fallback' (default) uses 3-tier routing
+    const llmMode = getLLMMode();
+
+    if (llmMode === 'primary') {
+      console.log(`LLM_MODE=primary: Routing ALL queries to Claude (bypassing simple query optimization)`);
+    }
+
+    if (queryComplexity === 'simple' && llmMode !== 'primary') {
       console.log('Detected simple query, using metadata search + business rules');
       const startTime = Date.now();
 
@@ -632,12 +641,29 @@ router.post('/chat', async (req, res) => {
 
     // Return structured response if we found track results
     if (trackResults) {
+      // Enrich tracks with proper genre names (Claude may not include all fields)
+      const enrichedTracks = enhanceTracksMetadata(trackResults.tracks);
+
+      // Apply business rules to Claude's track results
+      const matchedRules = matchRules(lastMessage.content);
+      const enhancedResults = await applyRules(
+        enrichedTracks,
+        matchedRules,
+        lastMessage.content
+      );
+
+      console.log(`Route 3: Applied ${enhancedResults.appliedRules.length} business rules to ${trackResults.tracks.length} tracks`);
+
       res.json({
         type: 'track_results',
         message: trackResults.message,
-        tracks: trackResults.tracks,
+        tracks: enhancedResults.results,
         total_count: trackResults.total_count,
-        showing: trackResults.showing
+        showing: trackResults.showing,
+        _meta: {
+          appliedRules: enhancedResults.appliedRules,
+          scoreAdjustments: enhancedResults.scoreAdjustments
+        }
       });
     } else {
       // Return regular text response
