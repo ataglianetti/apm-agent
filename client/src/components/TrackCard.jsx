@@ -96,32 +96,33 @@ function TrackCardComponent({ track, index, onSoundsLike, searchQuery = '' }) {
     ? track.additional_genres.split(',').map(g => g.trim()).filter(Boolean)
     : [];
 
-  // Build enhanced metadata tags (moods, energy, instruments)
+  // Helper to capitalize first letter
+  const capitalize = (str) => str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+
+  // Build enhanced metadata tags from real APM taxonomy data (Solr fields only)
+  // Each tag includes its category for the hover tooltip
   const enhancedTags = [];
 
-  // Add moods
-  if (track.moods && Array.isArray(track.moods)) {
-    enhancedTags.push(...track.moods);
+  // Add moods (from Solr mood field - real taxonomy data)
+  if (track.mood && Array.isArray(track.mood)) {
+    track.mood.forEach(m => enhancedTags.push({ label: capitalize(m), category: 'Mood' }));
   }
 
-  // Add energy level
-  if (track.energy_level) {
-    const energyLabel = track.energy_level.replace(/_/g, ' ');
-    enhancedTags.push(energyLabel);
-  }
-
-  // Add instruments
+  // Add instruments (from Solr instruments field - real taxonomy data)
   if (track.instruments && Array.isArray(track.instruments)) {
-    enhancedTags.push(...track.instruments);
+    track.instruments.forEach(i => enhancedTags.push({ label: capitalize(i), category: 'Instruments' }));
   }
 
-  // Add use cases
-  if (track.use_cases && Array.isArray(track.use_cases)) {
-    enhancedTags.push(...track.use_cases);
+  // Add music_for / use cases (from Solr music_for field - real taxonomy data)
+  if (track.music_for && Array.isArray(track.music_for)) {
+    track.music_for.forEach(m => enhancedTags.push({ label: capitalize(m), category: 'Music For' }));
   }
 
-  // Combine with additional genres
-  const allTags = [...enhancedTags, ...additionalGenres];
+  // Add additional genres with category context
+  const genreTags = additionalGenres.map(g => ({ label: capitalize(g), category: 'Genre' }));
+
+  // Combine all tags
+  const allTags = [...enhancedTags, ...genreTags];
 
   // Limit visible tags
   const maxVisibleTags = 10;
@@ -265,15 +266,16 @@ function TrackCardComponent({ track, index, onSoundsLike, searchQuery = '' }) {
 
       {/* Enhanced Metadata Tags & View Metadata Button */}
       <div className="flex flex-wrap gap-2 ml-[52px]">
-        {/* Display enhanced metadata tags */}
+        {/* Display enhanced metadata tags with category tooltips */}
         {visibleTags.map((tag, i) => (
           <span
             key={i}
+            title={`${tag.category} > ${tag.label}`}
             className={`px-3 py-1 text-xs rounded-full transition-colors cursor-pointer ${
               isDark ? 'bg-apm-dark/60 text-apm-gray-light hover:bg-apm-dark' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {tag}
+            {tag.label}
           </span>
         ))}
 
