@@ -10,6 +10,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { getBusinessRulesEnabled } from '../routes/settings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RULES_PATH = path.join(__dirname, '..', 'config', 'businessRules.json');
@@ -50,6 +51,12 @@ export function loadRules() {
  * @returns {Array} - Array of matching rules, sorted by priority (descending)
  */
 export function matchRules(query) {
+  // Check global toggle first
+  if (!getBusinessRulesEnabled()) {
+    console.log('Business rules globally disabled - skipping rule matching');
+    return [];
+  }
+
   const config = loadRules();
   const matched = [];
 
@@ -164,6 +171,9 @@ async function applyRule(tracks, rule, query) {
 
     case 'filter_optimization':
       return applyFilterOptimization(tracks, rule);
+
+    case 'subgenre_interleaving':
+      return applySubgenreInterleaving(tracks, rule);
 
     default:
       console.warn(`Unknown rule type: ${rule.type}`);
@@ -441,6 +451,154 @@ function applyFilterOptimization(tracks, rule) {
       ruleId: rule.id
     },
     affectedTracks: 0 // Filtering happens at search time
+  };
+}
+
+/**
+ * Apply subgenre interleaving rule
+ * Reorders tracks to interleave different subgenres based on a pattern
+ * Pattern example: "ABCD ABCD ABCD" where A=Classic Rock, B=Alternative Rock, etc.
+ * @param {Array} tracks - Array of track objects
+ * @param {object} rule - Rule object
+ * @returns {object} - { applied, tracks, affectedTracks, interleaveDetails }
+ */
+function applySubgenreInterleaving(tracks, rule) {
+  const { attribute, values, pattern, fallback = 'relevance' } = rule.action;
+
+  if (!values || !pattern) {
+    return { applied: false };
+  }
+
+  // Determine which field to check based on attribute
+  const getAttributeValue = (track) => {
+    switch (attribute) {
+      case 'genre':
+        // Check facet_labels, genre_name, or combined_genre
+        return (track.facet_labels || '') + ';' +
+               (track.genre_name || '') + ';' +
+               (track.combined_genre || '');
+      case 'mood':
+        return track.facet_labels || '';
+      case 'library':
+        return track.library_name || '';
+      default:
+        return track[attribute] || '';
+    }
+  };
+
+  // Check if a track matches a subgenre value (case-insensitive partial match)
+  const trackMatchesValue = (track, targetValue) => {
+    const attributeValue = getAttributeValue(track).toLowerCase();
+    return attributeValue.includes(targetValue.toLowerCase());
+  };
+
+  // Group tracks by which pattern letter they match (tracks can match multiple)
+  const patternLetters = Object.keys(values);
+  const tracksByLetter = {};
+  const usedTracks = new Set();
+
+  for (const letter of patternLetters) {
+    tracksByLetter[letter] = [];
+  }
+
+  // First pass: assign each track to its best matching letter
+  for (const track of tracks) {
+    for (const letter of patternLetters) {
+      if (trackMatchesValue(track, values[letter])) {
+        tracksByLetter[letter].push(track);
+        break; // Only assign to first matching letter
+      }
+    }
+  }
+
+  // Parse pattern (ignore spaces)
+  const patternChars = pattern.replace(/\s/g, '').split('');
+  const interleavedTracks = [];
+  const letterIndices = {};
+  const interleaveDetails = [];
+
+  for (const letter of patternLetters) {
+    letterIndices[letter] = 0;
+  }
+
+  // Build interleaved result
+  for (let i = 0; i < patternChars.length; i++) {
+    const letter = patternChars[i];
+    const bucket = tracksByLetter[letter];
+
+    if (bucket && letterIndices[letter] < bucket.length) {
+      const track = bucket[letterIndices[letter]];
+      if (!usedTracks.has(track.id)) {
+        interleavedTracks.push(track);
+        usedTracks.add(track.id);
+        interleaveDetails.push({
+          position: interleavedTracks.length,
+          letter,
+          subgenre: values[letter],
+          trackId: track.id,
+          trackTitle: track.track_title
+        });
+        letterIndices[letter]++;
+      }
+    } else if (fallback === 'relevance') {
+      // Fallback: use next available track from any bucket or remaining tracks
+      let filled = false;
+
+      // Try other buckets first
+      for (const otherLetter of patternLetters) {
+        const otherBucket = tracksByLetter[otherLetter];
+        while (letterIndices[otherLetter] < otherBucket.length) {
+          const track = otherBucket[letterIndices[otherLetter]];
+          if (!usedTracks.has(track.id)) {
+            interleavedTracks.push(track);
+            usedTracks.add(track.id);
+            interleaveDetails.push({
+              position: interleavedTracks.length,
+              letter: otherLetter,
+              subgenre: values[otherLetter],
+              trackId: track.id,
+              trackTitle: track.track_title,
+              fallback: true,
+              requestedSubgenre: values[letter]
+            });
+            letterIndices[otherLetter]++;
+            filled = true;
+            break;
+          }
+          letterIndices[otherLetter]++;
+        }
+        if (filled) break;
+      }
+    }
+    // fallback === 'skip' would just not add anything
+  }
+
+  // Append remaining tracks that weren't used
+  for (const track of tracks) {
+    if (!usedTracks.has(track.id)) {
+      interleavedTracks.push(track);
+      usedTracks.add(track.id);
+    }
+  }
+
+  // Calculate stats
+  const subgenreCounts = {};
+  for (const detail of interleaveDetails) {
+    const sg = detail.subgenre;
+    subgenreCounts[sg] = (subgenreCounts[sg] || 0) + 1;
+  }
+
+  console.log(`Subgenre interleaving applied: ${interleaveDetails.length} tracks interleaved across ${Object.keys(subgenreCounts).length} subgenres`);
+
+  return {
+    applied: true,
+    tracks: interleavedTracks,
+    affectedTracks: interleaveDetails.length,
+    interleaveDetails: {
+      pattern,
+      subgenreCounts,
+      placements: interleaveDetails.slice(0, 12) // First 12 for transparency
+    }
   };
 }
 

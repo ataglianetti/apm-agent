@@ -3,6 +3,8 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { enhanceTracksMetadata, enhanceTrackMetadata } from './metadataEnhancer.js';
+import { search as solrSearch } from './metadataSearch.js';
+import { enrichTracksWithGenreNames } from './genreMapper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, '..', 'apm_music.db');
@@ -51,6 +53,9 @@ export async function executeFileTool(toolName, params) {
         break;
       case 'grep_tracks':
         result = await grepTracks(params.pattern, params.field, params.limit);
+        break;
+      case 'search_tracks':
+        result = await searchTracks(params.query, params.limit);
         break;
       case 'get_track_by_id':
         result = await getTrackById(params.track_id);
@@ -206,6 +211,35 @@ async function grepTracks(pattern, field = 'all', limit = 12) {
   } catch (error) {
     console.error('Error searching tracks:', error);
     return [];
+  }
+}
+
+// Search tracks using Solr - full catalog search with relevance ranking
+async function searchTracks(query, limit = 12) {
+  try {
+    const searchResults = await solrSearch({
+      text: query,
+      limit: limit,
+      offset: 0
+    });
+
+    // Enrich with genre names
+    const enrichedTracks = enrichTracksWithGenreNames(searchResults.tracks);
+
+    return {
+      tracks: enrichedTracks,
+      total: searchResults.total,
+      showing: `1-${enrichedTracks.length}`
+    };
+  } catch (error) {
+    console.error('Error searching tracks via Solr:', error);
+    // Fallback to SQLite grep if Solr fails
+    return {
+      tracks: await grepTracks(query, 'all', limit),
+      total: limit,
+      showing: `1-${limit}`,
+      _fallback: true
+    };
   }
 }
 

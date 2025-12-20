@@ -113,6 +113,29 @@ console.log(`Loaded ${Object.keys(facetTaxonomy).length} facets across ${Object.
 console.log('Category mappings:', categoryMapping);
 console.log('');
 
+// Pre-compute versions map (song_id -> array of track info)
+console.log('Building versions map...');
+const versionsMap = new Map();
+const versionRows = db.prepare(`
+  SELECT id, song_id, track_title, duration, library_name
+  FROM tracks
+  WHERE song_id IS NOT NULL AND song_id != ''
+`).all();
+
+for (const row of versionRows) {
+  if (!versionsMap.has(row.song_id)) {
+    versionsMap.set(row.song_id, []);
+  }
+  versionsMap.get(row.song_id).push({
+    id: row.id,
+    track_title: row.track_title,
+    duration: row.duration,
+    library_name: row.library_name
+  });
+}
+console.log(`Built versions map for ${versionsMap.size} unique songs`);
+console.log('');
+
 /**
  * Transform a SQLite track row to a Solr document
  */
@@ -142,7 +165,15 @@ function transformTrack(row) {
     composer: row.composer_fullname ? [row.composer_fullname] : [],
 
     // Facet labels (new field)
-    facet_labels: row.facet_labels || ''
+    facet_labels: row.facet_labels || '',
+
+    // Versions - other tracks with same song_id (stored as JSON)
+    versions: (() => {
+      if (!row.song_id) return '[]';
+      const allVersions = versionsMap.get(row.song_id) || [];
+      const otherVersions = allVersions.filter(v => v.id !== row.id);
+      return JSON.stringify(otherVersions);
+    })()
   };
 
   // Parse dates

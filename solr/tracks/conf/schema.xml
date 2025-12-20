@@ -1113,6 +1113,7 @@
     <field name="library_original_release_date" type="pdate" indexed="false" />
     <field name="original_recording_date" type="pdate" />
     <field name="total_versions" type="pint" indexed="false" />
+    <field name="versions" type="string" indexed="false" stored="true" multiValued="true" />
     <field name="lyrics" type="string" indexed="false" stored="false" />
     <!-- APM Agent: facet_labels contains human-readable facet names (semicolon-separated) -->
     <field name="facet_labels" type="string" indexed="false" stored="true" />

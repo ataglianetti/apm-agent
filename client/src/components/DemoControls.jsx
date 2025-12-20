@@ -1,23 +1,44 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 
 export function DemoControls({ onSettingsChange }) {
   const { isDark } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
+  const dropdownRef = useRef(null);
   const [settings, setSettings] = useState({
     llmProvider: 'claude',
     llmMode: 'fallback',  // 'fallback' = fast search, 'primary' = AI conversation
     demoMode: false,
     showTimings: false,
-    showArchitecture: false
+    showArchitecture: false,
+    businessRulesEnabled: true,
+    businessRulesCount: 0,
+    activeRules: []
   });
 
-  // Fetch initial LLM mode from server
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsExpanded(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch initial settings from server
   useEffect(() => {
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
-        setSettings(prev => ({ ...prev, llmMode: data.llmMode }));
+        setSettings(prev => ({
+          ...prev,
+          llmMode: data.llmMode,
+          businessRulesEnabled: data.businessRules?.globalEnabled ?? true,
+          businessRulesCount: data.businessRules?.activeRuleCount ?? 0,
+          activeRules: data.businessRules?.activeRules ?? []
+        }));
       })
       .catch(err => console.error('Failed to fetch settings:', err));
   }, []);
@@ -57,15 +78,33 @@ export function DemoControls({ onSettingsChange }) {
     }
   };
 
+  const toggleBusinessRules = async () => {
+    try {
+      const response = await fetch('/api/settings/business-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: 'toggle' })
+      });
+      const data = await response.json();
+      setSettings(prev => ({
+        ...prev,
+        businessRulesEnabled: data.globalEnabled,
+        businessRulesCount: data.activeRuleCount,
+        activeRules: data.activeRules || []
+      }));
+    } catch (err) {
+      console.error('Failed to toggle business rules:', err);
+    }
+  };
+
   return (
-    <div className={`fixed bottom-4 right-4 z-50 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+    <div ref={dropdownRef} className={`relative ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
       {/* Toggle Button */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className={`
-          flex items-center gap-2 px-4 py-2 rounded-lg shadow-lg
-          ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'}
-          transition-all duration-200
+          flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors
+          ${isDark ? 'hover:bg-apm-gray/20' : 'hover:bg-gray-100'}
         `}
         title="Demo Controls"
       >
@@ -75,10 +114,14 @@ export function DemoControls({ onSettingsChange }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
-        <span className="text-sm font-medium">Demo Controls</span>
         {settings.llmMode === 'primary' && (
           <span className="px-2 py-0.5 bg-purple-500 text-white text-xs rounded-full">
             AI
+          </span>
+        )}
+        {settings.businessRulesEnabled && (
+          <span className="px-2 py-0.5 bg-amber-500 text-white text-xs rounded-full">
+            RULES
           </span>
         )}
         {settings.demoMode && (
@@ -86,20 +129,23 @@ export function DemoControls({ onSettingsChange }) {
             DEMO
           </span>
         )}
+        <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
       </button>
 
       {/* Expanded Controls Panel */}
       {isExpanded && (
         <div className={`
-          absolute bottom-14 right-0 w-80 p-4 rounded-lg shadow-xl
+          absolute top-full right-0 mt-2 w-80 p-4 rounded-lg shadow-xl z-50
           ${isDark ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}
-          animate-slide-up
+          animate-slide-down
         `}>
           <h3 className="font-semibold mb-4">Demo Settings</h3>
 
           {/* AI Mode Toggle - Primary Feature */}
           <div className="mb-4 pb-4 border-b border-gray-600">
-            <label className="flex items-center justify-between cursor-pointer">
+            <div className="flex items-center justify-between">
               <div>
                 <span className="text-sm font-medium">AI Conversation Mode</span>
                 <p className="text-xs opacity-60 mt-0.5">
@@ -111,7 +157,7 @@ export function DemoControls({ onSettingsChange }) {
               <button
                 onClick={toggleLLMMode}
                 className={`
-                  relative w-12 h-6 rounded-full transition-colors
+                  relative w-12 h-6 rounded-full transition-colors cursor-pointer
                   ${settings.llmMode === 'primary'
                     ? 'bg-purple-500'
                     : isDark ? 'bg-gray-600' : 'bg-gray-300'
@@ -119,14 +165,52 @@ export function DemoControls({ onSettingsChange }) {
                 `}
               >
                 <span className={`
-                  absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform
-                  ${settings.llmMode === 'primary' ? 'translate-x-6' : 'translate-x-0.5'}
+                  absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm
+                  ${settings.llmMode === 'primary' ? 'translate-x-6' : 'translate-x-0'}
                 `} />
               </button>
-            </label>
+            </div>
             {settings.llmMode === 'primary' && (
               <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700'}`}>
                 Conversational mode enabled - Claude handles all queries
+              </div>
+            )}
+          </div>
+
+          {/* Business Rules Toggle */}
+          <div className="mb-4 pb-4 border-b border-gray-600">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm font-medium">Business Rules</span>
+                <p className="text-xs opacity-60 mt-0.5">
+                  {settings.businessRulesEnabled
+                    ? `${settings.businessRulesCount} rule${settings.businessRulesCount !== 1 ? 's' : ''} active`
+                    : 'Rules disabled - pure relevance'}
+                </p>
+              </div>
+              <button
+                onClick={toggleBusinessRules}
+                className={`
+                  relative w-12 h-6 rounded-full transition-colors cursor-pointer
+                  ${settings.businessRulesEnabled
+                    ? 'bg-amber-500'
+                    : isDark ? 'bg-gray-600' : 'bg-gray-300'
+                  }
+                `}
+              >
+                <span className={`
+                  absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm
+                  ${settings.businessRulesEnabled ? 'translate-x-6' : 'translate-x-0'}
+                `} />
+              </button>
+            </div>
+            {settings.businessRulesEnabled && settings.activeRules.length > 0 && (
+              <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-amber-900/30 text-amber-300' : 'bg-amber-50 text-amber-700'}`}>
+                {settings.activeRules.map(rule => (
+                  <div key={rule.id} className="truncate" title={rule.description}>
+                    {rule.type}: {rule.id}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -159,7 +243,7 @@ export function DemoControls({ onSettingsChange }) {
 
           {/* Demo Mode Toggle */}
           <div className="mb-4">
-            <label className="flex items-center justify-between cursor-pointer">
+            <div className="flex items-center justify-between">
               <div>
                 <span className="text-sm font-medium">Demo Mode</span>
                 <p className="text-xs opacity-60 mt-0.5">
@@ -169,7 +253,7 @@ export function DemoControls({ onSettingsChange }) {
               <button
                 onClick={toggleDemoMode}
                 className={`
-                  relative w-12 h-6 rounded-full transition-colors
+                  relative w-12 h-6 rounded-full transition-colors cursor-pointer
                   ${settings.demoMode
                     ? 'bg-green-500'
                     : isDark ? 'bg-gray-600' : 'bg-gray-300'
@@ -177,16 +261,16 @@ export function DemoControls({ onSettingsChange }) {
                 `}
               >
                 <span className={`
-                  absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform
-                  ${settings.demoMode ? 'translate-x-6' : 'translate-x-0.5'}
+                  absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm
+                  ${settings.demoMode ? 'translate-x-6' : 'translate-x-0'}
                 `} />
               </button>
-            </label>
+            </div>
           </div>
 
           {/* Show Timings Toggle */}
           <div className="mb-4">
-            <label className="flex items-center justify-between cursor-pointer">
+            <div className="flex items-center justify-between">
               <div>
                 <span className="text-sm font-medium">Show Timings</span>
                 <p className="text-xs opacity-60 mt-0.5">
@@ -196,7 +280,7 @@ export function DemoControls({ onSettingsChange }) {
               <button
                 onClick={toggleTimings}
                 className={`
-                  relative w-12 h-6 rounded-full transition-colors
+                  relative w-12 h-6 rounded-full transition-colors cursor-pointer
                   ${settings.showTimings
                     ? 'bg-green-500'
                     : isDark ? 'bg-gray-600' : 'bg-gray-300'
@@ -204,16 +288,16 @@ export function DemoControls({ onSettingsChange }) {
                 `}
               >
                 <span className={`
-                  absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform
-                  ${settings.showTimings ? 'translate-x-6' : 'translate-x-0.5'}
+                  absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm
+                  ${settings.showTimings ? 'translate-x-6' : 'translate-x-0'}
                 `} />
               </button>
-            </label>
+            </div>
           </div>
 
           {/* Show Architecture Toggle */}
           <div className="mb-4">
-            <label className="flex items-center justify-between cursor-pointer">
+            <div className="flex items-center justify-between">
               <div>
                 <span className="text-sm font-medium">Show Architecture</span>
                 <p className="text-xs opacity-60 mt-0.5">
@@ -223,7 +307,7 @@ export function DemoControls({ onSettingsChange }) {
               <button
                 onClick={toggleArchitecture}
                 className={`
-                  relative w-12 h-6 rounded-full transition-colors
+                  relative w-12 h-6 rounded-full transition-colors cursor-pointer
                   ${settings.showArchitecture
                     ? 'bg-green-500'
                     : isDark ? 'bg-gray-600' : 'bg-gray-300'
@@ -231,11 +315,11 @@ export function DemoControls({ onSettingsChange }) {
                 `}
               >
                 <span className={`
-                  absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform
-                  ${settings.showArchitecture ? 'translate-x-6' : 'translate-x-0.5'}
+                  absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm
+                  ${settings.showArchitecture ? 'translate-x-6' : 'translate-x-0'}
                 `} />
               </button>
-            </label>
+            </div>
           </div>
 
           {/* Performance Target */}
@@ -277,10 +361,10 @@ export function DemoControls({ onSettingsChange }) {
 // Add CSS animation
 const style = document.createElement('style');
 style.textContent = `
-  @keyframes slide-up {
+  @keyframes slide-down {
     from {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(-10px);
     }
     to {
       opacity: 1;
@@ -288,8 +372,8 @@ style.textContent = `
     }
   }
 
-  .animate-slide-up {
-    animation: slide-up 0.2s ease-out;
+  .animate-slide-down {
+    animation: slide-down 0.2s ease-out;
   }
 `;
 document.head.appendChild(style);

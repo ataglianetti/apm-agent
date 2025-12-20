@@ -1,11 +1,60 @@
 import express from 'express';
+import { readFileSync, writeFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
 
 // Runtime settings state (overrides environment variables)
 const runtimeSettings = {
-  llmMode: null  // null = use env var, 'primary' or 'fallback' = override
+  llmMode: null,  // null = use env var, 'primary' or 'fallback' = override
+  businessRulesEnabled: null  // null = use config file, true/false = override
 };
+
+// Path to business rules config
+const BUSINESS_RULES_PATH = join(__dirname, '../config/businessRules.json');
+
+/**
+ * Get business rules config (with caching for performance)
+ */
+let businessRulesCache = null;
+let businessRulesCacheTime = 0;
+const CACHE_TTL = 5000; // 5 seconds
+
+function getBusinessRulesConfig() {
+  const now = Date.now();
+  if (!businessRulesCache || now - businessRulesCacheTime > CACHE_TTL) {
+    try {
+      const content = readFileSync(BUSINESS_RULES_PATH, 'utf-8');
+      businessRulesCache = JSON.parse(content);
+      businessRulesCacheTime = now;
+    } catch (error) {
+      console.error('Failed to read business rules config:', error);
+      return null;
+    }
+  }
+  return businessRulesCache;
+}
+
+/**
+ * Get effective business rules enabled state
+ */
+export function getBusinessRulesEnabled() {
+  if (runtimeSettings.businessRulesEnabled !== null) {
+    return runtimeSettings.businessRulesEnabled;
+  }
+  const config = getBusinessRulesConfig();
+  return config?.globalEnabled ?? true;
+}
+
+/**
+ * Invalidate business rules cache (call after updates)
+ */
+export function invalidateBusinessRulesCache() {
+  businessRulesCache = null;
+  businessRulesCacheTime = 0;
+}
 
 /**
  * Get current LLM mode
@@ -24,10 +73,22 @@ export function getLLMMode() {
  */
 router.get('/settings', (req, res) => {
   const llmMode = getLLMMode();
+  const businessRulesEnabled = getBusinessRulesEnabled();
+  const config = getBusinessRulesConfig();
+
+  // Count active rules
+  const activeRules = config?.rules?.filter(r => r.enabled) || [];
+
   res.json({
     llmMode,
     llmModeSource: runtimeSettings.llmMode !== null ? 'runtime' : 'environment',
-    claudeModel: process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307'
+    claudeModel: process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307',
+    businessRules: {
+      globalEnabled: businessRulesEnabled,
+      source: runtimeSettings.businessRulesEnabled !== null ? 'runtime' : 'config',
+      activeRuleCount: activeRules.length,
+      activeRules: activeRules.map(r => ({ id: r.id, type: r.type, description: r.description }))
+    }
   });
 });
 
@@ -62,6 +123,72 @@ router.post('/settings/llm-mode', (req, res) => {
     llmMode: newMode,
     llmModeSource: runtimeSettings.llmMode !== null ? 'runtime' : 'environment',
     message: `LLM mode set to ${newMode}`
+  });
+});
+
+/**
+ * POST /api/settings/business-rules
+ * Toggle or set business rules enabled state
+ * Body: { enabled: true | false | 'toggle' }
+ */
+router.post('/settings/business-rules', (req, res) => {
+  const { enabled } = req.body;
+  const currentEnabled = getBusinessRulesEnabled();
+
+  if (enabled === 'toggle') {
+    runtimeSettings.businessRulesEnabled = !currentEnabled;
+  } else if (typeof enabled === 'boolean') {
+    runtimeSettings.businessRulesEnabled = enabled;
+  } else if (enabled === 'reset') {
+    // Reset to use config file value
+    runtimeSettings.businessRulesEnabled = null;
+    invalidateBusinessRulesCache();
+  } else {
+    return res.status(400).json({
+      error: 'Invalid value',
+      details: "enabled must be true, false, 'toggle', or 'reset'"
+    });
+  }
+
+  const newEnabled = getBusinessRulesEnabled();
+  const config = getBusinessRulesConfig();
+  const activeRules = config?.rules?.filter(r => r.enabled) || [];
+
+  console.log(`Business rules ${newEnabled ? 'ENABLED' : 'DISABLED'} (${activeRules.length} active rules)`);
+
+  res.json({
+    globalEnabled: newEnabled,
+    source: runtimeSettings.businessRulesEnabled !== null ? 'runtime' : 'config',
+    activeRuleCount: activeRules.length,
+    activeRules: activeRules.map(r => ({ id: r.id, type: r.type })),
+    message: `Business rules ${newEnabled ? 'enabled' : 'disabled'}`
+  });
+});
+
+/**
+ * GET /api/settings/business-rules
+ * Get detailed business rules configuration
+ */
+router.get('/settings/business-rules', (req, res) => {
+  const config = getBusinessRulesConfig();
+  if (!config) {
+    return res.status(500).json({ error: 'Failed to load business rules config' });
+  }
+
+  const globalEnabled = getBusinessRulesEnabled();
+  const activeRules = config.rules?.filter(r => r.enabled) || [];
+  const disabledRules = config.disabled_rules || [];
+
+  res.json({
+    version: config.version,
+    globalEnabled,
+    source: runtimeSettings.businessRulesEnabled !== null ? 'runtime' : 'config',
+    rules: {
+      active: activeRules,
+      activeCount: activeRules.length
+    },
+    templates: Object.keys(config.templates || {}),
+    disabledRulesCount: disabledRules.length
   });
 });
 

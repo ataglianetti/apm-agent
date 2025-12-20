@@ -58,8 +58,26 @@ const tools = [
     }
   },
   {
+    name: "search_tracks",
+    description: "Search the full APM catalog (1.4M tracks) using Solr with relevance ranking. This is the PRIMARY tool for music searches. Returns tracks sorted by relevance to the query. Use for any music search query like 'upbeat rock', 'sad piano', 'corporate motivational', etc.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Natural language search query (e.g., 'upbeat rock', 'sad piano music', 'energetic electronic')"
+        },
+        limit: {
+          type: "number",
+          description: "Max results to return (default: 12, max: 100)"
+        }
+      },
+      required: ["query"]
+    }
+  },
+  {
     name: "grep_tracks",
-    description: "Search tracks.csv (10,000 tracks) for tracks matching a pattern. Use this for metadata searches by genre ID, keyword, composer, etc. Returns matching tracks as JSON array.",
+    description: "Search tracks by specific field for exact matches. Use search_tracks instead for general music searches. This tool is for precise field-specific queries like finding a specific composer or library.",
     input_schema: {
       type: "object",
       properties: {

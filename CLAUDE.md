@@ -73,6 +73,7 @@ apm-agent/
 │   └── *.csv                    # Other data files
 │
 ├── docs/                        # Documentation
+│   ├── IMPLEMENTATION_STATUS.md # Progress tracking vs presentation (UPDATE ON MILESTONES)
 │   └── current/                 # Current version docs
 │
 └── CLAUDE.md                    # This file (repository docs)
@@ -1141,11 +1142,35 @@ When working on this codebase:
 4. **Test all 3 routes** - Changes may affect routing logic, test each tier
 5. **Maintain performance** - Keep Route 1 <100ms, Route 2 <100ms, Route 3 <4s
 
+### Implementation Status Tracking
+**IMPORTANT:** When completing any milestone from `docs/IMPLEMENTATION_STATUS.md`, you MUST update that file:
+
+1. **After implementing a feature:**
+   - Change the status from `NOT IMPLEMENTED` or `PARTIAL` to `COMPLETE`
+   - Update any relevant metrics or descriptions
+   - Add an entry to the Changelog section at the bottom
+
+2. **Milestones to track:**
+   - Search backend integrations (AIMS, Audio Similarity, PSE)
+   - Context layer components (Auth, Session, Preferences, Memory)
+   - Infrastructure (Caching, Analytics, Rate Limiting)
+   - Agent features (Disambiguation, Proactive Suggestions)
+
+3. **Example changelog entry:**
+   ```markdown
+   | 2025-12-19 | Implemented user authentication with JWT |
+   ```
+
+4. **Keep the Executive Summary table updated** - Recalculate totals when statuses change
+
+This ensures stakeholders can track progress against the December 16, 2025 presentation.
+
 ### Adding Features
 1. **Check configuration first** - Can this be solved with businessRules.json?
 2. **Use existing services** - Extend metadataSearch.js or businessRulesEngine.js
 3. **Follow service layer** - Business logic in services/, routes/ just handle HTTP
 4. **Update system prompt** - If adding tools or changing behavior, update chat-system-prompt.md
+5. **Update implementation status** - Mark completed milestones in `docs/IMPLEMENTATION_STATUS.md`
 
 ### Modifying Search Behavior
 1. **Field weights** - Edit fieldWeights.json (Solr qf/pf2 format, no code changes)

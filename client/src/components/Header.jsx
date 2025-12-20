@@ -1,8 +1,9 @@
 import { useTheme } from '../context/ThemeContext';
+import { DemoControls } from './DemoControls';
 import logoLight from '../assets/apm-logo-light.png';
 import logoDark from '../assets/apm-logo-dark.png';
 
-export function Header({ onClear }) {
+export function Header({ onClear, onSettingsChange }) {
   const { isDark, toggleTheme } = useTheme();
 
   return (
@@ -18,6 +19,12 @@ export function Header({ onClear }) {
         <p className={`text-sm ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>Search Assistant</p>
       </div>
       <div className="flex items-center gap-2">
+        {/* Demo Controls */}
+        <DemoControls onSettingsChange={onSettingsChange} />
+
+        {/* Divider */}
+        <div className={`h-6 w-px ${isDark ? 'bg-gray-600' : 'bg-gray-300'}`} />
+
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}

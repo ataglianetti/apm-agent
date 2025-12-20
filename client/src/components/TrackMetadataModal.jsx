@@ -8,7 +8,7 @@ import { useTheme } from '../context/ThemeContext';
  * CEO's hot button feature: Shows which facets matched, score breakdown,
  * and business rules that affected the track's ranking
  */
-export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '' }) {
+export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', searchMeta = null }) {
   const { isDark } = useTheme();
   const [metadata, setMetadata] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -300,100 +300,97 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '' })
               {/* Business Rules Tab */}
               {activeTab === 'rules' && (
                 <div className="p-6 space-y-6">
-                  {metadata.ruleTransparency ? (
-                    <>
-                      <div className={`p-4 rounded-lg ${isDark ? 'bg-apm-dark/30' : 'bg-purple-50'}`}>
-                        <h3 className={`text-sm font-semibold mb-2 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
-                          PM-Controlled Search Behavior
-                        </h3>
-                        <p className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}>
-                          Business rules can adjust search rankings based on library preferences, recency interleaving,
-                          feature boosts, and more. These rules are configured in businessRules.json without code changes.
-                        </p>
+                  <div className={`p-4 rounded-lg ${isDark ? 'bg-apm-dark/30' : 'bg-purple-50'}`}>
+                    <h3 className={`text-sm font-semibold mb-2 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                      PM-Controlled Search Behavior
+                    </h3>
+                    <p className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}>
+                      Business rules can adjust search rankings based on library preferences, recency interleaving,
+                      feature boosts, and more. These rules are configured in businessRules.json without code changes.
+                    </p>
+                  </div>
+
+                  {searchMeta?.appliedRules && searchMeta.appliedRules.length > 0 ? (
+                    <div>
+                      <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                        Applied Rules ({searchMeta.appliedRules.length})
+                      </h3>
+                      <div className="space-y-3">
+                        {searchMeta.appliedRules.map((rule, i) => (
+                          <div
+                            key={i}
+                            className={`p-4 rounded-lg ${isDark ? 'bg-apm-dark/50' : 'bg-gray-50'}`}
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <span className={`text-sm font-medium ${isDark ? 'text-apm-purple' : 'text-purple-600'}`}>
+                                {rule.ruleId}
+                              </span>
+                              <span className={`text-xs px-2 py-1 rounded ${
+                                isDark ? 'bg-apm-purple/20 text-apm-purple' : 'bg-purple-100 text-purple-700'
+                              }`}>
+                                {rule.type}
+                              </span>
+                            </div>
+                            <p className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-700'}`}>
+                              {rule.description}
+                            </p>
+                            {rule.affectedTracks > 0 && (
+                              <p className={`text-xs mt-2 ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
+                                Affected {rule.affectedTracks} track{rule.affectedTracks !== 1 ? 's' : ''}
+                              </p>
+                            )}
+                          </div>
+                        ))}
                       </div>
-
-                      {track._meta?.appliedRules && track._meta.appliedRules.length > 0 ? (
-                        <div>
-                          <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
-                            Applied Rules
-                          </h3>
-                          <div className="space-y-3">
-                            {track._meta.appliedRules.map((rule, i) => (
-                              <div
-                                key={i}
-                                className={`p-4 rounded-lg ${isDark ? 'bg-apm-dark/50' : 'bg-gray-50'}`}
-                              >
-                                <div className="flex items-start justify-between mb-2">
-                                  <span className={`text-sm font-medium ${isDark ? 'text-apm-purple' : 'text-purple-600'}`}>
-                                    {rule.ruleId}
-                                  </span>
-                                  <span className={`text-xs px-2 py-1 rounded ${
-                                    isDark ? 'bg-apm-purple/20 text-apm-purple' : 'bg-purple-100 text-purple-700'
-                                  }`}>
-                                    {rule.type}
-                                  </span>
-                                </div>
-                                <p className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-700'}`}>
-                                  {rule.description}
-                                </p>
-                                {rule.affectedTracks > 0 && (
-                                  <p className={`text-xs mt-2 ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
-                                    Affected {rule.affectedTracks} track{rule.affectedTracks !== 1 ? 's' : ''}
-                                  </p>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className={`p-6 text-center ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
-                          <p>No business rules were applied to this track in the current search.</p>
-                          <p className="text-xs mt-2">
-                            Rules are matched based on search query patterns and can boost, filter, or reorder results.
-                          </p>
-                        </div>
-                      )}
-
-                      {track._meta?.scoreAdjustments && track._meta.scoreAdjustments.length > 0 && (
-                        <div>
-                          <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
-                            Score Adjustments
-                          </h3>
-                          <div className="space-y-2">
-                            {track._meta.scoreAdjustments
-                              .filter(adj => adj.trackId === track.id)
-                              .map((adj, i) => (
-                                <div
-                                  key={i}
-                                  className={`p-3 rounded-lg ${isDark ? 'bg-apm-dark/50' : 'bg-gray-50'}`}
-                                >
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-700'}`}>
-                                      {adj.reason}
-                                    </span>
-                                    <span className={`text-sm font-medium ${
-                                      adj.rankChange > 0
-                                        ? 'text-green-500'
-                                        : adj.rankChange < 0
-                                        ? 'text-red-500'
-                                        : isDark ? 'text-apm-gray-light' : 'text-gray-500'
-                                    }`}>
-                                      {adj.rankChange > 0 ? `+${adj.rankChange}` : adj.rankChange} ranks
-                                    </span>
-                                  </div>
-                                  <p className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
-                                    Score: {adj.originalScore.toFixed(2)} → {adj.newScore.toFixed(2)}
-                                    ({adj.scoreMultiplier}x multiplier)
-                                  </p>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-                    </>
+                    </div>
                   ) : (
                     <div className={`p-6 text-center ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
-                      <p>Business rules information not available.</p>
+                      <p>No business rules were applied in the current search.</p>
+                      <p className="text-xs mt-2">
+                        Rules are matched based on search query patterns and can boost, filter, or reorder results.
+                      </p>
+                    </div>
+                  )}
+
+                  {searchMeta?.scoreAdjustments && searchMeta.scoreAdjustments.length > 0 && (
+                    <div>
+                      <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                        Score Adjustments for This Track
+                      </h3>
+                      <div className="space-y-2">
+                        {searchMeta.scoreAdjustments
+                          .filter(adj => adj.trackId === track.id)
+                          .map((adj, i) => (
+                            <div
+                              key={i}
+                              className={`p-3 rounded-lg ${isDark ? 'bg-apm-dark/50' : 'bg-gray-50'}`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-700'}`}>
+                                  {adj.reason}
+                                </span>
+                                <span className={`text-sm font-medium ${
+                                  adj.rankChange > 0
+                                    ? 'text-green-500'
+                                    : adj.rankChange < 0
+                                    ? 'text-red-500'
+                                    : isDark ? 'text-apm-gray-light' : 'text-gray-500'
+                                }`}>
+                                  {adj.rankChange > 0 ? `+${adj.rankChange}` : adj.rankChange} ranks
+                                </span>
+                              </div>
+                              <p className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
+                                Score: {adj.originalScore?.toFixed(2)} → {adj.newScore?.toFixed(2)}
+                                {adj.scoreMultiplier && ` (${adj.scoreMultiplier}x multiplier)`}
+                              </p>
+                            </div>
+                          ))}
+                        {searchMeta.scoreAdjustments.filter(adj => adj.trackId === track.id).length === 0 && (
+                          <p className={`text-sm ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
+                            No score adjustments applied to this specific track.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

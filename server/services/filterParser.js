@@ -68,13 +68,7 @@ const FIELD_MAPPING = {
   'period': 'facet:Time Period',
   'era': 'facet:Time Period',
   'track-type': 'facet:Track Type',
-  'type': 'facet:Track Type',
-
-  // Legacy mappings for backward compatibility
-  'title': 'track_title',
-  'album': 'album_title',
-  'description': 'track_description',
-  'date': 'apm_release_date'
+  'type': 'facet:Track Type'
 };
 
 // Operators and their meanings
