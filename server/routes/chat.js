@@ -394,9 +394,12 @@ router.post('/chat', async (req, res) => {
     if (typeof reply === 'string') {
       try {
         let trimmed = reply.trim();
+        console.log('Raw reply length:', reply.length);
+        console.log('Reply first 200 chars:', reply.substring(0, 200));
 
         // Strip markdown code fences if present
         if (trimmed.startsWith('```')) {
+          console.log('Stripping markdown code fences');
           trimmed = trimmed.replace(/^```(?:json)?\s*\n?/, '');
           trimmed = trimmed.replace(/\n?```\s*$/, '');
           trimmed = trimmed.trim();
@@ -404,31 +407,186 @@ router.post('/chat', async (req, res) => {
 
         // Try to find JSON object if it doesn't start with {
         if (!trimmed.startsWith('{')) {
-          const jsonMatch = trimmed.match(/\{[\s\S]*"type"\s*:\s*"track_results"[\s\S]*\}/);
-          if (jsonMatch) {
-            trimmed = jsonMatch[0];
+          console.log('Reply does not start with {, searching for JSON object...');
+          // Find the start of a track_results JSON object
+          const jsonStartMatch = trimmed.match(/\{\s*"type"\s*:\s*"track_results"/);
+          if (jsonStartMatch) {
+            console.log('Found track_results JSON start pattern');
+            const startIdx = trimmed.indexOf(jsonStartMatch[0]);
+            // Extract from the opening brace and find matching closing brace
+            let braceCount = 0;
+            let endIdx = startIdx;
+            let inString = false;
+            let escapeNext = false;
+
+            for (let i = startIdx; i < trimmed.length; i++) {
+              const char = trimmed[i];
+
+              // Handle escape sequences inside strings
+              if (escapeNext) {
+                escapeNext = false;
+                continue;
+              }
+
+              if (char === '\\' && inString) {
+                escapeNext = true;
+                continue;
+              }
+
+              // Toggle string mode on unescaped quotes
+              if (char === '"') {
+                inString = !inString;
+                continue;
+              }
+
+              // Only count braces outside of strings
+              if (!inString) {
+                if (char === '{') braceCount++;
+                if (char === '}') braceCount--;
+                if (braceCount === 0) {
+                  endIdx = i + 1;
+                  break;
+                }
+              }
+            }
+            console.log(`Extracted JSON from index ${startIdx} to ${endIdx}`);
+            trimmed = trimmed.substring(startIdx, endIdx);
+            console.log('Extracted JSON first 200 chars:', trimmed.substring(0, 200));
+          } else {
+            console.log('No track_results JSON pattern found in reply');
           }
         }
 
         // Only try to parse if it looks like JSON
         if (trimmed.startsWith('{')) {
-          const parsed = JSON.parse(trimmed);
-          if (parsed.type === 'track_results' && Array.isArray(parsed.tracks)) {
-            trackResults = parsed;
+          console.log('Attempting to parse JSON...');
+
+          // Try to parse directly first
+          let parsed;
+          try {
+            parsed = JSON.parse(trimmed);
+          } catch (parseError) {
+            console.log('Direct JSON parse failed:', parseError.message);
+            console.log('Attempting to clean up JSON...');
+
+            // Common LLM JSON issues: trailing commas, unescaped newlines in strings
+            let cleanedJson = trimmed
+              // Remove trailing commas before closing brackets/braces
+              .replace(/,\s*\]/g, ']')
+              .replace(/,\s*\}/g, '}')
+              // Fix unescaped newlines in strings (replace with \n)
+              .replace(/\n(?=[^"]*"(?:[^"]*"[^"]*")*[^"]*$)/g, '\\n');
+
+            try {
+              parsed = JSON.parse(cleanedJson);
+              console.log('JSON parsed successfully after cleanup');
+            } catch (cleanupError) {
+              console.log('JSON cleanup parse also failed:', cleanupError.message);
+              // Try more aggressive cleanup - truncate at last complete track
+              const lastCompleteTrack = cleanedJson.lastIndexOf('},');
+              if (lastCompleteTrack > 0) {
+                const truncated = cleanedJson.substring(0, lastCompleteTrack + 1) + ']}';
+                try {
+                  parsed = JSON.parse(truncated);
+                  console.log('JSON parsed successfully after truncation');
+                } catch (truncError) {
+                  console.log('Truncation parse failed:', truncError.message);
+                }
+              }
+            }
+          }
+
+          if (parsed) {
+            console.log('JSON parsed successfully, type:', parsed.type, 'tracks count:', parsed.tracks?.length);
+            if (parsed.type === 'track_results' && Array.isArray(parsed.tracks)) {
+              trackResults = parsed;
+              console.log('Valid track_results JSON found with', trackResults.tracks.length, 'tracks');
+            }
           }
         }
       } catch (e) {
         // Not JSON or not track results, treat as regular text
-        console.log('Not valid track results JSON, treating as text');
+        console.log('JSON parsing failed:', e.message);
+        console.log('Treating as text response');
+      }
+    }
+
+    // If Claude's JSON failed to parse but this looks like a music search,
+    // fall back to Solr search so user gets results instead of raw text
+    if (!trackResults && typeof reply === 'string' && reply.includes('"type": "track_results"')) {
+      console.log('JSON parsing failed but response contains track_results - falling back to Solr');
+      try {
+        const solrResults = await metadataSearch({
+          text: lastMessage.content,
+          limit: 12,
+          offset: 0
+        });
+        if (solrResults.tracks && solrResults.tracks.length > 0) {
+          const enrichedTracks = enrichTracksWithGenreNames(solrResults.tracks);
+          const matchedRules = matchRules(lastMessage.content);
+          const enhancedResults = await applyRules(enrichedTracks, matchedRules, lastMessage.content);
+
+          // Extract a friendly message from Claude's response if possible
+          let friendlyMessage = `Found tracks matching "${lastMessage.content}"`;
+          const msgMatch = reply.match(/"message"\s*:\s*"([^"]+)"/);
+          if (msgMatch) {
+            friendlyMessage = msgMatch[1];
+          }
+
+          const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
+
+          console.log(`Solr fallback successful: ${tracksWithVersions.length} tracks`);
+
+          return res.json({
+            type: 'track_results',
+            message: friendlyMessage,
+            tracks: tracksWithVersions,
+            total_count: solrResults.total,
+            showing: `1-${Math.min(12, tracksWithVersions.length)}`,
+            _meta: {
+              appliedRules: enhancedResults.appliedRules,
+              scoreAdjustments: enhancedResults.scoreAdjustments,
+              fallback: 'solr_direct'
+            }
+          });
+        }
+      } catch (fallbackError) {
+        console.log('Solr fallback also failed:', fallbackError.message);
       }
     }
 
     // Return structured response if we found track results
     if (trackResults) {
-      // Enrich tracks with proper genre names (Claude may not include all fields)
-      const enrichedTracks = enhanceTracksMetadata(trackResults.tracks);
+      // Claude tends to filter/summarize tracks - do a fresh Solr search to get full results
+      // but keep Claude's friendly message
+      let finalTracks = trackResults.tracks;
+      let totalCount = trackResults.total_count;
+      let showingText = trackResults.showing;
 
-      // Apply business rules to Claude's track results
+      // If Claude returned few tracks but indicated more exist, do a direct Solr search
+      if (trackResults.tracks.length < 12 && (trackResults.total_count > 12 || !trackResults.total_count)) {
+        try {
+          console.log(`Claude returned only ${trackResults.tracks.length} tracks, fetching full results from Solr`);
+          const solrResults = await metadataSearch({
+            text: lastMessage.content,
+            limit: 12,
+            offset: 0
+          });
+          if (solrResults.tracks && solrResults.tracks.length > trackResults.tracks.length) {
+            finalTracks = solrResults.tracks;
+            totalCount = solrResults.total;
+            showingText = `1-${Math.min(12, solrResults.tracks.length)}`;
+            console.log(`Using Solr results: ${finalTracks.length} tracks (total: ${totalCount})`);
+          }
+        } catch (e) {
+          console.log('Solr backup search failed, using Claude tracks:', e.message);
+        }
+      }
+
+      // Enrich tracks with proper genre names
+      const enrichedTracks = enhanceTracksMetadata(finalTracks);
+
+      // Apply business rules
       const matchedRules = matchRules(lastMessage.content);
       const enhancedResults = await applyRules(
         enrichedTracks,
@@ -436,7 +594,7 @@ router.post('/chat', async (req, res) => {
         lastMessage.content
       );
 
-      console.log(`Route 3: Applied ${enhancedResults.appliedRules.length} business rules to ${trackResults.tracks.length} tracks`);
+      console.log(`Route 3: Applied ${enhancedResults.appliedRules.length} business rules to ${finalTracks.length} tracks`);
 
       // Enrich tracks with full version data
       const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
@@ -445,8 +603,8 @@ router.post('/chat', async (req, res) => {
         type: 'track_results',
         message: trackResults.message,
         tracks: tracksWithVersions,
-        total_count: trackResults.total_count,
-        showing: trackResults.showing,
+        total_count: totalCount,
+        showing: showingText,
         _meta: {
           appliedRules: enhancedResults.appliedRules,
           scoreAdjustments: enhancedResults.scoreAdjustments

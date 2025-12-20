@@ -73,6 +73,7 @@ export function useChat() {
           tracks: data.tracks,
           totalCount: data.total_count,
           showing: data.showing,
+          _meta: data._meta,  // Business rules metadata
           timings: data.timings,
           performance: data.performance,
           architecture: data.architecture

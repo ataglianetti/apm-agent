@@ -73,7 +73,8 @@ export function MessageBubble({ message, onShowMore, onSoundsLike, searchQuery =
               message: message.message,
               tracks: message.tracks,
               total_count: message.totalCount,
-              showing: message.showing
+              showing: message.showing,
+              _meta: message._meta
             }}
             onShowMore={onShowMore}
             onSoundsLike={onSoundsLike}
