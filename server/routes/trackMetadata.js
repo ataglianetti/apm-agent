@@ -331,4 +331,75 @@ router.get('/tracks/:id/facets', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/tracks/:id/versions
+ * Returns all versions of a track (tracks sharing the same song_id)
+ * Excludes the requested track from results
+ */
+router.get('/tracks/:id/versions', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 20 } = req.query;
+
+    const db = getDb();
+
+    // First, get the song_id for the requested track
+    const sourceTrack = db.prepare(`
+      SELECT song_id, song_title FROM tracks WHERE id = ?
+    `).get(id);
+
+    if (!sourceTrack) {
+      return res.status(404).json({
+        error: 'Track not found',
+        details: `No track found with ID: ${id}`
+      });
+    }
+
+    if (!sourceTrack.song_id) {
+      return res.json({
+        track_id: id,
+        versions: [],
+        version_count: 0,
+        message: 'This track has no song_id - no versions available'
+      });
+    }
+
+    // Get all versions with the same song_id, excluding the source track
+    // Join with genre_taxonomy to get human-readable genre name
+    const versions = db.prepare(`
+      SELECT
+        t.id, t.track_title, t.track_description, t.bpm, t.duration,
+        t.album_title, t.library_name, t.composer_fullname as composer,
+        t.apm_release_date, t.master_genre_id, t.facet_labels,
+        g.genre_name
+      FROM tracks t
+      LEFT JOIN genre_taxonomy g ON t.master_genre_id = g.genre_id
+      WHERE t.song_id = ? AND t.id != ?
+      ORDER BY t.library_name, t.track_title
+      LIMIT ?
+    `).all(sourceTrack.song_id, id, parseInt(limit));
+
+    // Get total count (including source track)
+    const countResult = db.prepare(`
+      SELECT COUNT(*) as total FROM tracks WHERE song_id = ?
+    `).get(sourceTrack.song_id);
+
+    res.json({
+      track_id: id,
+      song_id: sourceTrack.song_id,
+      song_title: sourceTrack.song_title,
+      versions: versions,
+      version_count: versions.length,
+      total_versions: countResult.total
+    });
+
+  } catch (error) {
+    console.error('Track versions error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch track versions',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred'
+    });
+  }
+});
+
 export default router;

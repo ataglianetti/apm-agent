@@ -251,14 +251,16 @@ export async function search(options = {}) {
   }
 
   // Text field filters (composer, library, album, etc.)
+  // For analyzed text fields (*_search), use phrase matching not wildcards
   for (const filter of fieldFilters) {
     const escapedValue = filter.value.replace(/"/g, '\\"');
     if (filter.operator === 'exact') {
       // Exact match - use quotes
       fq.push(`${filter.field}:"${escapedValue}"`);
     } else {
-      // Contains match - use wildcards
-      fq.push(`${filter.field}:*${escapedValue}*`);
+      // Contains/phrase match - use quotes for analyzed text fields
+      // Wildcards (*value*) don't work with tokenized fields in Solr
+      fq.push(`${filter.field}:"${escapedValue}"`);
     }
     console.log(`Added field filter: ${filter.field} ${filter.operator} "${filter.value}"`);
   }
@@ -284,7 +286,7 @@ export async function search(options = {}) {
     'id', 'track_title', 'track_description', 'bpm', 'duration',
     'apm_release_date', 'album_title', 'album_code', 'library_name',
     'composer', 'genre', 'mood', 'instruments', 'music_for',
-    'facet_labels', 'score'
+    'facet_labels', 'versions', 'score'
   ].join(','));
 
   // Execute request
@@ -374,6 +376,20 @@ function mapResponse(solrData, options) {
  * Map a single Solr document to track format
  */
 function mapTrack(doc) {
+  // Parse versions JSON if present
+  // Note: Solr may return this as an array if multiValued=true in schema
+  let versions = [];
+  if (doc.versions) {
+    try {
+      const versionsStr = Array.isArray(doc.versions) ? doc.versions[0] : doc.versions;
+      if (versionsStr) {
+        versions = JSON.parse(versionsStr);
+      }
+    } catch (e) {
+      // Invalid JSON, ignore
+    }
+  }
+
   return {
     id: doc.id,
     track_title: doc.track_title,
@@ -392,6 +408,9 @@ function mapTrack(doc) {
     instruments: doc.instruments,
     music_for: doc.music_for,
     facet_labels: doc.facet_labels,
+
+    // Versions - other tracks with same song_id
+    versions: versions,
 
     // Score from Solr
     _relevance_score: doc.score

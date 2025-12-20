@@ -3,10 +3,10 @@ import { chat as claudeChat } from '../services/claude.js';
 import { parseFilterQuery, hasFilters } from '../services/filterParser.js';
 import { search as metadataSearch } from '../services/metadataSearch.js';
 import { matchRules, applyRules } from '../services/businessRulesEngine.js';
-import { searchByTaxonomy, getTracksByFacetIds, searchFacets } from '../services/taxonomySearch.js';
+import { searchFacets } from '../services/taxonomySearch.js';
 import { enrichTracksWithGenreNames } from '../services/genreMapper.js';
-import { getLLMMode } from './settings.js';
-import { enhanceTracksMetadata } from '../services/metadataEnhancer.js';
+import { getLLMMode, getBusinessRulesEnabled } from './settings.js';
+import { enhanceTracksMetadata, enrichTracksWithFullVersions } from '../services/metadataEnhancer.js';
 
 const router = express.Router();
 
@@ -146,121 +146,20 @@ router.post('/chat', async (req, res) => {
         const startTime = Date.now();
         const matchedRules = matchRules(previousQuery);
 
-        // Extract expanded facets from genre_simplification rules
-        const expandedFacets = [];
-        for (const rule of matchedRules) {
-          if (rule.type === 'genre_simplification' && rule.action?.auto_apply_facets) {
-            expandedFacets.push(...rule.action.auto_apply_facets);
-          }
-        }
+        // Use unified Solr search with pagination
+        console.log(`Pagination: Using Solr search for "${previousQuery}" offset ${previousOffset}`);
 
-        let searchResults;
+        const searchOptions = {
+          text: previousQuery,
+          limit: 12,
+          offset: previousOffset
+        };
 
-        // Use same HYBRID logic as main search
-        if (expandedFacets.length > 0) {
-          console.log(`Pagination: Using HYBRID search with expanded facets: ${expandedFacets.join(', ')}`);
-
-          // Get all results, then paginate
-          const allFacets = [];
-          for (const facetName of expandedFacets) {
-            const matchedFacets = searchFacets(facetName, ['Master Genre', 'Additional Genre']);
-            allFacets.push(...matchedFacets);
-          }
-
-          const facetIds = allFacets.map(f => f.facet_id);
-          const taxonomyResults = getTracksByFacetIds(facetIds, 1000, 0);
-          const textResults = await metadataSearch({ text: previousQuery, limit: 1000, offset: 0 });
-
-          // Combine and score using field weights
-          const trackScores = new Map();
-          const trackMap = new Map();
-
-          for (const track of taxonomyResults.tracks) {
-            trackScores.set(track.id, 4.0);
-            trackMap.set(track.id, track);
-          }
-
-          for (const track of textResults.tracks) {
-            const textScore = track._relevance_score || 0.2;
-            const existingScore = trackScores.get(track.id) || 0;
-            if (existingScore > 0) {
-              trackScores.set(track.id, existingScore + textScore);
-              const existing = trackMap.get(track.id);
-              trackMap.set(track.id, { ...existing, _text_score: textScore });
-            } else {
-              trackScores.set(track.id, textScore);
-              trackMap.set(track.id, track);
-            }
-          }
-
-          const scoredTracks = Array.from(trackMap.values()).map(track => ({
-            ...track,
-            _relevance_score: trackScores.get(track.id)
-          }));
-
-          scoredTracks.sort((a, b) => b._relevance_score - a._relevance_score);
-          const enrichedTracks = enrichTracksWithGenreNames(scoredTracks);
-
-          searchResults = {
-            tracks: enrichedTracks,
-            total: scoredTracks.length
-          };
-        } else {
-          // Try hybrid taxonomy + text search
-          const taxonomyResults = searchByTaxonomy(previousQuery, 1000, 0);
-
-          if (taxonomyResults.total > 0) {
-            const textResults = await metadataSearch({ text: previousQuery, limit: 1000, offset: 0 });
-
-            const trackScores = new Map();
-            const trackMap = new Map();
-
-            for (const track of taxonomyResults.tracks) {
-              trackScores.set(track.id, 4.0);
-              trackMap.set(track.id, track);
-            }
-
-            for (const track of textResults.tracks) {
-              const textScore = track._relevance_score || 0.2;
-              const existingScore = trackScores.get(track.id) || 0;
-              if (existingScore > 0) {
-                trackScores.set(track.id, existingScore + textScore);
-                const existing = trackMap.get(track.id);
-                trackMap.set(track.id, { ...existing, _text_score: textScore });
-              } else {
-                trackScores.set(track.id, textScore);
-                trackMap.set(track.id, track);
-              }
-            }
-
-            const scoredTracks = Array.from(trackMap.values()).map(track => ({
-              ...track,
-              _relevance_score: trackScores.get(track.id)
-            }));
-
-            scoredTracks.sort((a, b) => b._relevance_score - a._relevance_score);
-            const enrichedTracks = enrichTracksWithGenreNames(scoredTracks);
-
-            searchResults = {
-              tracks: enrichedTracks,
-              total: scoredTracks.length
-            };
-          } else {
-            // Pure text search
-            const searchOptions = {
-              text: previousQuery,
-              limit: 12,
-              offset: previousOffset
-            };
-            searchResults = await metadataSearch(searchOptions);
-          }
-        }
-
-        // Paginate the combined results
-        const paginatedTracks = searchResults.tracks.slice(previousOffset, previousOffset + 12);
+        const searchResults = await metadataSearch(searchOptions);
+        const enrichedTracks = enrichTracksWithGenreNames(searchResults.tracks);
 
         const enhancedResults = await applyRules(
-          paginatedTracks,
+          enrichedTracks,
           matchedRules,
           previousQuery
         );
@@ -268,10 +167,13 @@ router.post('/chat', async (req, res) => {
         const elapsed = Date.now() - startTime;
         console.log(`Pagination query completed in ${elapsed}ms`);
 
+        // Enrich tracks with full version data
+        const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
+
         return res.json({
           type: 'track_results',
           message: `Showing more results for "${previousQuery}"`,
-          tracks: enhancedResults.results,
+          tracks: tracksWithVersions,
           total_count: searchResults.total,
           showing: `${previousOffset + 1}-${previousOffset + enhancedResults.results.length}`,
           _meta: {
@@ -350,13 +252,16 @@ router.post('/chat', async (req, res) => {
       // Enrich with genre names
       const enrichedTracks = enrichTracksWithGenreNames(searchResults.tracks);
 
+      // Enrich tracks with full version data
+      const tracksWithVersions = enrichTracksWithFullVersions(enrichedTracks);
+
       const elapsed = Date.now() - startTime;
       console.log(`Filter query completed in ${elapsed}ms via ${searchResults._meta?.engine || 'unknown'}`);
 
       return res.json({
         type: 'track_results',
         message: `Found tracks matching your filters`,
-        tracks: enrichedTracks,
+        tracks: tracksWithVersions,
         total_count: searchResults.total,
         showing: `1-${enrichedTracks.length}`,
         _meta: searchResults._meta
@@ -392,166 +297,42 @@ router.post('/chat', async (req, res) => {
 
       let searchResults;
 
-      // HYBRID SEARCH: Combine taxonomy + text search for best results
-      // Tracks matching both taxonomy AND text get highest relevance scores
-      // Performance-optimized: Only load enough for scoring top results
+      // UNIFIED SOLR SEARCH: Use Solr directly with proper field weights
+      // Solr's combined_genre_search field already handles taxonomy/genre matching
+      // No need for hybrid search - it causes double-counting of genre weights
+      // Business rules expand facets for logging purposes but we use pure text search
+      // since Solr's field weights (combined_genre_search^4.0) handle genre matching
+
+      console.log(`Using Solr search with field weights for: "${lastMessage.content}"`);
 
       if (expandedFacets.length > 0) {
-        // Query contains taxonomy terms from business rules - use hybrid search
-        console.log(`Using HYBRID search: taxonomy (${expandedFacets.join(', ')}) + text ("${lastMessage.content}")`);
-
-        // 1. Get taxonomy results (limit to top 1000 for performance)
-        const allFacets = [];
-        for (const facetName of expandedFacets) {
-          const matchedFacets = searchFacets(facetName, ['Master Genre', 'Additional Genre']);
-          allFacets.push(...matchedFacets);
-        }
-
-        const facetIds = allFacets.map(f => f.facet_id);
-        console.log(`Found ${facetIds.length} facet IDs for taxonomy search`);
-
-        // Get top 1000 taxonomy matches for scoring (much faster)
-        const taxonomyResults = getTracksByFacetIds(facetIds, 1000, 0);
-        console.log(`Taxonomy search: ${taxonomyResults.tracks.length} tracks loaded (${taxonomyResults.total} total)`);
-
-        // 2. Get text search results (limit to top 1000)
-        const textSearchOptions = {
-          text: lastMessage.content,
-          limit: 1000,
-          offset: 0
-        };
-        const textResults = await metadataSearch(textSearchOptions);
-        console.log(`Text search: ${textResults.tracks.length} tracks loaded (${textResults.total} total)`);
-
-        // 3. Combine and score using field weights from metadataSearch
-        const trackScores = new Map();
-        const trackMap = new Map();
-        const taxonomyIds = new Set(taxonomyResults.tracks.map(t => t.id));
-        const textIds = new Set(textResults.tracks.map(t => t.id));
-
-        // Add taxonomy matches (base score from genre facet weight = 4.0)
-        for (const track of taxonomyResults.tracks) {
-          // Use genre weight (4.0) as base score for taxonomy matches
-          trackScores.set(track.id, 4.0);
-          trackMap.set(track.id, track);
-        }
-
-        // Add text matches (use their pre-calculated relevance scores from metadataSearch)
-        for (const track of textResults.tracks) {
-          const textScore = track._relevance_score || 0.2; // Default to track_title weight if no score
-          const existingScore = trackScores.get(track.id) || 0;
-
-          if (existingScore > 0) {
-            // Track matches BOTH taxonomy AND text - combine scores
-            trackScores.set(track.id, existingScore + textScore);
-            // Keep the track from taxonomy (it has genre info) but preserve text score
-            const existing = trackMap.get(track.id);
-            trackMap.set(track.id, {
-              ...existing,
-              _text_score: textScore
-            });
-          } else {
-            // Text-only match - use its weighted score
-            trackScores.set(track.id, textScore);
-            trackMap.set(track.id, track);
-          }
-        }
-
-        // 4. Convert to array and sort by score
-        const scoredTracks = Array.from(trackMap.values()).map(track => ({
-          ...track,
-          _relevance_score: trackScores.get(track.id),
-          _score_breakdown: {
-            ...track._score_breakdown,
-            taxonomy_match: taxonomyIds.has(track.id) ? 4.0 : 0,
-            text_score: track._text_score || (textIds.has(track.id) ? track._relevance_score : 0),
-            combined: taxonomyIds.has(track.id) && textIds.has(track.id)
-          }
-        }));
-
-        scoredTracks.sort((a, b) => b._relevance_score - a._relevance_score);
-
-        // 5. Enrich with genre names
-        const enrichedTracks = enrichTracksWithGenreNames(scoredTracks);
-
-        searchResults = {
-          tracks: enrichedTracks,
-          total: taxonomyResults.total // Use taxonomy total as best estimate
-        };
-
-        console.log(`Hybrid search: ${searchResults.tracks.length} scored tracks (estimated ${searchResults.total} total)`);
-      } else {
-        // No taxonomy expansion - try general taxonomy search + text search
-        const taxonomyResults = searchByTaxonomy(lastMessage.content, 1000, 0);
-
-        if (taxonomyResults.total > 0) {
-          // Found taxonomy matches - combine with text search
-          console.log(`Found ${taxonomyResults.total} tracks via taxonomy, combining with text search`);
-
-          const textSearchOptions = {
-            text: lastMessage.content,
-            limit: 1000,
-            offset: 0
-          };
-          const textResults = await metadataSearch(textSearchOptions);
-
-          // Combine and score using field weights
-          const trackScores = new Map();
-          const trackMap = new Map();
-          const taxonomyIds = new Set(taxonomyResults.tracks.map(t => t.id));
-          const textIds = new Set(textResults.tracks.map(t => t.id));
-
-          for (const track of taxonomyResults.tracks) {
-            trackScores.set(track.id, 4.0); // Genre weight
-            trackMap.set(track.id, track);
-          }
-
-          for (const track of textResults.tracks) {
-            const textScore = track._relevance_score || 0.2;
-            const existingScore = trackScores.get(track.id) || 0;
-
-            if (existingScore > 0) {
-              trackScores.set(track.id, existingScore + textScore);
-              const existing = trackMap.get(track.id);
-              trackMap.set(track.id, { ...existing, _text_score: textScore });
-            } else {
-              trackScores.set(track.id, textScore);
-              trackMap.set(track.id, track);
-            }
-          }
-
-          const scoredTracks = Array.from(trackMap.values()).map(track => ({
-            ...track,
-            _relevance_score: trackScores.get(track.id),
-            _score_breakdown: {
-              ...track._score_breakdown,
-              taxonomy_match: taxonomyIds.has(track.id) ? 4.0 : 0,
-              text_score: track._text_score || (textIds.has(track.id) ? track._relevance_score : 0),
-              combined: taxonomyIds.has(track.id) && textIds.has(track.id)
-            }
-          }));
-
-          scoredTracks.sort((a, b) => b._relevance_score - a._relevance_score);
-
-          const enrichedTracks = enrichTracksWithGenreNames(scoredTracks);
-
-          searchResults = {
-            tracks: enrichedTracks,
-            total: scoredTracks.length,
-            matchedFacets: taxonomyResults.matchedFacets
-          };
-        } else {
-          // No taxonomy matches - pure text search
-          console.log('No taxonomy matches, using pure text search');
-          const searchOptions = {
-            text: lastMessage.content,
-            limit: 12,
-            offset: 0
-          };
-
-          searchResults = await metadataSearch(searchOptions);
-        }
+        console.log(`Business rules would expand to: ${expandedFacets.join(', ')} (handled by Solr field weights)`);
       }
+
+      // Execute Solr search - let field weights handle taxonomy matching
+      const searchOptions = {
+        text: lastMessage.content,
+        facets: [],  // No facet filters - use text search with field weights
+        limit: 100,  // Get more for business rules to work with
+        offset: 0
+      };
+
+      searchResults = await metadataSearch(searchOptions);
+
+      // Enrich with genre names
+      searchResults.tracks = enrichTracksWithGenreNames(searchResults.tracks);
+
+      console.log(`Solr search: ${searchResults.tracks.length} tracks (total: ${searchResults.total})`);
+
+      // Add score breakdown from Solr score
+      searchResults.tracks = searchResults.tracks.map(track => ({
+        ...track,
+        _score_breakdown: {
+          solr_score: track._relevance_score || 0,
+          // Note: Solr score already includes combined_genre_search^4.0 for taxonomy matches
+          note: 'Score includes field weights from fieldWeights.json'
+        }
+      }));
 
       console.log(`Search returned ${searchResults.tracks.length} tracks (total: ${searchResults.total})`);
 
@@ -571,10 +352,13 @@ router.post('/chat', async (req, res) => {
         console.log('Score adjustments:', enhancedResults.scoreAdjustments);
       }
 
+      // Enrich tracks with full version data (replaces minimal Solr version info)
+      const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results.slice(0, 12));
+
       return res.json({
         type: 'track_results',
         message: `Found tracks matching "${lastMessage.content}"`,
-        tracks: enhancedResults.results.slice(0, 12),
+        tracks: tracksWithVersions,
         total_count: searchResults.total, // Use original total, not enhanced results length
         showing: `1-${Math.min(12, enhancedResults.results.length)}`,
         // Include transparency metadata (optional - for future UI enhancement)
@@ -654,10 +438,13 @@ router.post('/chat', async (req, res) => {
 
       console.log(`Route 3: Applied ${enhancedResults.appliedRules.length} business rules to ${trackResults.tracks.length} tracks`);
 
+      // Enrich tracks with full version data
+      const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
+
       res.json({
         type: 'track_results',
         message: trackResults.message,
-        tracks: enhancedResults.results,
+        tracks: tracksWithVersions,
         total_count: trackResults.total_count,
         showing: trackResults.showing,
         _meta: {

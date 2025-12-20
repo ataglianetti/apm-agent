@@ -2,7 +2,16 @@ import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { TrackMetadataModal } from './TrackMetadataModal';
 
-function TrackCardComponent({ track, index, onSoundsLike, searchQuery = '' }) {
+function TrackCardComponent({
+  track,
+  index,
+  onSoundsLike,
+  searchQuery = '',
+  onShowVersions,      // Callback to show/hide versions
+  hasVersions = false, // Whether track has multiple versions
+  isVersion = false,   // Whether this is a version card (for styling)
+  searchMeta = null    // Business rules metadata from search response
+}) {
   const { isDark } = useTheme();
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -131,7 +140,13 @@ function TrackCardComponent({ track, index, onSoundsLike, searchQuery = '' }) {
 
   return (
     <div className={`rounded-lg p-4 transition-colors ${
-      isDark ? 'bg-apm-navy hover:bg-apm-navy/80' : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
+      isVersion
+        ? isDark
+          ? 'bg-apm-navy/70 border-l-4 border-apm-purple ml-8'
+          : 'bg-gray-50 border-l-4 border-apm-purple ml-8 shadow-sm'
+        : isDark
+          ? 'bg-apm-navy hover:bg-apm-navy/80'
+          : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
     }`}>
       {/* Header Row: Track number, play button, title, action icons */}
       <div className="flex items-start justify-between mb-2">
@@ -179,6 +194,18 @@ function TrackCardComponent({ track, index, onSoundsLike, searchQuery = '' }) {
           >
             Sounds Like
           </button>
+          {/* Versions - only show if track has versions and callback provided */}
+          {hasVersions && onShowVersions && (
+            <button
+              onClick={() => onShowVersions(track)}
+              aria-label={`Show versions of ${track.track_title}`}
+              className={`px-2 py-1 hover:text-apm-purple hover:underline text-xs transition-colors ${
+                isDark ? 'text-apm-gray-light' : 'text-gray-500'
+              }`}
+            >
+              Versions
+            </button>
+          )}
           {/* Favorite */}
           <button
             aria-label={`Add ${track.track_title} to favorites`}
@@ -310,6 +337,7 @@ function TrackCardComponent({ track, index, onSoundsLike, searchQuery = '' }) {
         isOpen={showMetadataModal}
         onClose={closeMetadataModal}
         searchQuery={searchQuery}
+        searchMeta={searchMeta}
       />
     </div>
   );
@@ -320,9 +348,15 @@ function arePropsEqual(prevProps, nextProps) {
   return (
     prevProps.track.id === nextProps.track.id &&
     prevProps.index === nextProps.index &&
-    prevProps.searchQuery === nextProps.searchQuery
+    prevProps.searchQuery === nextProps.searchQuery &&
+    prevProps.hasVersions === nextProps.hasVersions &&
+    prevProps.isVersion === nextProps.isVersion &&
+    prevProps.searchMeta === nextProps.searchMeta
   );
 }
 
 // Memoized export to prevent unnecessary re-renders
 export const TrackCard = memo(TrackCardComponent, arePropsEqual);
+
+// Also export unmemoized version for debugging
+export { TrackCardComponent };
