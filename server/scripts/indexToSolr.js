@@ -92,7 +92,8 @@ const CATEGORY_TO_FIELD = {
   'Track Type': 'track_type_ids',
   'Tempo': 'tempo_ids',
   'Key': 'key_ids',
-  'Language': 'language_ids'
+  'Language': 'language_ids',
+  'is_a': 'is_a_ids'
 };
 
 for (const row of taxonomyRows) {

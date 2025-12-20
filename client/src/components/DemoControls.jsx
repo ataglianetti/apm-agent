@@ -13,7 +13,8 @@ export function DemoControls({ onSettingsChange }) {
     showArchitecture: false,
     businessRulesEnabled: true,
     businessRulesCount: 0,
-    activeRules: []
+    activeRules: [],
+    taxonomyParserEnabled: true  // Natural language → facet mapping
   });
 
   // Close dropdown when clicking outside
@@ -37,7 +38,8 @@ export function DemoControls({ onSettingsChange }) {
           llmMode: data.llmMode,
           businessRulesEnabled: data.businessRules?.globalEnabled ?? true,
           businessRulesCount: data.businessRules?.activeRuleCount ?? 0,
-          activeRules: data.businessRules?.activeRules ?? []
+          activeRules: data.businessRules?.activeRules ?? [],
+          taxonomyParserEnabled: data.taxonomyParserEnabled ?? true
         }));
       })
       .catch(err => console.error('Failed to fetch settings:', err));
@@ -97,6 +99,23 @@ export function DemoControls({ onSettingsChange }) {
     }
   };
 
+  const toggleTaxonomyParser = async () => {
+    try {
+      const response = await fetch('/api/settings/taxonomy-parser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: 'toggle' })
+      });
+      const data = await response.json();
+      setSettings(prev => ({
+        ...prev,
+        taxonomyParserEnabled: data.taxonomyParserEnabled
+      }));
+    } catch (err) {
+      console.error('Failed to toggle taxonomy parser:', err);
+    }
+  };
+
   return (
     <div ref={dropdownRef} className={`relative ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
       {/* Toggle Button */}
@@ -122,6 +141,11 @@ export function DemoControls({ onSettingsChange }) {
         {settings.businessRulesEnabled && (
           <span className="px-2 py-0.5 bg-amber-500 text-white text-xs rounded-full">
             RULES
+          </span>
+        )}
+        {settings.taxonomyParserEnabled && (
+          <span className="px-2 py-0.5 bg-cyan-500 text-white text-xs rounded-full">
+            NLP
           </span>
         )}
         {settings.demoMode && (
@@ -211,6 +235,40 @@ export function DemoControls({ onSettingsChange }) {
                     {rule.type}: {rule.id}
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Taxonomy Parser Toggle */}
+          <div className="mb-4 pb-4 border-b border-gray-600">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm font-medium">Taxonomy Parser</span>
+                <p className="text-xs opacity-60 mt-0.5">
+                  {settings.taxonomyParserEnabled
+                    ? 'Maps terms to facet filters'
+                    : 'Raw text search only'}
+                </p>
+              </div>
+              <button
+                onClick={toggleTaxonomyParser}
+                className={`
+                  relative w-12 h-6 rounded-full transition-colors cursor-pointer
+                  ${settings.taxonomyParserEnabled
+                    ? 'bg-cyan-500'
+                    : isDark ? 'bg-gray-600' : 'bg-gray-300'
+                  }
+                `}
+              >
+                <span className={`
+                  absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm
+                  ${settings.taxonomyParserEnabled ? 'translate-x-6' : 'translate-x-0'}
+                `} />
+              </button>
+            </div>
+            {settings.taxonomyParserEnabled && (
+              <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-cyan-900/30 text-cyan-300' : 'bg-cyan-50 text-cyan-700'}`}>
+                ~1,955 term mappings across 19 categories
               </div>
             )}
           </div>
