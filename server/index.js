@@ -7,6 +7,7 @@ import chatRouter from './routes/chat.js';
 import trackMetadataRouter from './routes/trackMetadata.js';
 import healthRouter from './routes/health.js';
 import settingsRouter from './routes/settings.js';
+import taxonomyRouter from './routes/taxonomy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +25,7 @@ app.use('/api', healthRouter);  // Health checks first (no auth needed)
 app.use('/api', settingsRouter);  // Settings API
 app.use('/api', chatRouter);
 app.use('/api', trackMetadataRouter);
+app.use('/api/taxonomy', taxonomyRouter);  // Taxonomy parsing API
 
 // Production: serve client build
 if (process.env.NODE_ENV === 'production') {
