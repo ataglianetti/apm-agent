@@ -13,7 +13,8 @@
 APM Agent is a production-ready music search system that combines:
 - **Solr search engine** with 1.4M tracks indexed (matching APM production)
 - **Song-level deduplication** via song_id grouping (406K unique songs)
-- **18 facet categories** (2,120 total facets) for precise filtering
+- **19 facet categories** (2,120 total facets) for precise filtering
+- **Natural language taxonomy parser** with hybrid local/LLM approach (~1,955 term mappings)
 - **Business rules engine** enabling PM-controlled ranking without code changes
 - **3-tier intelligent routing** optimizing for speed and accuracy
 - **Claude API integration** for complex, conversational queries
@@ -38,7 +39,8 @@ apm-agent/
 │   │
 │   ├── routes/                  # API routes
 │   │   ├── chat.js              # Main chat endpoint (3-tier routing)
-│   │   └── trackMetadata.js     # Track metadata endpoints
+│   │   ├── trackMetadata.js     # Track metadata endpoints
+│   │   └── taxonomy.js          # Natural language → taxonomy parsing API
 │   │
 │   ├── services/                # Core business logic
 │   │   ├── solrService.js       # Solr search client (Route 1 & 2)
@@ -49,7 +51,8 @@ apm-agent/
 │   │   ├── genreMapper.js       # Genre ID → name mapping
 │   │   ├── metadataEnhancer.js  # Genre name mapping and duration formatting
 │   │   ├── filterParser.js      # @ syntax parser
-│   │   └── taxonomySearch.js    # Facet taxonomy search
+│   │   ├── taxonomySearch.js    # Facet taxonomy search
+│   │   └── queryToTaxonomy.js   # Natural language → taxonomy parser (QUICK_LOOKUP)
 │   │
 │   ├── scripts/                 # Utility scripts
 │   │   ├── indexToSolr.js       # Index tracks to Solr (1.4M docs)
@@ -74,6 +77,7 @@ apm-agent/
 │
 ├── docs/                        # Documentation
 │   ├── IMPLEMENTATION_STATUS.md # Progress tracking vs presentation (UPDATE ON MILESTONES)
+│   ├── NATURAL_LANGUAGE_TAXONOMY.md # Natural language parser documentation
 │   └── current/                 # Current version docs
 │
 └── CLAUDE.md                    # This file (repository docs)
@@ -209,6 +213,58 @@ User: "What did I download for my Super Bowl project?"
 6. Results formatted and returned to client with _meta transparency data
 7. Client renders TrackCard components or markdown
 ```
+
+### Natural Language Taxonomy Parser
+
+Converts natural language queries like `"uptempo solo jazz piano"` into structured Solr filter queries using APM's 2,120-facet taxonomy.
+
+**Architecture:** Hybrid local + LLM approach
+
+```
+User query: "uptempo solo jazz piano"
+                ↓
+    ┌─────────────────────────┐
+    │  QUICK_LOOKUP (~1,955)  │ ← 95%+ queries (<5ms)
+    │  N-gram matching:       │
+    │  3-word → 2-word → 1    │
+    └─────────────────────────┘
+                ↓
+    (remaining text?)
+                ↓
+    ┌─────────────────────────┐
+    │  LLM Fallback (Claude)  │ ← Complex terms (~1-2s)
+    └─────────────────────────┘
+                ↓
+    Structured output:
+    {
+      "Tempo": ["Tempo/1880"],
+      "is_a": ["is_a/2204"],
+      "Master Genre": ["Master Genre/1248"],
+      "Instruments": ["Instruments/2962"]
+    }
+```
+
+**Performance:**
+| Query Type | Example | Latency |
+|------------|---------|---------|
+| All local | "uptempo jazz piano" | 2-5ms |
+| Mostly local | "experimental fusion" | 3-8ms |
+| LLM fallback | "liminal backrooms aesthetic" | 1-2s |
+
+**Coverage:** 19 categories, ~1,955 QUICK_LOOKUP entries, 100% category coverage
+
+**API Endpoints:**
+- `POST /api/taxonomy/parse` - Hybrid parsing (local + LLM)
+- `POST /api/taxonomy/parse-local` - Local only (instant)
+- `POST /api/taxonomy/parse-llm` - Force LLM
+- `GET /api/taxonomy/stats` - Taxonomy statistics
+
+**Files:**
+- `server/services/queryToTaxonomy.js` - Main parser with QUICK_LOOKUP
+- `server/routes/taxonomy.js` - API endpoints
+- `docs/NATURAL_LANGUAGE_TAXONOMY.md` - Full documentation
+
+**See:** `docs/NATURAL_LANGUAGE_TAXONOMY.md` for complete documentation including tuning guidance and strategic comparison to AIMS Prompt Search.
 
 ---
 
@@ -675,6 +731,33 @@ Primary facet filtering goes through `metadataSearch.js` → `solrService.js`.
 // Input: genre_id = "1103"
 // Output: "Classic Rock"
 ```
+
+### queryToTaxonomy.js
+**Purpose:** Natural language → taxonomy parser with hybrid local/LLM approach
+
+**Key Functions:**
+- `parseQuery(query, options)` - Main entry point (local first, LLM fallback)
+- `parseQueryLocal(query)` - Local-only parsing using QUICK_LOOKUP
+- `parseQueryToTaxonomy(query)` - LLM-only parsing
+- `buildSolrFilters(result)` - Convert parsed result to Solr fq queries
+- `getTaxonomyStats()` - Return category coverage statistics
+
+**Key Data:**
+- `QUICK_LOOKUP` - ~1,955 entries mapping terms to facet IDs
+- N-gram matching: 3-word → 2-word → single word phrases
+
+**Example:**
+```javascript
+// Input: "uptempo solo jazz piano"
+// Output: {
+//   filters: { Tempo: ["Tempo/1880"], is_a: ["is_a/2204"], ... },
+//   solrFilters: ["combined_ids:(\"Tempo/1880\")", ...],
+//   source: "local",
+//   latencyMs: 3
+// }
+```
+
+**Documentation:** See `docs/NATURAL_LANGUAGE_TAXONOMY.md` for full details.
 
 ---
 
@@ -1209,6 +1292,7 @@ curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" 
 - Route 1: `server/services/facetSearchService.js`
 - Route 2: `server/services/metadataSearch.js` + `businessRulesEngine.js`
 - Route 3: `server/services/claude.js`
+- Taxonomy Parser: `server/services/queryToTaxonomy.js` (~1,955 QUICK_LOOKUP entries)
 - Config: `server/config/` (businessRules.json, fieldWeights.json, chat-system-prompt.md)
 - Database: `server/apm_music.db`
 
@@ -1251,6 +1335,15 @@ curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" 
 # SQLite queries (metadata source, run from /server)
 sqlite3 apm_music.db "SELECT COUNT(*) FROM tracks;"           # Count tracks (1.4M)
 sqlite3 apm_music.db "SELECT * FROM facet_taxonomy LIMIT 10;" # View facets
+
+# Taxonomy parser testing
+curl -X POST http://localhost:3001/api/taxonomy/parse \
+  -H "Content-Type: application/json" \
+  -d '{"query": "uptempo jazz piano"}'                        # Hybrid (local + LLM)
+curl -X POST http://localhost:3001/api/taxonomy/parse-local \
+  -H "Content-Type: application/json" \
+  -d '{"query": "uptempo jazz piano"}'                        # Local only (<5ms)
+curl http://localhost:3001/api/taxonomy/stats                  # Coverage stats
 
 # Environment
 export CLAUDE_MODEL=claude-3-haiku-20240307    # Set Claude model (default)
