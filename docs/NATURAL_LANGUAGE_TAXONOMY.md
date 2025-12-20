@@ -246,6 +246,105 @@ curl -X POST http://localhost:3001/api/taxonomy/parse-local \
 | Mostly local | "experimental jazz fusion" | 3-8ms |
 | LLM fallback | "music for underwater documentary" | 1-2s |
 
+## Tuning & Refining the Hybrid Approach
+
+### When to Add Terms to QUICK_LOOKUP
+
+Add a term when:
+1. **LLM fallback is triggered** - Check logs for queries hitting the LLM
+2. **LLM mapping is wrong** - Override with correct mapping
+3. **Common search term** - Frequently used terms should be instant
+4. **No exact facet exists** - Map to closest match (see below)
+
+### Handling Terms Without Exact Facet Matches
+
+When a user searches for a term that doesn't exist in the taxonomy (e.g., "vaporwave"), map to the closest available facet:
+
+```javascript
+// No "vaporwave" facet exists, but it's similar to synthwave
+'vaporwave': { category: 'Master Genre', id: 3378, label: 'Synthwave' },  // Closest match
+'retrowave': { category: 'Master Genre', id: 3378, label: 'Synthwave' },
+'outrun': { category: 'Master Genre', id: 3378, label: 'Synthwave' },
+```
+
+Add a comment explaining the mapping for future maintainers.
+
+### Identifying LLM Fallback Triggers
+
+```bash
+# Test if a term triggers LLM fallback
+curl -s -X POST http://localhost:3001/api/taxonomy/parse \
+  -H "Content-Type: application/json" \
+  -d '{"query": "your term here"}' | jq '{source, latencyMs, mappings}'
+
+# If source: "llm" and latencyMs > 1000, consider adding to QUICK_LOOKUP
+```
+
+### Resolving Duplicate Key Conflicts
+
+JavaScript objects silently overwrite duplicate keys. When the same term could map to multiple categories:
+
+1. **Choose the most common search intent** as the default
+2. **Add specific phrases** for alternative meanings
+
+```javascript
+// "horror" most commonly means the mood, not the film genre
+'horror': { category: 'Mood', id: 2358, label: 'Horror' },           // Default
+'horror film': { category: 'Music For', id: 2629, label: 'Horror / Thriller' },  // Specific
+'horror movie': { category: 'Music For', id: 2629, label: 'Horror / Thriller' },
+```
+
+### Verifying Mappings
+
+After adding terms, always test:
+
+```bash
+# Test local parsing
+curl -s -X POST http://localhost:3001/api/taxonomy/parse-local \
+  -H "Content-Type: application/json" \
+  -d '{"query": "vaporwave piano"}' | jq
+
+# Run full search to verify results make sense
+curl -s -X POST http://localhost:3001/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"vaporwave piano"}]}'
+```
+
+### Monitoring LLM Fallback Rate
+
+To optimize the system, track what percentage of queries hit the LLM:
+
+```javascript
+// In parseQuery() - add logging
+if (source === 'llm') {
+  console.log(`LLM fallback triggered for: "${query}"`);
+  console.log(`Remaining text after local: "${localResult.remainingText}"`);
+}
+```
+
+Target: **<5% of queries** should require LLM fallback.
+
+### Bulk Adding Terms
+
+When adding many related terms, group them logically:
+
+```javascript
+// Internet-culture electronic genres (map to closest taxonomy matches)
+'vaporwave': { category: 'Master Genre', id: 3378, label: 'Synthwave' },
+'retrowave': { category: 'Master Genre', id: 3378, label: 'Synthwave' },
+'outrun': { category: 'Master Genre', id: 3378, label: 'Synthwave' },
+'chillwave': { category: 'Master Genre', id: 1128, label: 'Chill Out / Downtempo' },
+'darkwave': { category: 'Master Genre', id: 1343, label: 'New Wave' },
+```
+
+### Checking for Duplicates
+
+Before adding terms, check for existing entries:
+
+```bash
+grep -n "'yourterm':" server/services/queryToTaxonomy.js
+```
+
 ## Future Improvements
 
 1. **Auto-learn from LLM**: When LLM maps a term, automatically add to QUICK_LOOKUP
@@ -256,5 +355,5 @@ curl -X POST http://localhost:3001/api/taxonomy/parse-local \
 ---
 
 **Last Updated**: December 2024
-**Total QUICK_LOOKUP Entries**: ~1,950
+**Total QUICK_LOOKUP Entries**: ~1,955
 **Category Coverage**: 19/19 (100%)

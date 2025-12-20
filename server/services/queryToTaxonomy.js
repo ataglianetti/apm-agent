@@ -587,6 +587,9 @@ const QUICK_LOOKUP = {
   'lo-fi': { category: 'Master Genre', id: 3385, label: 'Lo-Fi Hip Hop' },
   'trap': { category: 'Master Genre', id: 3386, label: 'Trap' },
   'synthwave': { category: 'Master Genre', id: 3378, label: 'Synthwave' },
+  'vaporwave': { category: 'Master Genre', id: 3378, label: 'Synthwave' },  // No specific facet, closest match
+  'retrowave': { category: 'Master Genre', id: 3378, label: 'Synthwave' },
+  'outrun': { category: 'Master Genre', id: 3378, label: 'Synthwave' },  // Synthwave subgenre
   'synth pop': { category: 'Master Genre', id: 1294, label: 'Synth Pop' },
   'electro': { category: 'Master Genre', id: 1134, label: 'Electro' },
   'breakbeat': { category: 'Master Genre', id: 1126, label: 'Breakbeat' },
