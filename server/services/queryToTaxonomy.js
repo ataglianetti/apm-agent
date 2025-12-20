@@ -809,7 +809,7 @@ const QUICK_LOOKUP = {
   'reggaeton': { category: 'Additional Genre', id: 2091, label: 'Reggaeton' },
   'sea shanty': { category: 'Additional Genre', id: 2195, label: 'Sea Shanty' },
   'shanty': { category: 'Additional Genre', id: 2195, label: 'Sea Shanty' },
-  'soca': { category: 'Additional Genre', id: 2186, label: 'Calypso' },
+  // 'soca' moved to Musical Form (more specific) - this was incorrectly mapped to Calypso
   'tango nuevo': { category: 'Additional Genre', id: 2092, label: 'Tango Nuevo' },
   'tex mex': { category: 'Additional Genre', id: 2093, label: 'Tex Mex / Banda / Norteno' },
   'banda': { category: 'Additional Genre', id: 2093, label: 'Tex Mex / Banda / Norteno' },
@@ -855,8 +855,8 @@ const QUICK_LOOKUP = {
   'muzak': { category: 'Additional Genre', id: 2024, label: 'Background / Elevator' },
   'beds': { category: 'Additional Genre', id: 2002, label: 'Beds' },
   'bright optimistic': { category: 'Additional Genre', id: 2003, label: 'Bright / Optimistic' },
-  'documentary': { category: 'Additional Genre', id: 2032, label: 'Documentary' },
-  'documentary music': { category: 'Additional Genre', id: 2032, label: 'Documentary' },
+  // 'documentary' moved to Music For (more common usage for search)
+  'documentary genre': { category: 'Additional Genre', id: 2032, label: 'Documentary' },
   'drones': { category: 'Additional Genre', id: 2170, label: 'Drones' },
   'drone': { category: 'Additional Genre', id: 2170, label: 'Drones' },
   'atmospheres': { category: 'Additional Genre', id: 2169, label: 'Atmospheres' },
@@ -874,7 +874,8 @@ const QUICK_LOOKUP = {
   'buddhist': { category: 'Additional Genre', id: 2106, label: 'Buddhist' },
   'christian': { category: 'Additional Genre', id: 2110, label: 'Christian' },
   'contemporary christian': { category: 'Additional Genre', id: 2112, label: 'Contemporary Christian' },
-  'gospel': { category: 'Additional Genre', id: 2114, label: 'Gospel Songs / Spirituals' },
+  // 'gospel' already in Master Genre - use 'gospel music' for Additional Genre
+  'gospel music': { category: 'Additional Genre', id: 2114, label: 'Gospel Songs / Spirituals' },
   'spirituals': { category: 'Additional Genre', id: 2114, label: 'Gospel Songs / Spirituals' },
   'hindu': { category: 'Additional Genre', id: 2116, label: 'Hindu' },
   'islamic': { category: 'Additional Genre', id: 2119, label: 'Islamic' },
@@ -2189,7 +2190,8 @@ const QUICK_LOOKUP = {
   'steel drum band': { category: 'Instrumental & Vocal Groupings', id: 1442, label: 'Steel Band' },
 
   // Other Groupings
-  'acoustic': { category: 'Instrumental & Vocal Groupings', id: 1388, label: 'Acoustic' },
+  // 'acoustic' already in Character (sound quality) - use specific phrases for grouping
+  'acoustic ensemble': { category: 'Instrumental & Vocal Groupings', id: 1388, label: 'Acoustic' },
   'acoustic group': { category: 'Instrumental & Vocal Groupings', id: 1388, label: 'Acoustic' },
   'electronic ensemble': { category: 'Instrumental & Vocal Groupings', id: 1434, label: 'Electronic' },
   'electronic group': { category: 'Instrumental & Vocal Groupings', id: 1434, label: 'Electronic' },
@@ -2204,7 +2206,9 @@ const QUICK_LOOKUP = {
   'action': { category: 'Music For', id: 2603, label: 'Action Adventure' },
   'action adventure': { category: 'Music For', id: 2603, label: 'Action Adventure' },
   'action drama': { category: 'Music For', id: 2604, label: 'Action Drama' },
-  'horror': { category: 'Music For', id: 2629, label: 'Horror / Thriller' },
+  // 'horror' already in Mood - use 'horror film' for Music For
+  'horror film': { category: 'Music For', id: 2629, label: 'Horror / Thriller' },
+  'horror movie': { category: 'Music For', id: 2629, label: 'Horror / Thriller' },
   'thriller': { category: 'Music For', id: 2629, label: 'Horror / Thriller' },
   'comedy': { category: 'Music For', id: 2613, label: 'Comedy' },
   'romantic comedy': { category: 'Music For', id: 2638, label: 'Romantic Comedy' },
@@ -2215,7 +2219,9 @@ const QUICK_LOOKUP = {
   'sci-fi': { category: 'Music For', id: 2639, label: 'Science Fiction' },
   'science fiction': { category: 'Music For', id: 2639, label: 'Science Fiction' },
   'fantasy': { category: 'Music For', id: 2626, label: 'Fantasy Adventure' },
-  'western': { category: 'Music For', id: 2644, label: 'Western' },
+  // 'western' already in Master Genre (Western/Cowboy music) - use 'western film' for Music For
+  'western film': { category: 'Music For', id: 2644, label: 'Western' },
+  'western movie': { category: 'Music For', id: 2644, label: 'Western' },
   'war': { category: 'Music For', id: 2643, label: 'War' },
   'war film': { category: 'Music For', id: 2643, label: 'War' },
   'spy': { category: 'Music For', id: 2624, label: 'Espionage / Spy' },
