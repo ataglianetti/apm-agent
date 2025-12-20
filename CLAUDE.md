@@ -258,6 +258,9 @@ User query: "uptempo solo jazz piano"
 - `POST /api/taxonomy/parse-local` - Local only (instant)
 - `POST /api/taxonomy/parse-llm` - Force LLM
 - `GET /api/taxonomy/stats` - Taxonomy statistics
+- `POST /api/settings/taxonomy-parser` - Toggle on/off for A/B testing
+
+**UI Toggle:** Settings gear → "Taxonomy Parser" (cyan) - shows "NLP" badge when enabled
 
 **Files:**
 - `server/services/queryToTaxonomy.js` - Main parser with QUICK_LOOKUP

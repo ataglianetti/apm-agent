@@ -162,6 +162,54 @@ Force LLM parsing (for unusual terms).
 
 Taxonomy statistics.
 
+### POST /api/settings/taxonomy-parser
+
+Toggle the taxonomy parser on/off for A/B comparison.
+
+```bash
+# Disable taxonomy parser
+curl -X POST http://localhost:3001/api/settings/taxonomy-parser \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+
+# Enable taxonomy parser
+curl -X POST http://localhost:3001/api/settings/taxonomy-parser \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": true}'
+
+# Toggle current state
+curl -X POST http://localhost:3001/api/settings/taxonomy-parser \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": "toggle"}'
+```
+
+**Response:**
+```json
+{
+  "taxonomyParserEnabled": false,
+  "source": "runtime",
+  "message": "Taxonomy parser disabled"
+}
+```
+
+**A/B Test Results** (query: "uptempo jazz piano"):
+| Taxonomy | Titles | Versions |
+|----------|--------|----------|
+| Disabled | 146 | 355 |
+| Enabled | 564 | 1,604 |
+
+The taxonomy parser provides ~4x more relevant results by mapping terms to precise facet filters.
+
+## UI Toggle
+
+The taxonomy parser can also be toggled from the UI:
+
+1. Click the **settings gear icon** in the header
+2. Find **"Taxonomy Parser"** toggle (cyan color)
+3. Toggle off to compare search results without NLP parsing
+
+When enabled, a cyan **"NLP"** badge appears next to the settings icon.
+
 ## Strategic Comparison: vs AIMS Prompt Search
 
 | Aspect | AIMS Prompt Search | Our Implementation |
