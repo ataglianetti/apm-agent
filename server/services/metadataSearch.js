@@ -91,13 +91,27 @@ export async function search(options) {
  * Search using Solr backend
  */
 async function searchWithSolr(options) {
-  const { facets = [], text = '', filters = [], limit = 12, offset = 0 } = options;
+  const { facets = [], text = '', filters = [], limit = 12, offset = 0, taxonomyFilters = null } = options;
 
   // Map facets to facet IDs for Solr
   // Group by category for proper AND/OR logic:
   // - OR within same category (any of these moods)
   // - AND between categories (has this mood AND this instrument)
   const facetsByCategory = {};
+
+  // Add taxonomy filters first (these are pre-parsed with exact IDs)
+  if (taxonomyFilters) {
+    for (const [category, facetIds] of Object.entries(taxonomyFilters)) {
+      if (!facetsByCategory[category]) {
+        facetsByCategory[category] = [];
+      }
+      // facetIds are already in "Category/ID" format
+      facetsByCategory[category].push(...facetIds);
+    }
+    console.log(`Taxonomy filters applied: ${Object.keys(taxonomyFilters).length} categories`);
+  }
+
+  // Add traditional facets (these need ID lookup)
   for (const facet of facets) {
     const ids = await getFacetIds(facet.category, facet.value);
     if (!facetsByCategory[facet.category]) {
@@ -149,7 +163,8 @@ async function searchWithSolr(options) {
 
   return {
     tracks: enhancedTracks,
-    total: result.total,
+    total: result.total,           // Unique songs (ngroups)
+    totalVersions: result.matches, // Total track versions
     matchExplanations,
     _meta: {
       engine: 'solr',

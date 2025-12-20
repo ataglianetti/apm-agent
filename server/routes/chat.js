@@ -5,10 +5,30 @@ import { search as metadataSearch } from '../services/metadataSearch.js';
 import { matchRules, applyRules } from '../services/businessRulesEngine.js';
 import { searchFacets } from '../services/taxonomySearch.js';
 import { enrichTracksWithGenreNames } from '../services/genreMapper.js';
-import { getLLMMode, getBusinessRulesEnabled } from './settings.js';
+import { getLLMMode, getBusinessRulesEnabled, getTaxonomyParserEnabled } from './settings.js';
 import { enhanceTracksMetadata, enrichTracksWithFullVersions } from '../services/metadataEnhancer.js';
+import { parseQueryLocal, buildSolrFilters } from '../services/queryToTaxonomy.js';
 
 const router = express.Router();
+
+/**
+ * Format number with commas (e.g., 70306 → "70,306")
+ */
+function formatNumber(num) {
+  return num?.toLocaleString() || '0';
+}
+
+/**
+ * Build search results message with title and version counts
+ * @param {string} query - The search query
+ * @param {number} titles - Unique song count (ngroups)
+ * @param {number} versions - Total track count (matches)
+ */
+function buildResultsMessage(query, titles, versions) {
+  const titlesStr = formatNumber(titles);
+  const versionsStr = formatNumber(versions);
+  return `Found ${titlesStr} titles and ${versionsStr} versions matching "${query}"`;
+}
 
 /**
  * Classify query complexity to determine routing
@@ -60,7 +80,9 @@ function classifyQueryComplexity(query) {
     /^(corporate|advertising|commercial|sports|film|trailer)\s+[\w\s]+$/,
   ];
 
-  // Word count heuristic: very short queries (1-2 words) or simple descriptive (3-4 words) = simple
+  // Word count heuristic: very short queries (1-4 words) = simple
+  // Longer descriptive queries (5+ words) go to Claude for interpretation
+  // e.g., "high speed chase through a neon city scape" needs LLM to understand vibes
   const wordCount = lowerQuery.trim().split(/\s+/).length;
   if (wordCount >= 1 && wordCount <= 4) {
     // Check if it's purely descriptive (no special characters, no questions)
@@ -172,9 +194,10 @@ router.post('/chat', async (req, res) => {
 
         return res.json({
           type: 'track_results',
-          message: `Showing more results for "${previousQuery}"`,
+          message: buildResultsMessage(previousQuery, searchResults.total, searchResults.totalVersions),
           tracks: tracksWithVersions,
           total_count: searchResults.total,
+          total_versions: searchResults.totalVersions,
           showing: `${previousOffset + 1}-${previousOffset + enhancedResults.results.length}`,
           _meta: {
             appliedRules: enhancedResults.appliedRules,
@@ -260,9 +283,10 @@ router.post('/chat', async (req, res) => {
 
       return res.json({
         type: 'track_results',
-        message: `Found tracks matching your filters`,
+        message: buildResultsMessage(lastMessage.content, searchResults.total, searchResults.totalVersions),
         tracks: tracksWithVersions,
         total_count: searchResults.total,
+        total_versions: searchResults.totalVersions,
         showing: `1-${enrichedTracks.length}`,
         _meta: searchResults._meta
       });
@@ -283,6 +307,22 @@ router.post('/chat', async (req, res) => {
       console.log('Detected simple query, using metadata search + business rules');
       const startTime = Date.now();
 
+      // TAXONOMY PARSING: Parse query into structured facet filters
+      // This maps terms like "solo jazz piano" to actual facet IDs
+      const taxonomyEnabled = getTaxonomyParserEnabled();
+      let taxonomyResult = { mappings: [], filters: {}, confidence: 0, remainingText: lastMessage.content };
+
+      if (taxonomyEnabled) {
+        taxonomyResult = parseQueryLocal(lastMessage.content);
+        console.log(`Taxonomy parsing: ${taxonomyResult.mappings.length} terms mapped, confidence: ${taxonomyResult.confidence}`);
+
+        if (taxonomyResult.mappings.length > 0) {
+          console.log('Taxonomy mappings:', taxonomyResult.mappings.map(m => `${m.term}→${m.category}/${m.id}`).join(', '));
+        }
+      } else {
+        console.log('Taxonomy parser DISABLED - using raw text query only');
+      }
+
       // Match applicable business rules
       const matchedRules = matchRules(lastMessage.content);
       console.log(`Matched ${matchedRules.length} business rules:`, matchedRules.map(r => r.id).join(', '));
@@ -297,22 +337,43 @@ router.post('/chat', async (req, res) => {
 
       let searchResults;
 
-      // UNIFIED SOLR SEARCH: Use Solr directly with proper field weights
-      // Solr's combined_genre_search field already handles taxonomy/genre matching
-      // No need for hybrid search - it causes double-counting of genre weights
-      // Business rules expand facets for logging purposes but we use pure text search
-      // since Solr's field weights (combined_genre_search^4.0) handle genre matching
+      // HYBRID SEARCH STRATEGY:
+      // 1. Use taxonomy-parsed facets for precise filtering (is_a, Instruments, etc.)
+      // 2. Use remaining text for Solr text search with field weights
+      // 3. Combine for best results
 
-      console.log(`Using Solr search with field weights for: "${lastMessage.content}"`);
+      // Build facet filters from taxonomy parsing
+      const taxonomyFacets = [];
+      for (const [category, facetIds] of Object.entries(taxonomyResult.filters || {})) {
+        for (const facetId of facetIds) {
+          // facetId is in format "Category/ID" - extract the ID
+          const parts = facetId.split('/');
+          const id = parts[parts.length - 1];
+          taxonomyFacets.push({ category, value: id, fullId: facetId });
+        }
+      }
+
+      // If all terms were mapped to taxonomy, use empty text query (will match all)
+      // Only fall back to full query if NO terms were mapped
+      const textQuery = taxonomyResult.mappings.length > 0
+        ? (taxonomyResult.remainingText || '')
+        : lastMessage.content;
+
+      if (taxonomyFacets.length > 0) {
+        console.log(`Using taxonomy filters: ${taxonomyFacets.map(f => f.fullId).join(', ')}`);
+        console.log(`Text query: "${textQuery}"`);
+      } else {
+        console.log(`No taxonomy filters, using full text search for: "${lastMessage.content}"`);
+      }
 
       if (expandedFacets.length > 0) {
         console.log(`Business rules would expand to: ${expandedFacets.join(', ')} (handled by Solr field weights)`);
       }
 
-      // Execute Solr search - let field weights handle taxonomy matching
+      // Execute Solr search with taxonomy facets + text search
       const searchOptions = {
-        text: lastMessage.content,
-        facets: [],  // No facet filters - use text search with field weights
+        text: textQuery,
+        taxonomyFilters: taxonomyFacets.length > 0 ? taxonomyResult.filters : null,
         limit: 100,  // Get more for business rules to work with
         offset: 0
       };
@@ -357,9 +418,10 @@ router.post('/chat', async (req, res) => {
 
       return res.json({
         type: 'track_results',
-        message: `Found tracks matching "${lastMessage.content}"`,
+        message: buildResultsMessage(lastMessage.content, searchResults.total, searchResults.totalVersions),
         tracks: tracksWithVersions,
-        total_count: searchResults.total, // Use original total, not enhanced results length
+        total_count: searchResults.total,
+        total_versions: searchResults.totalVersions,
         showing: `1-${Math.min(12, enhancedResults.results.length)}`,
         // Include transparency metadata (optional - for future UI enhancement)
         _meta: {
@@ -539,9 +601,10 @@ router.post('/chat', async (req, res) => {
 
           return res.json({
             type: 'track_results',
-            message: friendlyMessage,
+            message: buildResultsMessage(lastMessage.content, solrResults.total, solrResults.totalVersions),
             tracks: tracksWithVersions,
             total_count: solrResults.total,
+            total_versions: solrResults.totalVersions,
             showing: `1-${Math.min(12, tracksWithVersions.length)}`,
             _meta: {
               appliedRules: enhancedResults.appliedRules,
@@ -601,7 +664,7 @@ router.post('/chat', async (req, res) => {
 
       res.json({
         type: 'track_results',
-        message: trackResults.message,
+        message: `${formatNumber(totalCount)} Titles`,
         tracks: tracksWithVersions,
         total_count: totalCount,
         showing: showingText,
@@ -611,6 +674,92 @@ router.post('/chat', async (req, res) => {
         }
       });
     } else {
+      // Check if Claude returned markdown that looks like track results
+      // (numbered list with track names, libraries, genres, etc.)
+      // If so, fall back to Solr search to return proper track cards
+      const isMarkdownTrackListing = typeof reply === 'string' && (
+        // Numbered list with track info patterns (multiline)
+        /^\d+\.\s+\*\*[^*]+\*\*/m.test(reply) ||  // "1. **Track Name**"
+        /^\d+\.\s+[^(]+\([^)]+\)/m.test(reply) ||  // "1. Track Name (Library)"
+        // Contains music metadata patterns (indicating track details)
+        (/BPM:/i.test(reply) && /Mood/i.test(reply)) ||
+        (/Genre:/i.test(reply) && /BPM:/i.test(reply))
+      );
+
+      if (isMarkdownTrackListing) {
+        console.log('Claude returned markdown track listing - extracting track info');
+        try {
+          const db = (await import('better-sqlite3')).default;
+          const dbPath = (await import('path')).join(
+            (await import('path')).dirname((await import('url')).fileURLToPath(import.meta.url)),
+            '../services/../apm_music.db'
+          );
+          const dbConn = new db(dbPath, { readonly: true });
+
+          let tracks = [];
+
+          // First, try to extract track IDs from the markdown
+          const trackIdPattern = /(?:Track ID:?\s*)?([A-Z]{2,5}_[A-Z0-9]+_\d{4}_\d{5})/gi;
+          const idMatches = reply.matchAll(trackIdPattern);
+          const trackIds = [...new Set([...idMatches].map(m => m[1]))];
+
+          if (trackIds.length > 0) {
+            console.log(`Found ${trackIds.length} track IDs in markdown`);
+            const placeholders = trackIds.map(() => '?').join(',');
+            tracks = dbConn.prepare(`SELECT * FROM tracks WHERE id IN (${placeholders})`).all(...trackIds);
+          }
+
+          // If no track IDs found, try to extract track titles and search by title
+          if (tracks.length === 0) {
+            // Pattern: "**Track Title**" or "1. **Title**" or "**\"Title\"**"
+            const titlePattern = /\*\*["""]?([^*"""\n]+?)["""]?\*\*/g;
+            const titleMatches = [...reply.matchAll(titlePattern)];
+            const trackTitles = titleMatches
+              .map(m => m[1].trim())
+              .filter(t => t.length > 2 && t.length < 100 && !t.includes(':'));
+
+            if (trackTitles.length > 0) {
+              console.log(`Searching for ${trackTitles.length} track titles from markdown`);
+              // Search for each title
+              for (const title of trackTitles.slice(0, 12)) {
+                const found = dbConn.prepare(
+                  `SELECT * FROM tracks WHERE track_title LIKE ? LIMIT 1`
+                ).get(`%${title}%`);
+                if (found && !tracks.some(t => t.id === found.id)) {
+                  tracks.push(found);
+                }
+              }
+            }
+          }
+
+          dbConn.close();
+
+          if (tracks.length > 0) {
+            const enrichedTracks = enrichTracksWithGenreNames(tracks);
+            const matchedRules = matchRules(lastMessage.content);
+            const enhancedResults = await applyRules(enrichedTracks, matchedRules, lastMessage.content);
+            const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
+
+            console.log(`Markdown fallback: Retrieved ${tracksWithVersions.length} tracks`);
+
+            return res.json({
+              type: 'track_results',
+              message: `${tracksWithVersions.length} Titles`,
+              tracks: tracksWithVersions,
+              total_count: tracksWithVersions.length,
+              showing: `1-${tracksWithVersions.length}`,
+              _meta: {
+                appliedRules: enhancedResults.appliedRules,
+                scoreAdjustments: enhancedResults.scoreAdjustments,
+                fallback: 'markdown_extraction'
+              }
+            });
+          }
+        } catch (fallbackError) {
+          console.log('Markdown extraction fallback failed:', fallbackError.message);
+        }
+      }
+
       // Return regular text response
       res.json({ reply });
     }
