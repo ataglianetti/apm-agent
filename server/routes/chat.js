@@ -380,6 +380,18 @@ router.post('/chat', async (req, res) => {
 
       searchResults = await metadataSearch(searchOptions);
 
+      // FALLBACK: If taxonomy filters returned 0 results, retry with pure text search
+      // This handles cases where facet intersection is too restrictive (e.g., "cinematic trailer")
+      if (searchResults.total === 0 && taxonomyFacets.length > 0) {
+        console.log(`Taxonomy filters returned 0 results, falling back to text search for: "${lastMessage.content}"`);
+        searchResults = await metadataSearch({
+          text: lastMessage.content,
+          taxonomyFilters: null,
+          limit: 100,
+          offset: 0
+        });
+      }
+
       // Enrich with genre names
       searchResults.tracks = enrichTracksWithGenreNames(searchResults.tracks);
 
