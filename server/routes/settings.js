@@ -9,7 +9,8 @@ const router = express.Router();
 // Runtime settings state (overrides environment variables)
 const runtimeSettings = {
   llmMode: null,  // null = use env var, 'primary' or 'fallback' = override
-  businessRulesEnabled: null  // null = use config file, true/false = override
+  businessRulesEnabled: null,  // null = use config file, true/false = override
+  taxonomyParserEnabled: null  // null = enabled (default), true/false = override
 };
 
 // Path to business rules config
@@ -68,12 +69,24 @@ export function getLLMMode() {
 }
 
 /**
+ * Get taxonomy parser enabled state
+ * Returns true by default (enabled)
+ */
+export function getTaxonomyParserEnabled() {
+  if (runtimeSettings.taxonomyParserEnabled !== null) {
+    return runtimeSettings.taxonomyParserEnabled;
+  }
+  return true; // Enabled by default
+}
+
+/**
  * GET /api/settings
  * Returns current settings
  */
 router.get('/settings', (req, res) => {
   const llmMode = getLLMMode();
   const businessRulesEnabled = getBusinessRulesEnabled();
+  const taxonomyParserEnabled = getTaxonomyParserEnabled();
   const config = getBusinessRulesConfig();
 
   // Count active rules
@@ -83,6 +96,8 @@ router.get('/settings', (req, res) => {
     llmMode,
     llmModeSource: runtimeSettings.llmMode !== null ? 'runtime' : 'environment',
     claudeModel: process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307',
+    taxonomyParserEnabled,
+    taxonomyParserSource: runtimeSettings.taxonomyParserEnabled !== null ? 'runtime' : 'default',
     businessRules: {
       globalEnabled: businessRulesEnabled,
       source: runtimeSettings.businessRulesEnabled !== null ? 'runtime' : 'config',
@@ -189,6 +204,39 @@ router.get('/settings/business-rules', (req, res) => {
     },
     templates: Object.keys(config.templates || {}),
     disabledRulesCount: disabledRules.length
+  });
+});
+
+/**
+ * POST /api/settings/taxonomy-parser
+ * Toggle or set taxonomy parser enabled state
+ * Body: { enabled: true | false | 'toggle' | 'reset' }
+ */
+router.post('/settings/taxonomy-parser', (req, res) => {
+  const { enabled } = req.body;
+  const currentEnabled = getTaxonomyParserEnabled();
+
+  if (enabled === 'toggle') {
+    runtimeSettings.taxonomyParserEnabled = !currentEnabled;
+  } else if (typeof enabled === 'boolean') {
+    runtimeSettings.taxonomyParserEnabled = enabled;
+  } else if (enabled === 'reset') {
+    // Reset to default (enabled)
+    runtimeSettings.taxonomyParserEnabled = null;
+  } else {
+    return res.status(400).json({
+      error: 'Invalid value',
+      details: "enabled must be true, false, 'toggle', or 'reset'"
+    });
+  }
+
+  const newEnabled = getTaxonomyParserEnabled();
+  console.log(`Taxonomy parser ${newEnabled ? 'ENABLED' : 'DISABLED'}`);
+
+  res.json({
+    taxonomyParserEnabled: newEnabled,
+    source: runtimeSettings.taxonomyParserEnabled !== null ? 'runtime' : 'default',
+    message: `Taxonomy parser ${newEnabled ? 'enabled' : 'disabled'}`
   });
 });
 
