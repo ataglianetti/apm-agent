@@ -213,7 +213,21 @@ export async function search(options = {}) {
   params.set('q', q);
   params.set('defType', 'edismax');
   params.set('q.op', 'AND');
-  params.set('mm', '100%');
+
+  // Minimum match: sliding scale based on term count
+  // - 1-2 terms: require all (100%)
+  // - 3-4 terms: require 75%
+  // - 5+ terms: require 50% (for descriptive queries like "high speed chase neon city")
+  const termCount = q === '*:*' ? 0 : q.split(/\s+/).length;
+  let mm = '100%';
+  if (termCount >= 5) {
+    mm = '50%';
+  } else if (termCount >= 3) {
+    mm = '75%';
+  }
+  params.set('mm', mm);
+  console.log(`Solr mm=${mm} for ${termCount} terms`);
+
   params.set('tie', '0.01');
 
   // Field weights only apply when there's text

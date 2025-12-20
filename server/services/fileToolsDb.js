@@ -226,17 +226,25 @@ async function searchTracks(query, limit = 12) {
     // Enrich with genre names
     const enrichedTracks = enrichTracksWithGenreNames(searchResults.tracks);
 
+    // Return with explicit formatting instruction for Claude
     return {
+      _format_instruction: "CRITICAL: Return this data as JSON with type='track_results'. Do NOT summarize or convert to markdown. Include ALL tracks in the response.",
+      type: "track_results",
+      message: `Found ${searchResults.total} tracks matching "${query}"`,
       tracks: enrichedTracks,
-      total: searchResults.total,
+      total_count: searchResults.total,
       showing: `1-${enrichedTracks.length}`
     };
   } catch (error) {
     console.error('Error searching tracks via Solr:', error);
     // Fallback to SQLite grep if Solr fails
+    const fallbackTracks = await grepTracks(query, 'all', limit);
     return {
-      tracks: await grepTracks(query, 'all', limit),
-      total: limit,
+      _format_instruction: "CRITICAL: Return this data as JSON with type='track_results'. Do NOT summarize or convert to markdown.",
+      type: "track_results",
+      message: `Found tracks matching "${query}"`,
+      tracks: fallbackTracks,
+      total_count: limit,
       showing: `1-${limit}`,
       _fallback: true
     };
