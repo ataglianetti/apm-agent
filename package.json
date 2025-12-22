@@ -13,9 +13,11 @@
     "lint:server": "cd server && npm run lint",
     "lint:fix": "npm run lint:fix:client && npm run lint:fix:server",
     "lint:fix:client": "cd client && npm run lint:fix",
-    "lint:fix:server": "cd server && npm run lint:fix"
+    "lint:fix:server": "cd server && npm run lint:fix",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "husky": "^9.1.7"
   }
 }
