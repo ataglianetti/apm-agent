@@ -10,7 +10,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.0",
@@ -28,6 +29,7 @@
     "@types/node": "^25.0.3",
     "eslint": "^9.39.2",
     "globals": "^16.5.0",
+    "jest": "^30.2.0",
     "nodemon": "^3.0.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
