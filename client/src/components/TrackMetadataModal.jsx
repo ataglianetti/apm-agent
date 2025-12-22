@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../context/ThemeContext';
 
 /**
@@ -14,13 +14,8 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('facets'); // facets, scoring, rules
 
-  useEffect(() => {
-    if (isOpen && track) {
-      fetchMetadata();
-    }
-  }, [isOpen, track?.id]);
-
-  const fetchMetadata = async () => {
+  const fetchMetadata = useCallback(async () => {
+    if (!track) return;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -48,7 +43,13 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
     } finally {
       setLoading(false);
     }
-  };
+  }, [track, searchQuery]);
+
+  useEffect(() => {
+    if (isOpen && track) {
+      fetchMetadata();
+    }
+  }, [isOpen, track, fetchMetadata]);
 
   if (!isOpen) return null;
 

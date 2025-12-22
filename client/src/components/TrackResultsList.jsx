@@ -8,6 +8,16 @@ export function TrackResultsList({ data, onShowMore, onSoundsLike, searchQuery =
   // State for version expansion - versions are pre-loaded, just track which is expanded
   const [expandedTrackId, setExpandedTrackId] = useState(null);
 
+  // Toggle versions - versions are pre-loaded, just toggle expansion state
+  const handleShowVersions = useCallback((track) => {
+    setExpandedTrackId(prev => prev === track.id ? null : track.id);
+  }, []);
+
+  // Collapse versions
+  const handleCollapseVersions = useCallback(() => {
+    setExpandedTrackId(null);
+  }, []);
+
   // Defensive: ensure data exists
   if (!data) {
     console.error('TrackResultsList: no data provided');
@@ -29,16 +39,6 @@ export function TrackResultsList({ data, onShowMore, onSoundsLike, searchQuery =
   // Parse showing string like "1-12" to get current range
   const [start, end] = showing ? showing.split('-').map(Number) : [1, tracks.length];
   const hasMore = total_count && end < total_count;
-
-  // Toggle versions - versions are pre-loaded, just toggle expansion state
-  const handleShowVersions = useCallback((track) => {
-    setExpandedTrackId(prev => prev === track.id ? null : track.id);
-  }, []);
-
-  // Collapse versions
-  const handleCollapseVersions = useCallback(() => {
-    setExpandedTrackId(null);
-  }, []);
 
   // Build the render list with versions inserted after expanded track
   const renderList = [];
@@ -89,7 +89,7 @@ export function TrackResultsList({ data, onShowMore, onSoundsLike, searchQuery =
 
       {/* Track Cards with inline versions */}
       <div className="space-y-3">
-        {renderList.map((item, idx) => {
+        {renderList.map((item) => {
           if (item.type === 'track') {
             return (
               <TrackCard

@@ -13,11 +13,6 @@ export function PerformanceDisplay({ timings, performance }) {
     return 'text-red-500';
   };
 
-  const formatTime = (ms) => {
-    if (ms < 1000) return `${ms}ms`;
-    return `${(ms / 1000).toFixed(2)}s`;
-  };
-
   return (
     <div className={`
       my-4 p-4 rounded-lg border

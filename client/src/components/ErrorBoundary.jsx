@@ -54,7 +54,7 @@ export class ErrorBoundary extends Component {
               <p className="mt-1 text-red-700 dark:text-red-300 text-sm">
                 {this.state.error?.message || 'An unexpected error occurred'}
               </p>
-              {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+              {import.meta.env.DEV && this.state.errorInfo && (
                 <details className="mt-2">
                   <summary className="text-red-600 dark:text-red-400 text-xs cursor-pointer">
                     Stack trace
