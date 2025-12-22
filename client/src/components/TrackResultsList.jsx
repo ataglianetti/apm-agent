@@ -9,8 +9,8 @@ export function TrackResultsList({ data, onShowMore, onSoundsLike, searchQuery =
   const [expandedTrackId, setExpandedTrackId] = useState(null);
 
   // Toggle versions - versions are pre-loaded, just toggle expansion state
-  const handleShowVersions = useCallback((track) => {
-    setExpandedTrackId(prev => prev === track.id ? null : track.id);
+  const handleShowVersions = useCallback(track => {
+    setExpandedTrackId(prev => (prev === track.id ? null : track.id));
   }, []);
 
   // Collapse versions
@@ -44,7 +44,7 @@ export function TrackResultsList({ data, onShowMore, onSoundsLike, searchQuery =
   const renderList = [];
   let displayIndex = start - 1;
 
-  tracks.forEach((track) => {
+  tracks.forEach(track => {
     // Versions are pre-loaded from the API response
     const versions = track.versions || [];
     const hasVersions = versions.length > 0;
@@ -56,7 +56,7 @@ export function TrackResultsList({ data, onShowMore, onSoundsLike, searchQuery =
       track,
       index: displayIndex++,
       hasVersions,
-      isExpanded
+      isExpanded,
     });
 
     // If this track is expanded and has versions, show them
@@ -64,14 +64,14 @@ export function TrackResultsList({ data, onShowMore, onSoundsLike, searchQuery =
       renderList.push({
         type: 'versions-header',
         trackId: track.id,
-        count: versions.length
+        count: versions.length,
       });
       versions.forEach((version, vIndex) => {
         renderList.push({
           type: 'version',
           track: version,
           index: vIndex,
-          parentTrackId: track.id
+          parentTrackId: track.id,
         });
       });
       renderList.push({ type: 'versions-footer', trackId: track.id });
@@ -89,7 +89,7 @@ export function TrackResultsList({ data, onShowMore, onSoundsLike, searchQuery =
 
       {/* Track Cards with inline versions */}
       <div className="space-y-3">
-        {renderList.map((item) => {
+        {renderList.map(item => {
           if (item.type === 'track') {
             return (
               <TrackCard
@@ -114,7 +114,9 @@ export function TrackResultsList({ data, onShowMore, onSoundsLike, searchQuery =
                   isDark ? 'bg-apm-purple/10' : 'bg-purple-50'
                 }`}
               >
-                <span className={`text-sm font-medium ${isDark ? 'text-apm-purple' : 'text-purple-700'}`}>
+                <span
+                  className={`text-sm font-medium ${isDark ? 'text-apm-purple' : 'text-purple-700'}`}
+                >
                   {item.count} Version{item.count !== 1 ? 's' : ''}
                 </span>
                 <button

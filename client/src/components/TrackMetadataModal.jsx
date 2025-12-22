@@ -8,7 +8,13 @@ import { useTheme } from '../context/ThemeContext';
  * CEO's hot button feature: Shows which facets matched, score breakdown,
  * and business rules that affected the track's ranking
  */
-export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', searchMeta = null }) {
+export function TrackMetadataModal({
+  track,
+  isOpen,
+  onClose,
+  searchQuery = '',
+  searchMeta = null,
+}) {
   const { isDark } = useTheme();
   const [metadata, setMetadata] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -22,7 +28,7 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
         query: searchQuery,
         includeRules: 'true',
         includeFacets: 'true',
-        includeScores: 'true'
+        includeScores: 'true',
       });
 
       const response = await fetch(`/api/tracks/${track.id}/metadata?${params}`);
@@ -64,7 +70,9 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
         <div className={`px-6 py-4 border-b ${isDark ? 'border-apm-dark' : 'border-gray-200'}`}>
           <div className="flex items-start justify-between">
             <div className="flex-1 pr-8">
-              <h2 className={`text-xl font-semibold mb-1 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+              <h2
+                className={`text-xl font-semibold mb-1 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+              >
                 {track.track_title}
               </h2>
               <p className={`text-sm ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
@@ -85,7 +93,12 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
               }`}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -96,7 +109,7 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
           {[
             { id: 'facets', label: 'Facets & Taxonomy' },
             { id: 'scoring', label: 'Score Breakdown' },
-            { id: 'rules', label: 'Business Rules' }
+            { id: 'rules', label: 'Business Rules' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -107,8 +120,8 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                     ? 'border-b-2 border-apm-purple text-apm-light bg-apm-dark/30'
                     : 'border-b-2 border-apm-purple text-apm-purple bg-purple-50'
                   : isDark
-                  ? 'text-apm-gray-light hover:text-apm-light hover:bg-apm-dark/20'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'text-apm-gray-light hover:text-apm-light hover:bg-apm-dark/20'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
               {tab.label}
@@ -129,26 +142,48 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                 <div className="p-6 space-y-6">
                   {/* Track Details */}
                   <div>
-                    <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                    <h3
+                      className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+                    >
                       Track Details
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <span className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>Duration</span>
-                        <p className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>{metadata.track.duration}</p>
+                        <span
+                          className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                        >
+                          Duration
+                        </span>
+                        <p className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                          {metadata.track.duration}
+                        </p>
                       </div>
                       <div>
-                        <span className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>BPM</span>
-                        <p className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>{metadata.track.bpm}</p>
+                        <span
+                          className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                        >
+                          BPM
+                        </span>
+                        <p className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                          {metadata.track.bpm}
+                        </p>
                       </div>
                       <div>
-                        <span className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>Release Date</span>
+                        <span
+                          className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                        >
+                          Release Date
+                        </span>
                         <p className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
                           {metadata.track.apm_release_date || 'N/A'}
                         </p>
                       </div>
                       <div>
-                        <span className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>Stems Available</span>
+                        <span
+                          className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                        >
+                          Stems Available
+                        </span>
                         <p className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
                           {metadata.track.has_stems === 'true' ? 'Yes' : 'No'}
                         </p>
@@ -159,7 +194,9 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                   {/* Genre Information */}
                   {metadata.track.genre_names && metadata.track.genre_names.length > 0 && (
                     <div>
-                      <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                      <h3
+                        className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+                      >
                         Genres
                       </h3>
                       <div className="flex flex-wrap gap-2">
@@ -167,7 +204,9 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                           <span
                             key={i}
                             className={`px-3 py-1 text-xs rounded-full ${
-                              isDark ? 'bg-apm-purple/20 text-apm-purple' : 'bg-purple-100 text-purple-700'
+                              isDark
+                                ? 'bg-apm-purple/20 text-apm-purple'
+                                : 'bg-purple-100 text-purple-700'
                             }`}
                           >
                             {genre}
@@ -177,7 +216,9 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                           <span
                             key={`additional-${i}`}
                             className={`px-3 py-1 text-xs rounded-full ${
-                              isDark ? 'bg-apm-dark text-apm-gray-light' : 'bg-gray-100 text-gray-600'
+                              isDark
+                                ? 'bg-apm-dark text-apm-gray-light'
+                                : 'bg-gray-100 text-gray-600'
                             }`}
                           >
                             {genre}
@@ -188,39 +229,48 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                   )}
 
                   {/* Facets by Category */}
-                  {metadata.facetsByCategory && Object.keys(metadata.facetsByCategory).length > 0 && (
-                    <div>
-                      <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
-                        APM Taxonomy Facets ({metadata.facets?.length || 0} total)
-                      </h3>
-                      <div className="space-y-4">
-                        {Object.entries(metadata.facetsByCategory).map(([category, facets]) => (
-                          <div key={category}>
-                            <h4 className={`text-xs font-medium mb-2 ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}>
-                              {category}
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {facets.map((facet, i) => (
-                                <span
-                                  key={i}
-                                  className={`px-3 py-1 text-xs rounded-full ${
-                                    isDark ? 'bg-apm-dark text-apm-light' : 'bg-gray-100 text-gray-700'
-                                  }`}
-                                >
-                                  {facet.label}
-                                </span>
-                              ))}
+                  {metadata.facetsByCategory &&
+                    Object.keys(metadata.facetsByCategory).length > 0 && (
+                      <div>
+                        <h3
+                          className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+                        >
+                          APM Taxonomy Facets ({metadata.facets?.length || 0} total)
+                        </h3>
+                        <div className="space-y-4">
+                          {Object.entries(metadata.facetsByCategory).map(([category, facets]) => (
+                            <div key={category}>
+                              <h4
+                                className={`text-xs font-medium mb-2 ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}
+                              >
+                                {category}
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {facets.map((facet, i) => (
+                                  <span
+                                    key={i}
+                                    className={`px-3 py-1 text-xs rounded-full ${
+                                      isDark
+                                        ? 'bg-apm-dark text-apm-light'
+                                        : 'bg-gray-100 text-gray-700'
+                                    }`}
+                                  >
+                                    {facet.label}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   {/* Text Matches */}
                   {metadata.textMatches && metadata.textMatches.length > 0 && (
                     <div>
-                      <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                      <h3
+                        className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+                      >
                         Search Term Matches
                       </h3>
                       <div className="space-y-2">
@@ -229,10 +279,14 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                             key={i}
                             className={`p-3 rounded-lg ${isDark ? 'bg-apm-dark/50' : 'bg-gray-50'}`}
                           >
-                            <span className={`text-xs font-medium ${isDark ? 'text-apm-purple' : 'text-purple-600'}`}>
+                            <span
+                              className={`text-xs font-medium ${isDark ? 'text-apm-purple' : 'text-purple-600'}`}
+                            >
                               {match.field}
                             </span>
-                            <p className={`text-sm mt-1 ${isDark ? 'text-apm-light' : 'text-gray-700'}`}>
+                            <p
+                              className={`text-sm mt-1 ${isDark ? 'text-apm-light' : 'text-gray-700'}`}
+                            >
                               {match.value}
                             </p>
                           </div>
@@ -249,18 +303,24 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                   {metadata.scoreBreakdown ? (
                     <>
                       <div>
-                        <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                        <h3
+                          className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+                        >
                           Relevance Score: {metadata.totalScore?.toFixed(2)}
                         </h3>
                         {metadata.boostApplied && (
-                          <p className={`text-sm ${isDark ? 'text-apm-purple' : 'text-purple-600'}`}>
+                          <p
+                            className={`text-sm ${isDark ? 'text-apm-purple' : 'text-purple-600'}`}
+                          >
                             Boost applied: {metadata.boostApplied}x
                           </p>
                         )}
                       </div>
 
                       <div>
-                        <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                        <h3
+                          className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+                        >
                           Score Components
                         </h3>
                         <div className="space-y-2">
@@ -271,10 +331,14 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                                 isDark ? 'bg-apm-dark/50' : 'bg-gray-50'
                               }`}
                             >
-                              <span className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-700'}`}>
+                              <span
+                                className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-700'}`}
+                              >
                                 {field.replace(/_/g, ' ')}
                               </span>
-                              <span className={`text-sm font-medium ${isDark ? 'text-apm-purple' : 'text-purple-600'}`}>
+                              <span
+                                className={`text-sm font-medium ${isDark ? 'text-apm-purple' : 'text-purple-600'}`}
+                              >
                                 {typeof score === 'number' ? score.toFixed(2) : score}
                               </span>
                             </div>
@@ -283,16 +347,22 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                       </div>
 
                       <div className={`p-4 rounded-lg ${isDark ? 'bg-apm-dark/30' : 'bg-blue-50'}`}>
-                        <p className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}>
+                        <p
+                          className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}
+                        >
                           Field weights are configured in fieldWeights.json (Solr qf/pf2 format).
                           Higher scores indicate stronger matches to your search query.
                         </p>
                       </div>
                     </>
                   ) : (
-                    <div className={`p-6 text-center ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
+                    <div
+                      className={`p-6 text-center ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                    >
                       <p>Score breakdown not available for this track.</p>
-                      <p className="text-xs mt-2">Scores are generated when tracks are returned in search results.</p>
+                      <p className="text-xs mt-2">
+                        Scores are generated when tracks are returned in search results.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -302,18 +372,23 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
               {activeTab === 'rules' && (
                 <div className="p-6 space-y-6">
                   <div className={`p-4 rounded-lg ${isDark ? 'bg-apm-dark/30' : 'bg-purple-50'}`}>
-                    <h3 className={`text-sm font-semibold mb-2 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                    <h3
+                      className={`text-sm font-semibold mb-2 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+                    >
                       PM-Controlled Search Behavior
                     </h3>
                     <p className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}>
-                      Business rules can adjust search rankings based on library preferences, recency interleaving,
-                      feature boosts, and more. These rules are configured in businessRules.json without code changes.
+                      Business rules can adjust search rankings based on library preferences,
+                      recency interleaving, feature boosts, and more. These rules are configured in
+                      businessRules.json without code changes.
                     </p>
                   </div>
 
                   {searchMeta?.appliedRules && searchMeta.appliedRules.length > 0 ? (
                     <div>
-                      <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                      <h3
+                        className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+                      >
                         Applied Rules ({searchMeta.appliedRules.length})
                       </h3>
                       <div className="space-y-3">
@@ -323,12 +398,18 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                             className={`p-4 rounded-lg ${isDark ? 'bg-apm-dark/50' : 'bg-gray-50'}`}
                           >
                             <div className="flex items-start justify-between mb-2">
-                              <span className={`text-sm font-medium ${isDark ? 'text-apm-purple' : 'text-purple-600'}`}>
+                              <span
+                                className={`text-sm font-medium ${isDark ? 'text-apm-purple' : 'text-purple-600'}`}
+                              >
                                 {rule.ruleId}
                               </span>
-                              <span className={`text-xs px-2 py-1 rounded ${
-                                isDark ? 'bg-apm-purple/20 text-apm-purple' : 'bg-purple-100 text-purple-700'
-                              }`}>
+                              <span
+                                className={`text-xs px-2 py-1 rounded ${
+                                  isDark
+                                    ? 'bg-apm-purple/20 text-apm-purple'
+                                    : 'bg-purple-100 text-purple-700'
+                                }`}
+                              >
                                 {rule.type}
                               </span>
                             </div>
@@ -336,8 +417,11 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                               {rule.description}
                             </p>
                             {rule.affectedTracks > 0 && (
-                              <p className={`text-xs mt-2 ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
-                                Affected {rule.affectedTracks} track{rule.affectedTracks !== 1 ? 's' : ''}
+                              <p
+                                className={`text-xs mt-2 ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                              >
+                                Affected {rule.affectedTracks} track
+                                {rule.affectedTracks !== 1 ? 's' : ''}
                               </p>
                             )}
                           </div>
@@ -345,17 +429,22 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                       </div>
                     </div>
                   ) : (
-                    <div className={`p-6 text-center ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
+                    <div
+                      className={`p-6 text-center ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                    >
                       <p>No business rules were applied in the current search.</p>
                       <p className="text-xs mt-2">
-                        Rules are matched based on search query patterns and can boost, filter, or reorder results.
+                        Rules are matched based on search query patterns and can boost, filter, or
+                        reorder results.
                       </p>
                     </div>
                   )}
 
                   {searchMeta?.scoreAdjustments && searchMeta.scoreAdjustments.length > 0 && (
                     <div>
-                      <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+                      <h3
+                        className={`text-sm font-semibold mb-3 ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+                      >
                         Score Adjustments for This Track
                       </h3>
                       <div className="space-y-2">
@@ -367,27 +456,38 @@ export function TrackMetadataModal({ track, isOpen, onClose, searchQuery = '', s
                               className={`p-3 rounded-lg ${isDark ? 'bg-apm-dark/50' : 'bg-gray-50'}`}
                             >
                               <div className="flex items-center justify-between mb-1">
-                                <span className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-700'}`}>
+                                <span
+                                  className={`text-sm ${isDark ? 'text-apm-light' : 'text-gray-700'}`}
+                                >
                                   {adj.reason}
                                 </span>
-                                <span className={`text-sm font-medium ${
-                                  adj.rankChange > 0
-                                    ? 'text-green-500'
-                                    : adj.rankChange < 0
-                                    ? 'text-red-500'
-                                    : isDark ? 'text-apm-gray-light' : 'text-gray-500'
-                                }`}>
+                                <span
+                                  className={`text-sm font-medium ${
+                                    adj.rankChange > 0
+                                      ? 'text-green-500'
+                                      : adj.rankChange < 0
+                                        ? 'text-red-500'
+                                        : isDark
+                                          ? 'text-apm-gray-light'
+                                          : 'text-gray-500'
+                                  }`}
+                                >
                                   {adj.rankChange > 0 ? `+${adj.rankChange}` : adj.rankChange} ranks
                                 </span>
                               </div>
-                              <p className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
+                              <p
+                                className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                              >
                                 Score: {adj.originalScore?.toFixed(2)} → {adj.newScore?.toFixed(2)}
                                 {adj.scoreMultiplier && ` (${adj.scoreMultiplier}x multiplier)`}
                               </p>
                             </div>
                           ))}
-                        {searchMeta.scoreAdjustments.filter(adj => adj.trackId === track.id).length === 0 && (
-                          <p className={`text-sm ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
+                        {searchMeta.scoreAdjustments.filter(adj => adj.trackId === track.id)
+                          .length === 0 && (
+                          <p
+                            className={`text-sm ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                          >
                             No score adjustments applied to this specific track.
                           </p>
                         )}

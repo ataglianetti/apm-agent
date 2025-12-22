@@ -25,7 +25,8 @@ export function WelcomeMessage() {
         APM Music Search Assistant
       </h2>
       <p className={`max-w-md mb-6 ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
-        Search our catalog of 10,000+ tracks. Try keywords, describe a mood, or ask about your projects.
+        Search our catalog of 10,000+ tracks. Try keywords, describe a mood, or ask about your
+        projects.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
         <ExamplePrompt text="rock" isDark={isDark} />
@@ -39,11 +40,13 @@ export function WelcomeMessage() {
 
 function ExamplePrompt({ text, isDark }) {
   return (
-    <div className={`rounded-lg px-4 py-2 text-sm text-left transition-colors cursor-default ${
-      isDark
-        ? 'bg-apm-navy/50 border border-apm-gray/20 text-apm-gray-light hover:border-apm-purple/50'
-        : 'bg-white border border-gray-200 text-gray-600 hover:border-apm-purple/50 shadow-sm'
-    }`}>
+    <div
+      className={`rounded-lg px-4 py-2 text-sm text-left transition-colors cursor-default ${
+        isDark
+          ? 'bg-apm-navy/50 border border-apm-gray/20 text-apm-gray-light hover:border-apm-purple/50'
+          : 'bg-white border border-gray-200 text-gray-600 hover:border-apm-purple/50 shadow-sm'
+      }`}
+    >
       "{text}"
     </div>
   );

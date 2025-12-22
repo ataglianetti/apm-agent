@@ -62,11 +62,7 @@
         "pattern": "\\b(keyword1|keyword2)\\b",
         "description": "Auto-expand [genre] to include subgenres",
         "action": {
-          "auto_apply_facets": [
-            "Subgenre 1",
-            "Subgenre 2",
-            "Subgenre 3"
-          ],
+          "auto_apply_facets": ["Subgenre 1", "Subgenre 2", "Subgenre 3"],
           "mode": "expand"
         }
       },

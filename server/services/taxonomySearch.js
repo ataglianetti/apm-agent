@@ -125,8 +125,8 @@ export function searchByTaxonomy(searchTerm, limit = 12, offset = 0) {
     total,
     matchedFacets: matchedFacets.map(f => ({
       label: f.facet_label,
-      category: f.category_name
-    }))
+      category: f.category_name,
+    })),
   };
 }
 
@@ -134,5 +134,5 @@ export default {
   searchFacets,
   getTracksByFacetIds,
   expandGenreSearch,
-  searchByTaxonomy
+  searchByTaxonomy,
 };

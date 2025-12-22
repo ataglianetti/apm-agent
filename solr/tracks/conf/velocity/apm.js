@@ -1,20 +1,20 @@
 function findRelatedTracks(doc) {
-    // Remember the link href
-    // var href = window.location.href;
+  // Remember the link href
+  // var href = window.location.href;
 
-    // // Don't follow the link
-    // event.preventDefault();
+  // // Don't follow the link
+  // event.preventDefault();
 
-    console.log(doc);
-    // window.location = href;
-    return;
+  console.log(doc);
+  // window.location = href;
+  return;
 }
 
 function getUrlParameter(name) {
-    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-    var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
-    var results = regex.exec(location.search);
-    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+  name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+  var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+  var results = regex.exec(location.search);
+  return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
 }
 
 function displayControls(qf, pf) {
@@ -25,7 +25,7 @@ function displayControls(qf, pf) {
   var divPF = document.createElement('div');
   divPF.setAttribute('class', 'controls-column-right');
   anchor.appendChild(divPF);
-  qf.forEach(function(p) {
+  qf.forEach(function (p) {
     var f = p.split('^');
     var label = document.createTextNode(f[0]);
     anchor.setAttribute('class', 'controls-field-label');
@@ -34,11 +34,11 @@ function displayControls(qf, pf) {
     input.setAttribute('type', 'text');
     input.setAttribute('class', 'controls-field-value');
     input.setAttribute('name', f[0]);
-    input.setAttribute('value', ((f[1]) ? f[1] : '1'));
+    input.setAttribute('value', f[1] ? f[1] : '1');
     divQF.appendChild(input);
     divQF.appendChild(document.createElement('br'));
-  });    
-  pf.forEach(function(p) {
+  });
+  pf.forEach(function (p) {
     var f = p.split('^');
     var label = document.createTextNode(f[0]);
     anchor.setAttribute('class', 'controls-field-label');
@@ -47,9 +47,8 @@ function displayControls(qf, pf) {
     input.setAttribute('type', 'text');
     input.setAttribute('class', 'controls-field-value');
     input.setAttribute('name', f[0]);
-    input.setAttribute('value', ((f[1]) ? f[1] : '1'));
+    input.setAttribute('value', f[1] ? f[1] : '1');
     divPF.appendChild(input);
     divPF.appendChild(document.createElement('br'));
-  });  
-
+  });
 }

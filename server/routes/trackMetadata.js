@@ -48,20 +48,24 @@ router.get('/tracks/:id/metadata', async (req, res) => {
       query = '',
       includeRules = 'true',
       includeFacets = 'true',
-      includeScores = 'true'
+      includeScores = 'true',
     } = req.query;
 
     const db = getDb();
 
     // Get basic track information
-    const track = db.prepare(`
+    const track = db
+      .prepare(
+        `
       SELECT * FROM tracks WHERE id = ?
-    `).get(id);
+    `
+      )
+      .get(id);
 
     if (!track) {
       return res.status(404).json({
         error: 'Track not found',
-        details: `No track found with ID: ${id}`
+        details: `No track found with ID: ${id}`,
       });
     }
 
@@ -77,13 +81,15 @@ router.get('/tracks/:id/metadata', async (req, res) => {
         bpm: track.bpm,
         duration: track.duration,
         apm_release_date: track.apm_release_date,
-        has_stems: track.has_stems
-      }
+        has_stems: track.has_stems,
+      },
     };
 
     // Include facet matches if requested
     if (includeFacets === 'true') {
-      const facets = db.prepare(`
+      const facets = db
+        .prepare(
+          `
         SELECT
           ft.facet_id,
           ft.facet_label,
@@ -94,13 +100,15 @@ router.get('/tracks/:id/metadata', async (req, res) => {
         INNER JOIN facet_taxonomy ft ON tf.facet_id = ft.facet_id
         WHERE tf.track_id = ?
         ORDER BY ft.category_name, ft.facet_label
-      `).all(id);
+      `
+        )
+        .all(id);
 
       metadata.facets = facets.map(f => ({
         category: f.category_name,
         label: f.facet_label,
         name: f.facet_name,
-        facet_id: f.facet_id
+        facet_id: f.facet_id,
       }));
 
       // Group facets by category for easier display
@@ -111,7 +119,7 @@ router.get('/tracks/:id/metadata', async (req, res) => {
         acc[f.category_name].push({
           label: f.facet_label,
           name: f.facet_name,
-          facet_id: f.facet_id
+          facet_id: f.facet_id,
         });
         return acc;
       }, {});
@@ -119,13 +127,20 @@ router.get('/tracks/:id/metadata', async (req, res) => {
 
     // Include genre information (enhanced metadata)
     if (track.genre) {
-      const genreIds = track.genre.split(';').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+      const genreIds = track.genre
+        .split(';')
+        .map(id => parseInt(id.trim()))
+        .filter(id => !isNaN(id));
       const genreNames = [];
 
       for (const genreId of genreIds) {
-        const genre = db.prepare(`
+        const genre = db
+          .prepare(
+            `
           SELECT genre_name FROM genre_taxonomy WHERE genre_id = ?
-        `).get(genreId);
+        `
+          )
+          .get(genreId);
 
         if (genre) {
           genreNames.push(genre.genre_name);
@@ -137,13 +152,20 @@ router.get('/tracks/:id/metadata', async (req, res) => {
 
     // Include additional genres
     if (track.additional_genres) {
-      const additionalIds = track.additional_genres.split(';').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+      const additionalIds = track.additional_genres
+        .split(';')
+        .map(id => parseInt(id.trim()))
+        .filter(id => !isNaN(id));
       const additionalNames = [];
 
       for (const genreId of additionalIds) {
-        const genre = db.prepare(`
+        const genre = db
+          .prepare(
+            `
           SELECT genre_name FROM genre_taxonomy WHERE genre_id = ?
-        `).get(genreId);
+        `
+          )
+          .get(genreId);
 
         if (genre) {
           additionalNames.push(genre.genre_name);
@@ -202,17 +224,17 @@ router.get('/tracks/:id/metadata', async (req, res) => {
 
       metadata.ruleTransparency = {
         note: 'Business rule transparency is available in search result context',
-        supported: true
+        supported: true,
       };
     }
 
     res.json(metadata);
-
   } catch (error) {
     console.error('Track metadata error:', error);
     res.status(500).json({
       error: 'Failed to fetch track metadata',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred'
+      details:
+        process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred',
     });
   }
 });
@@ -229,14 +251,18 @@ router.get('/tracks/:id/similar', async (req, res) => {
     const db = getDb();
 
     // Get the source track's facets to find similar tracks
-    const sourceFacets = db.prepare(`
+    const sourceFacets = db
+      .prepare(
+        `
       SELECT facet_id FROM track_facets WHERE track_id = ?
-    `).all(id);
+    `
+      )
+      .all(id);
 
     if (sourceFacets.length === 0) {
       return res.status(404).json({
         error: 'Track not found or has no facets',
-        details: `No track found with ID: ${id} or track has no facet metadata`
+        details: `No track found with ID: ${id} or track has no facet metadata`,
       });
     }
 
@@ -244,7 +270,9 @@ router.get('/tracks/:id/similar', async (req, res) => {
     const placeholders = facetIds.map(() => '?').join(',');
 
     // Find tracks that share the most facets with the source track
-    const similarTracks = db.prepare(`
+    const similarTracks = db
+      .prepare(
+        `
       SELECT
         t.*,
         COUNT(DISTINCT tf.facet_id) as shared_facets
@@ -255,19 +283,21 @@ router.get('/tracks/:id/similar', async (req, res) => {
       GROUP BY t.id
       ORDER BY shared_facets DESC, t.track_title
       LIMIT ?
-    `).all(...facetIds, id, parseInt(limit));
+    `
+      )
+      .all(...facetIds, id, parseInt(limit));
 
     res.json({
       source_track_id: id,
       similar_tracks: similarTracks,
-      total_count: similarTracks.length
+      total_count: similarTracks.length,
     });
-
   } catch (error) {
     console.error('Similar tracks error:', error);
     res.status(500).json({
       error: 'Failed to fetch similar tracks',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred'
+      details:
+        process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred',
     });
   }
 });
@@ -281,7 +311,9 @@ router.get('/tracks/:id/facets', async (req, res) => {
     const { id } = req.params;
     const db = getDb();
 
-    const facets = db.prepare(`
+    const facets = db
+      .prepare(
+        `
       SELECT
         ft.facet_id,
         ft.facet_label,
@@ -292,12 +324,14 @@ router.get('/tracks/:id/facets', async (req, res) => {
       INNER JOIN facet_taxonomy ft ON tf.facet_id = ft.facet_id
       WHERE tf.track_id = ?
       ORDER BY ft.category_name, ft.facet_label
-    `).all(id);
+    `
+      )
+      .all(id);
 
     if (facets.length === 0) {
       return res.status(404).json({
         error: 'Track not found or has no facets',
-        details: `No facets found for track ID: ${id}`
+        details: `No facets found for track ID: ${id}`,
       });
     }
 
@@ -309,7 +343,7 @@ router.get('/tracks/:id/facets', async (req, res) => {
       acc[f.category_name].push({
         label: f.facet_label,
         name: f.facet_name,
-        facet_id: f.facet_id
+        facet_id: f.facet_id,
       });
       return acc;
     }, {});
@@ -319,14 +353,14 @@ router.get('/tracks/:id/facets', async (req, res) => {
       facets: facets,
       facetsByCategory: grouped,
       categoryCount: Object.keys(grouped).length,
-      totalFacets: facets.length
+      totalFacets: facets.length,
     });
-
   } catch (error) {
     console.error('Track facets error:', error);
     res.status(500).json({
       error: 'Failed to fetch track facets',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred'
+      details:
+        process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred',
     });
   }
 });
@@ -344,14 +378,18 @@ router.get('/tracks/:id/versions', async (req, res) => {
     const db = getDb();
 
     // First, get the song_id for the requested track
-    const sourceTrack = db.prepare(`
+    const sourceTrack = db
+      .prepare(
+        `
       SELECT song_id, song_title FROM tracks WHERE id = ?
-    `).get(id);
+    `
+      )
+      .get(id);
 
     if (!sourceTrack) {
       return res.status(404).json({
         error: 'Track not found',
-        details: `No track found with ID: ${id}`
+        details: `No track found with ID: ${id}`,
       });
     }
 
@@ -360,13 +398,15 @@ router.get('/tracks/:id/versions', async (req, res) => {
         track_id: id,
         versions: [],
         version_count: 0,
-        message: 'This track has no song_id - no versions available'
+        message: 'This track has no song_id - no versions available',
       });
     }
 
     // Get all versions with the same song_id, excluding the source track
     // Join with genre_taxonomy to get human-readable genre name
-    const versions = db.prepare(`
+    const versions = db
+      .prepare(
+        `
       SELECT
         t.id, t.track_title, t.track_description, t.bpm, t.duration,
         t.album_title, t.library_name, t.composer_fullname as composer,
@@ -377,12 +417,18 @@ router.get('/tracks/:id/versions', async (req, res) => {
       WHERE t.song_id = ? AND t.id != ?
       ORDER BY t.library_name, t.track_title
       LIMIT ?
-    `).all(sourceTrack.song_id, id, parseInt(limit));
+    `
+      )
+      .all(sourceTrack.song_id, id, parseInt(limit));
 
     // Get total count (including source track)
-    const countResult = db.prepare(`
+    const countResult = db
+      .prepare(
+        `
       SELECT COUNT(*) as total FROM tracks WHERE song_id = ?
-    `).get(sourceTrack.song_id);
+    `
+      )
+      .get(sourceTrack.song_id);
 
     res.json({
       track_id: id,
@@ -390,14 +436,14 @@ router.get('/tracks/:id/versions', async (req, res) => {
       song_title: sourceTrack.song_title,
       versions: versions,
       version_count: versions.length,
-      total_versions: countResult.total
+      total_versions: countResult.total,
     });
-
   } catch (error) {
     console.error('Track versions error:', error);
     res.status(500).json({
       error: 'Failed to fetch track versions',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred'
+      details:
+        process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred',
     });
   }
 });

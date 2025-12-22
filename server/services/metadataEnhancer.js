@@ -39,9 +39,12 @@ export function enhanceTrackMetadata(track) {
   let formattedDuration = track.duration;
   if (track.duration) {
     // Handle both integer (new schema) and string (old schema)
-    const durationSeconds = typeof track.duration === 'number'
-      ? track.duration
-      : (track.duration.includes(':') ? null : parseInt(track.duration, 10));
+    const durationSeconds =
+      typeof track.duration === 'number'
+        ? track.duration
+        : track.duration.includes(':')
+          ? null
+          : parseInt(track.duration, 10);
 
     if (durationSeconds !== null && !isNaN(durationSeconds) && durationSeconds > 0) {
       const minutes = Math.floor(durationSeconds / 60);
@@ -57,15 +60,17 @@ export function enhanceTrackMetadata(track) {
     duration: formattedDuration,
 
     // Keep original duration in seconds for sorting/filtering
-    duration_seconds: typeof track.duration === 'number' ? track.duration : parseInt(track.duration, 10) || null,
+    duration_seconds:
+      typeof track.duration === 'number' ? track.duration : parseInt(track.duration, 10) || null,
 
     // Genre display: use mapped name, or handle array format from Claude, or fallback
-    genre: enrichedTrack.genre_name
-      || (Array.isArray(track.genre) ? track.genre[0] : track.genre)
-      || null,
+    genre:
+      enrichedTrack.genre_name ||
+      (Array.isArray(track.genre) ? track.genre[0] : track.genre) ||
+      null,
 
     // Keep original genre ID for backward compatibility
-    genre_id: track.master_genre_id || (Array.isArray(track.genre) ? null : track.genre)
+    genre_id: track.master_genre_id || (Array.isArray(track.genre) ? null : track.genre),
   };
 }
 
@@ -102,7 +107,9 @@ export function enrichTracksWithFullVersions(tracks) {
   // Fetch full track data for all version IDs in a single query
   const db = getDb();
   const placeholders = allVersionIds.map(() => '?').join(',');
-  const fullVersions = db.prepare(`
+  const fullVersions = db
+    .prepare(
+      `
     SELECT
       t.id, t.track_title, t.track_description, t.bpm, t.duration,
       t.album_title, t.library_name, t.composer_fullname as composer,
@@ -111,7 +118,9 @@ export function enrichTracksWithFullVersions(tracks) {
     FROM tracks t
     LEFT JOIN genre_taxonomy g ON t.master_genre_id = g.genre_id
     WHERE t.id IN (${placeholders})
-  `).all(...allVersionIds);
+  `
+    )
+    .all(...allVersionIds);
 
   // Create a map of version ID -> full track data
   const versionDataMap = new Map();
@@ -126,13 +135,11 @@ export function enrichTracksWithFullVersions(tracks) {
     }
 
     const versionIds = trackVersionMap.get(track.id);
-    const enrichedVersions = versionIds
-      .map(id => versionDataMap.get(id))
-      .filter(Boolean); // Remove any that weren't found
+    const enrichedVersions = versionIds.map(id => versionDataMap.get(id)).filter(Boolean); // Remove any that weren't found
 
     return {
       ...track,
-      versions: enrichedVersions
+      versions: enrichedVersions,
     };
   });
 }
@@ -140,5 +147,5 @@ export function enrichTracksWithFullVersions(tracks) {
 export default {
   enhanceTrackMetadata,
   enhanceTracksMetadata,
-  enrichTracksWithFullVersions
+  enrichTracksWithFullVersions,
 };

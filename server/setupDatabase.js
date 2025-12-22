@@ -171,10 +171,12 @@ function importCsv(filename, tableName, columns) {
 
   // Prepare insert statement
   const placeholders = columns.map(() => '?').join(',');
-  const stmt = db.prepare(`INSERT OR REPLACE INTO ${tableName} (${columns.join(',')}) VALUES (${placeholders})`);
+  const stmt = db.prepare(
+    `INSERT OR REPLACE INTO ${tableName} (${columns.join(',')}) VALUES (${placeholders})`
+  );
 
   // Begin transaction for faster inserts
-  const insertMany = db.transaction((records) => {
+  const insertMany = db.transaction(records => {
     for (const record of records) {
       const values = columns.map(col => record[col] || null);
       stmt.run(values);
@@ -190,21 +192,82 @@ console.log('\n📦 Importing CSV data...');
 
 // Import tracks (largest file)
 importCsv('tracks.csv', 'tracks', [
-  'id', 'track_title', 'track_description', 'bpm', 'duration',
-  'album_title', 'library_name', 'composer', 'genre',
-  'additional_genres', 'apm_release_date', 'has_stems'
+  'id',
+  'track_title',
+  'track_description',
+  'bpm',
+  'duration',
+  'album_title',
+  'library_name',
+  'composer',
+  'genre',
+  'additional_genres',
+  'apm_release_date',
+  'has_stems',
 ]);
 
 // Import other tables
-importCsv('genre_taxonomy.csv', 'genre_taxonomy', ['genre_id', 'genre_name', 'parent_id', 'track_count']);
-importCsv('projects.csv', 'projects', ['project_id', 'name', 'description', 'for_field', 'keywords', 'created_on', 'modified_on', 'deadline', 'collaborators']);
-importCsv('project_tracks.csv', 'project_tracks', ['project_id', 'track_id', 'added_date', 'position', 'notes']);
-importCsv('search_history.csv', 'search_history', ['search_id', 'user_id', 'timestamp', 'query', 'search_mode', 'result_track_ids', 'auditioned_track_ids', 'downloaded_track_ids']);
-importCsv('download_history.csv', 'download_history', ['download_id', 'user_id', 'track_id', 'timestamp', 'project_id']);
-importCsv('audition_history.csv', 'audition_history', ['audition_id', 'user_id', 'track_id', 'timestamp', 'duration_played', 'full_listen', 'search_id']);
+importCsv('genre_taxonomy.csv', 'genre_taxonomy', [
+  'genre_id',
+  'genre_name',
+  'parent_id',
+  'track_count',
+]);
+importCsv('projects.csv', 'projects', [
+  'project_id',
+  'name',
+  'description',
+  'for_field',
+  'keywords',
+  'created_on',
+  'modified_on',
+  'deadline',
+  'collaborators',
+]);
+importCsv('project_tracks.csv', 'project_tracks', [
+  'project_id',
+  'track_id',
+  'added_date',
+  'position',
+  'notes',
+]);
+importCsv('search_history.csv', 'search_history', [
+  'search_id',
+  'user_id',
+  'timestamp',
+  'query',
+  'search_mode',
+  'result_track_ids',
+  'auditioned_track_ids',
+  'downloaded_track_ids',
+]);
+importCsv('download_history.csv', 'download_history', [
+  'download_id',
+  'user_id',
+  'track_id',
+  'timestamp',
+  'project_id',
+]);
+importCsv('audition_history.csv', 'audition_history', [
+  'audition_id',
+  'user_id',
+  'track_id',
+  'timestamp',
+  'duration_played',
+  'full_listen',
+  'search_id',
+]);
 importCsv('prompt_results.csv', 'prompt_results', ['prompt', 'result_track_ids', 'result_count']);
-importCsv('audio_similarities.csv', 'audio_similarities', ['source_track_id', 'similar_track_ids', 'similarity_basis']);
-importCsv('mock_references.csv', 'mock_references', ['reference_type', 'reference_input', 'matched_track_id']);
+importCsv('audio_similarities.csv', 'audio_similarities', [
+  'source_track_id',
+  'similar_track_ids',
+  'similarity_basis',
+]);
+importCsv('mock_references.csv', 'mock_references', [
+  'reference_type',
+  'reference_input',
+  'matched_track_id',
+]);
 
 // Create indexes for performance
 console.log('\n🔍 Creating indexes for performance...');

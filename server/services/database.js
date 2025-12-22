@@ -105,13 +105,13 @@ export function getDatabaseStats() {
       status: 'connected',
       path: dbPath,
       track_count: trackCount.count,
-      facet_count: facetCount.count
+      facet_count: facetCount.count,
     };
   } catch (error) {
     return {
       status: 'error',
       path: dbPath,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -126,5 +126,5 @@ export default {
   getStatement,
   clearStatementCache,
   closeAllConnections,
-  getDatabaseStats
+  getDatabaseStats,
 };

@@ -11,9 +11,17 @@ const dbPath = path.join(__dirname, '..', 'apm_music.db');
 
 // Security: Whitelist of allowed table names to prevent SQL injection
 const ALLOWED_TABLES = new Set([
-  'tracks', 'projects', 'project_tracks', 'download_history',
-  'search_history', 'audition_history', 'users', 'facet_taxonomy',
-  'track_facets', 'genre_taxonomy', 'sound_alikes'
+  'tracks',
+  'projects',
+  'project_tracks',
+  'download_history',
+  'search_history',
+  'audition_history',
+  'users',
+  'facet_taxonomy',
+  'track_facets',
+  'genre_taxonomy',
+  'sound_alikes',
 ]);
 
 // Create a single database connection (reused for all queries)
@@ -70,7 +78,6 @@ export async function executeFileTool(toolName, params) {
     const elapsed = Date.now() - startTime;
     console.log(`⚡ ${toolName} completed in ${elapsed}ms`);
     return result;
-
   } catch (error) {
     console.error(`Error executing ${toolName}:`, error);
     throw error;
@@ -220,7 +227,7 @@ async function searchTracks(query, limit = 12) {
     const searchResults = await solrSearch({
       text: query,
       limit: limit,
-      offset: 0
+      offset: 0,
     });
 
     // Enrich with genre names
@@ -228,25 +235,27 @@ async function searchTracks(query, limit = 12) {
 
     // Return with explicit formatting instruction for Claude
     return {
-      _format_instruction: "CRITICAL: Return this data as JSON with type='track_results'. Do NOT summarize or convert to markdown. Include ALL tracks in the response.",
-      type: "track_results",
+      _format_instruction:
+        "CRITICAL: Return this data as JSON with type='track_results'. Do NOT summarize or convert to markdown. Include ALL tracks in the response.",
+      type: 'track_results',
       message: `Found ${searchResults.total} tracks matching "${query}"`,
       tracks: enrichedTracks,
       total_count: searchResults.total,
-      showing: `1-${enrichedTracks.length}`
+      showing: `1-${enrichedTracks.length}`,
     };
   } catch (error) {
     console.error('Error searching tracks via Solr:', error);
     // Fallback to SQLite grep if Solr fails
     const fallbackTracks = await grepTracks(query, 'all', limit);
     return {
-      _format_instruction: "CRITICAL: Return this data as JSON with type='track_results'. Do NOT summarize or convert to markdown.",
-      type: "track_results",
+      _format_instruction:
+        "CRITICAL: Return this data as JSON with type='track_results'. Do NOT summarize or convert to markdown.",
+      type: 'track_results',
       message: `Found tracks matching "${query}"`,
       tracks: fallbackTracks,
       total_count: limit,
       showing: `1-${limit}`,
-      _fallback: true
+      _fallback: true,
     };
   }
 }
@@ -285,9 +294,7 @@ async function getTracksByIds(trackIds, limit = 12) {
       idToTrack[row.id] = row;
     });
 
-    const orderedResults = idsToFetch
-      .map(id => idToTrack[id])
-      .filter(track => track !== undefined);
+    const orderedResults = idsToFetch.map(id => idToTrack[id]).filter(track => track !== undefined);
 
     // Enhance tracks with metadata before returning
     return enhanceTracksMetadata(orderedResults);

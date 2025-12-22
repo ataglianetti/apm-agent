@@ -2,16 +2,36 @@ import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 
 const FIELD_OPTIONS = [
-  { key: 'track-title', label: 'Track Title', field: 'track_title', description: 'Search by track name' },
-  { key: 'track-description', label: 'Track Description', field: 'track_description', description: 'Search track descriptions' },
+  {
+    key: 'track-title',
+    label: 'Track Title',
+    field: 'track_title',
+    description: 'Search by track name',
+  },
+  {
+    key: 'track-description',
+    label: 'Track Description',
+    field: 'track_description',
+    description: 'Search track descriptions',
+  },
   { key: 'album-title', label: 'Album', field: 'album_title', description: 'Search by album name' },
   { key: 'composer', label: 'Composer', field: 'composer', description: 'Search by composer name' },
-  { key: 'library', label: 'Library', field: 'library_name', description: 'Search by library name' },
+  {
+    key: 'library',
+    label: 'Library',
+    field: 'library_name',
+    description: 'Search by library name',
+  },
   { key: 'tags', label: 'Tags/Genre', field: 'genre', description: 'Search by genre tags' },
   { key: 'mood', label: 'Mood', field: 'mood', description: 'Search by mood' },
   { key: 'energy', label: 'Energy', field: 'energy_level', description: 'Search by energy level' },
   { key: 'use-case', label: 'Use Case', field: 'use_case', description: 'Search by use case' },
-  { key: 'instruments', label: 'Instruments', field: 'instruments', description: 'Search by instruments' },
+  {
+    key: 'instruments',
+    label: 'Instruments',
+    field: 'instruments',
+    description: 'Search by instruments',
+  },
   { key: 'era', label: 'Era', field: 'era', description: 'Search by era/period' },
   { key: 'bpm', label: 'BPM', field: 'bpm', description: 'Search by tempo' },
 ];
@@ -21,17 +41,17 @@ const fieldLabels = {
   'track-title': 'Title',
   'track-description': 'Description',
   'album-title': 'Album',
-  'composer': 'Composer',
-  'library': 'Library',
-  'tags': 'Genre',
-  'mood': 'Mood',
-  'energy': 'Energy',
+  composer: 'Composer',
+  library: 'Library',
+  tags: 'Genre',
+  mood: 'Mood',
+  energy: 'Energy',
   'use-case': 'Use Case',
-  'instruments': 'Instruments',
-  'era': 'Era',
-  'bpm': 'BPM',
-  'duration': 'Duration',
-  'has-stems': 'Stems'
+  instruments: 'Instruments',
+  era: 'Era',
+  bpm: 'BPM',
+  duration: 'Duration',
+  'has-stems': 'Stems',
 };
 
 export function MessageInput({ onSend, disabled }) {
@@ -45,15 +65,28 @@ export function MessageInput({ onSend, disabled }) {
   const menuRef = useRef(null);
 
   // Filter options based on text after @
-  const filteredOptions = FIELD_OPTIONS.filter(opt =>
-    opt.label.toLowerCase().includes(filterText.toLowerCase()) ||
-    opt.key.toLowerCase().includes(filterText.toLowerCase())
+  const filteredOptions = FIELD_OPTIONS.filter(
+    opt =>
+      opt.label.toLowerCase().includes(filterText.toLowerCase()) ||
+      opt.key.toLowerCase().includes(filterText.toLowerCase())
   );
 
   // Smart value extraction for multi-word values
   const extractMultiWordValue = (text, fieldKey, nextAtIndex) => {
-    const naturalBoundaries = [' for ', ' with ', ' that ', ' having ', ' featuring ',
-      ' in ', ' and ', ' but ', ' or ', ' like ', ' similar to ', ' such as '];
+    const naturalBoundaries = [
+      ' for ',
+      ' with ',
+      ' that ',
+      ' having ',
+      ' featuring ',
+      ' in ',
+      ' and ',
+      ' but ',
+      ' or ',
+      ' like ',
+      ' similar to ',
+      ' such as ',
+    ];
 
     // Extract until next @ or natural boundary
     let value = nextAtIndex > 0 ? text.slice(0, nextAtIndex) : text;
@@ -68,7 +101,13 @@ export function MessageInput({ onSend, disabled }) {
     }
 
     // Field-specific word limits
-    const multiWordFields = ['track-title', 'album-title', 'composer', 'library', 'track-description'];
+    const multiWordFields = [
+      'track-title',
+      'album-title',
+      'composer',
+      'library',
+      'track-description',
+    ];
     const limit = multiWordFields.includes(fieldKey) ? 5 : 3;
 
     const words = value.trim().split(/\s+/);
@@ -80,7 +119,7 @@ export function MessageInput({ onSend, disabled }) {
   };
 
   // Enhanced filter parsing that handles multi-word values
-  const parseEnhancedFilters = (text) => {
+  const parseEnhancedFilters = text => {
     const filters = [];
     let workingText = text;
 
@@ -96,7 +135,7 @@ export function MessageInput({ onSend, disabled }) {
         fullMatch: match[0],
         fieldKey: match[1],
         operator: match[2],
-        startIdx: match.index + match[0].length
+        startIdx: match.index + match[0].length,
       });
     }
 
@@ -104,8 +143,11 @@ export function MessageInput({ onSend, disabled }) {
     matches.forEach((match, idx) => {
       const nextMatchIdx = idx < matches.length - 1 ? matches[idx + 1].index : text.length;
       const valueText = text.slice(match.startIdx, nextMatchIdx);
-      const value = extractMultiWordValue(valueText, match.fieldKey,
-        idx < matches.length - 1 ? nextMatchIdx - match.startIdx : -1);
+      const value = extractMultiWordValue(
+        valueText,
+        match.fieldKey,
+        idx < matches.length - 1 ? nextMatchIdx - match.startIdx : -1
+      );
 
       const field = FIELD_OPTIONS.find(opt => opt.key === match.fieldKey.toLowerCase());
 
@@ -114,7 +156,7 @@ export function MessageInput({ onSend, disabled }) {
           key: field.key,
           label: fieldLabels[field.key] || field.label,
           operator: match.operator,
-          value: value
+          value: value,
         });
 
         // Remove this filter from working text
@@ -126,7 +168,7 @@ export function MessageInput({ onSend, disabled }) {
 
     return {
       filters,
-      remainingText: workingText.replace(/\s+/g, ' ').trim()
+      remainingText: workingText.replace(/\s+/g, ' ').trim(),
     };
   };
 
@@ -161,7 +203,7 @@ export function MessageInput({ onSend, disabled }) {
     }
   }, [searchText]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = e => {
     e.preventDefault();
 
     // Parse any @filters still in the input
@@ -173,7 +215,7 @@ export function MessageInput({ onSend, disabled }) {
       key: f.key,
       label: f.label,
       operator: f.operator,
-      value: f.value
+      value: f.value,
     }));
 
     // Combine with existing pills
@@ -185,11 +227,8 @@ export function MessageInput({ onSend, disabled }) {
     }
 
     // Build query from all pills + remaining text
-    const filterString = updatedFilters
-      .map(f => `@${f.key}${f.operator}${f.value}`)
-      .join(' ');
-    const fullQuery = filterString +
-      (parsed.remainingText ? ' ' + parsed.remainingText : '');
+    const filterString = updatedFilters.map(f => `@${f.key}${f.operator}${f.value}`).join(' ');
+    const fullQuery = filterString + (parsed.remainingText ? ' ' + parsed.remainingText : '');
 
     if (fullQuery.trim() && !disabled) {
       onSend(fullQuery.trim());
@@ -199,7 +238,7 @@ export function MessageInput({ onSend, disabled }) {
   };
 
   // Remove filter pill with auto re-search
-  const removeFilter = (filterId) => {
+  const removeFilter = filterId => {
     const updatedFilters = activeFilters.filter(f => f.id !== filterId);
     setActiveFilters(updatedFilters);
 
@@ -207,9 +246,7 @@ export function MessageInput({ onSend, disabled }) {
     const hasContent = updatedFilters.length > 0 || searchText.trim();
 
     if (hasContent && !disabled) {
-      const filterString = updatedFilters
-        .map(f => `@${f.key}${f.operator}${f.value}`)
-        .join(' ');
+      const filterString = updatedFilters.map(f => `@${f.key}${f.operator}${f.value}`).join(' ');
       const fullQuery = filterString + (searchText ? ' ' + searchText : '');
 
       if (fullQuery.trim()) {
@@ -246,7 +283,7 @@ export function MessageInput({ onSend, disabled }) {
     inputRef.current?.focus();
   }, []);
 
-  const selectFieldOption = (option) => {
+  const selectFieldOption = option => {
     // Replace the @field part with @field: in the search text
     const atIndex = searchText.lastIndexOf('@');
     const beforeAt = searchText.slice(0, atIndex);
@@ -257,7 +294,7 @@ export function MessageInput({ onSend, disabled }) {
     inputRef.current?.focus();
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = e => {
     if (showFieldMenu && filteredOptions.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -284,7 +321,10 @@ export function MessageInput({ onSend, disabled }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className={`p-4 border-t relative ${isDark ? 'border-apm-gray/20 bg-apm-dark' : 'border-gray-200 bg-white'}`}>
+    <form
+      onSubmit={handleSubmit}
+      className={`p-4 border-t relative ${isDark ? 'border-apm-gray/20 bg-apm-dark' : 'border-gray-200 bg-white'}`}
+    >
       {/* Field Selection Menu */}
       {showFieldMenu && filteredOptions.length > 0 && (
         <div
@@ -293,7 +333,9 @@ export function MessageInput({ onSend, disabled }) {
             isDark ? 'bg-apm-navy border-apm-gray/30' : 'bg-white border-gray-200'
           }`}
         >
-          <div className={`px-3 py-2 text-xs border-b ${isDark ? 'text-apm-gray border-apm-gray/20' : 'text-gray-500 border-gray-100'}`}>
+          <div
+            className={`px-3 py-2 text-xs border-b ${isDark ? 'text-apm-gray border-apm-gray/20' : 'text-gray-500 border-gray-100'}`}
+          >
             Search by field
           </div>
           {filteredOptions.map((option, index) => (
@@ -304,14 +346,20 @@ export function MessageInput({ onSend, disabled }) {
               className={`w-full px-3 py-2 text-left flex items-center justify-between transition-colors ${
                 index === selectedIndex
                   ? 'bg-apm-purple/20 text-apm-purple'
-                  : isDark ? 'text-apm-gray-light hover:bg-apm-dark/50' : 'text-gray-600 hover:bg-gray-50'
+                  : isDark
+                    ? 'text-apm-gray-light hover:bg-apm-dark/50'
+                    : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
               <div>
                 <span className="font-medium">@{option.key}</span>
-                <span className={`ml-2 text-sm ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}>{option.label}</span>
+                <span className={`ml-2 text-sm ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}>
+                  {option.label}
+                </span>
               </div>
-              <span className={`text-xs ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}>{option.description}</span>
+              <span className={`text-xs ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}>
+                {option.description}
+              </span>
             </button>
           ))}
         </div>
@@ -320,12 +368,13 @@ export function MessageInput({ onSend, disabled }) {
       {/* Persistent Filter Pills */}
       {activeFilters.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3 px-1">
-          {activeFilters.map((filter) => (
+          {activeFilters.map(filter => (
             <span
               key={filter.id}
               className={`inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md flex-shrink-0 ${
-                isDark ? 'bg-apm-purple/30 text-apm-purple-light hover:bg-apm-purple/40'
-                       : 'bg-apm-purple/20 text-apm-purple hover:bg-apm-purple/30'
+                isDark
+                  ? 'bg-apm-purple/30 text-apm-purple-light hover:bg-apm-purple/40'
+                  : 'bg-apm-purple/20 text-apm-purple hover:bg-apm-purple/30'
               } transition-colors`}
             >
               <span className="font-medium">
@@ -335,14 +384,19 @@ export function MessageInput({ onSend, disabled }) {
                 type="button"
                 onClick={() => removeFilter(filter.id)}
                 className={`ml-1 p-0.5 rounded-full transition-colors ${
-                  isDark ? 'hover:bg-red-500/20 hover:text-red-300'
-                         : 'hover:bg-red-500/20 hover:text-red-600'
+                  isDark
+                    ? 'hover:bg-red-500/20 hover:text-red-300'
+                    : 'hover:bg-red-500/20 hover:text-red-600'
                 }`}
                 aria-label={`Remove ${filter.label} filter`}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </span>
@@ -354,8 +408,9 @@ export function MessageInput({ onSend, disabled }) {
               type="button"
               onClick={clearAllFilters}
               className={`text-xs px-2 py-1 rounded-md transition-colors ${
-                isDark ? 'text-apm-gray-light hover:text-white hover:bg-apm-dark/50'
-                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                isDark
+                  ? 'text-apm-gray-light hover:text-white hover:bg-apm-dark/50'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
               Clear all
@@ -365,21 +420,27 @@ export function MessageInput({ onSend, disabled }) {
       )}
 
       <div className="flex gap-3">
-        <div className={`flex-1 rounded-xl px-3 py-2 border focus-within:ring-2 focus-within:ring-apm-purple focus-within:border-transparent ${
-          isDark ? 'bg-apm-navy border-apm-gray/30' : 'bg-gray-50 border-gray-200'
-        }`}>
+        <div
+          className={`flex-1 rounded-xl px-3 py-2 border focus-within:ring-2 focus-within:ring-apm-purple focus-within:border-transparent ${
+            isDark ? 'bg-apm-navy border-apm-gray/30' : 'bg-gray-50 border-gray-200'
+          }`}
+        >
           <input
             ref={inputRef}
             type="text"
             value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
+            onChange={e => setSearchText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={activeFilters.length > 0
-              ? "Add more filters or refine search..."
-              : "Search for music... (type @ for field search)"}
+            placeholder={
+              activeFilters.length > 0
+                ? 'Add more filters or refine search...'
+                : 'Search for music... (type @ for field search)'
+            }
             disabled={disabled}
             className={`w-full bg-transparent py-1 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-              isDark ? 'text-apm-light placeholder:text-apm-gray' : 'text-gray-900 placeholder:text-gray-400'
+              isDark
+                ? 'text-apm-light placeholder:text-apm-gray'
+                : 'text-gray-900 placeholder:text-gray-400'
             }`}
           />
         </div>

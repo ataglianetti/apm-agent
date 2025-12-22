@@ -14,6 +14,7 @@ node index.js
 ```
 
 Expected output:
+
 ```
 Server running on http://localhost:3001
 ```
@@ -28,6 +29,7 @@ npm run dev
 ```
 
 Expected output:
+
 ```
   VITE v5.x.x  ready in XXX ms
 
@@ -48,16 +50,19 @@ Navigate to: **http://localhost:5173**
 **What to show:** PM-controlled genre expansion without code changes
 
 **Steps:**
+
 1. Open the chat interface at http://localhost:5173
 2. Type: `upbeat rock`
 3. Press Enter
 
 **What you'll see:**
+
 - 12 track results appear in ~24ms
 - Tracks include various rock subgenres (Classic Rock, Alternative Rock, Indie Rock, etc.)
 - Each track card shows enhanced metadata (moods, energy, instruments)
 
 **Behind the scenes (check server logs):**
+
 ```
 Detected simple query, using metadata search + business rules
 Matched 1 rules for query "upbeat rock": genre_simplification_rock (priority: 100)
@@ -66,6 +71,7 @@ Simple query completed in 24ms with 1 rules applied
 ```
 
 **Key point:** The `genre_simplification_rock` rule automatically expanded "rock" to include:
+
 - Classic Rock
 - Alternative Rock
 - Indie Rock
@@ -78,6 +84,7 @@ Simple query completed in 24ms with 1 rules applied
 - Surf
 
 **PM Control demo:** Show how to edit the rule:
+
 1. Open `server/config/businessRules.json`
 2. Find `"id": "genre_simplification_rock"`
 3. Show the `auto_apply_facets` array
@@ -91,27 +98,32 @@ Simple query completed in 24ms with 1 rules applied
 **What to show:** Power user @ filters for sub-100ms performance
 
 **Steps:**
+
 1. Type: `@mood:uplifting`
 2. Press Enter
 
 **What you'll see:**
+
 - Results appear in <100ms
 - All 12 tracks have "uplifting" in their moods
 - Message: "Found tracks matching your filters"
 - Shows "1-12 of 10000 results"
 
 **Server logs:**
+
 ```
 Detected @ filter query, handling directly
 Filter query completed in XXms, found 10000 results
 ```
 
 **Try multiple filters:**
+
 ```
 @mood:uplifting @instruments:piano @energy:high
 ```
 
 This combines:
+
 - Mood: Uplifting
 - Instruments: Piano
 - Energy: High
@@ -125,10 +137,12 @@ All filters use AND logic - tracks must match all criteria.
 **What to show:** Complete visibility into facets, scoring, and business rules
 
 **Steps:**
+
 1. After any search, click the **"📊 View Metadata"** button on any track card
 2. A modal opens with 3 tabs
 
 **Tab 1: Facets & Taxonomy**
+
 - Shows all 35 facets for this track
 - Grouped by 13 categories:
   - Mood (Uplifting, Happy, Quirky)
@@ -141,6 +155,7 @@ All filters use AND logic - tracks must match all criteria.
 - Shows genre names (mapped from numeric IDs)
 
 **Tab 2: Score Breakdown**
+
 - Shows relevance score (e.g., 3.98)
 - Shows score components:
   - `track_title`: 3.0 (matched "upbeat")
@@ -149,6 +164,7 @@ All filters use AND logic - tracks must match all criteria.
 - Explains field weights from `fieldWeights.json`
 
 **Tab 3: Business Rules**
+
 - Shows which rules were applied to this track
 - Shows score adjustments (original → new score)
 - Shows rank changes (e.g., "Moved from #5 to #1, +4 ranks")
@@ -163,15 +179,18 @@ All filters use AND logic - tracks must match all criteria.
 **What to show:** Automatic library prioritization based on query patterns
 
 **Steps:**
+
 1. Type: `sports baseball stadium`
 2. Press Enter
 
 **What you'll see:**
+
 - Tracks from "MLB Music" library appear higher in results
 - The `library_boost_sports_mlb` rule fires
 - MLB tracks get 1.5x score multiplier
 
 **Server logs:**
+
 ```
 Matched 1 rules for query "sports baseball stadium": library_boost_sports_mlb (priority: 90)
 Applied rules: [
@@ -185,6 +204,7 @@ Applied rules: [
 ```
 
 **To see score adjustments:**
+
 1. Click "📊 View Metadata" on an MLB Music track
 2. Go to "Business Rules" tab
 3. See score adjustment: "Library boost: MLB Music (1.5x)"
@@ -197,16 +217,19 @@ Applied rules: [
 **What to show:** LLM orchestration for multi-step queries
 
 **Steps:**
+
 1. Type: `What tracks are in my Super Bowl project?`
 2. Press Enter
 
 **What you'll see:**
+
 - Claude analyzes the query
 - Uses tools to search project data
 - Returns structured results
 - Slower (~2-4s) but more intelligent
 
 **Key point:** The system intelligently routes:
+
 - Simple queries → Fast metadata search (24ms)
 - Complex queries → Claude with tools (2-4s)
 
@@ -221,11 +244,13 @@ Applied rules: [
 **Steps:**
 
 1. **Open rules configuration:**
+
    ```bash
    open "server/config/businessRules.json"
    ```
 
 2. **Find the library boost rule for sports:**
+
    ```json
    {
      "id": "library_boost_sports_mlb",
@@ -273,11 +298,13 @@ Applied rules: [
 **Test in browser or curl:**
 
 **1. Track Metadata:**
+
 ```bash
 curl "http://localhost:3001/api/tracks/2FM_2FM_0046_05001/metadata?query=upbeat%20rock" | python3 -m json.tool
 ```
 
 Returns:
+
 - Track details
 - 35 facets grouped by 13 categories
 - Genre names (mapped from IDs)
@@ -285,20 +312,24 @@ Returns:
 - Score breakdown
 
 **2. Similar Tracks:**
+
 ```bash
 curl "http://localhost:3001/api/tracks/2FM_2FM_0046_05001/similar?limit=12" | python3 -m json.tool
 ```
 
 Returns:
+
 - 12 tracks with most shared facets
 - Sorted by similarity
 
 **3. Track Facets:**
+
 ```bash
 curl "http://localhost:3001/api/tracks/2FM_2FM_0046_05001/facets" | python3 -m json.tool
 ```
 
 Returns:
+
 - All facets for this track
 - Grouped by category
 - Count statistics
@@ -308,6 +339,7 @@ Returns:
 ## Performance Comparison Demo
 
 ### Before: All queries through Claude (~2-4s)
+
 ```
 User: "upbeat rock"
 → Claude analyzes query
@@ -317,6 +349,7 @@ User: "upbeat rock"
 ```
 
 ### After: Intelligent routing (~24ms for simple queries)
+
 ```
 User: "upbeat rock"
 → Classified as "simple"
@@ -332,6 +365,7 @@ User: "upbeat rock"
 ## Troubleshooting
 
 ### Server won't start
+
 ```bash
 # Check if port 3001 is already in use
 lsof -i :3001
@@ -341,6 +375,7 @@ kill -9 <PID>
 ```
 
 ### Client won't start
+
 ```bash
 # Check if port 5173 is already in use
 lsof -i :5173
@@ -350,6 +385,7 @@ kill -9 <PID>
 ```
 
 ### Database errors
+
 ```bash
 # Verify database exists
 ls -lh "server/apm_music.db"
@@ -358,6 +394,7 @@ ls -lh "server/apm_music.db"
 ```
 
 ### No results for @ filters
+
 - Check spelling of facet categories
 - Use quotes for multi-word values: `@library:"MLB Music"`
 - Check server logs for error messages
@@ -367,18 +404,23 @@ ls -lh "server/apm_music.db"
 ## Key Demo Talking Points
 
 ### 1. PM Control (CEO Hot Button)
+
 > "PMs can edit businessRules.json to change search ranking, boost specific libraries, or add new rules - **without any code deployment**. Just edit the JSON and restart the server."
 
 ### 2. Complete Transparency
+
 > "Every track shows exactly **which facets matched**, **what the relevance score is**, and **which business rules affected its ranking**. Click 'View Metadata' on any track to see the full breakdown."
 
 ### 3. Performance Optimization
+
 > "We built 3-tier intelligent routing. Simple queries bypass Claude entirely and complete in 24ms - that's **100x faster** than going through the LLM for every query."
 
 ### 4. Data Moat
+
 > "We're leveraging APM's proprietary taxonomy - **2,120 facets across 18 categories**. This metadata intelligence is what competitors can't replicate."
 
 ### 5. Business Rules Types
+
 > "We've implemented 5 rule types: genre simplification, library boosting, recency interleaving, feature boost, and filter optimization. Each rule is fully configurable."
 
 ---
@@ -386,6 +428,7 @@ ls -lh "server/apm_music.db"
 ## Sample Demo Queries
 
 ### Simple Queries (Route 2 - Fast)
+
 - `upbeat rock`
 - `dark suspenseful`
 - `corporate motivational`
@@ -393,6 +436,7 @@ ls -lh "server/apm_music.db"
 - `electronic dance`
 
 ### Facet Filters (Route 1 - Fastest)
+
 - `@mood:uplifting`
 - `@instruments:piano`
 - `@library:MLB Music`
@@ -400,6 +444,7 @@ ls -lh "server/apm_music.db"
 - `@genre:rock @tempo:fast`
 
 ### Complex Queries (Route 3 - Smart)
+
 - `What did I download for my Super Bowl project?`
 - `Show me my recent search history`
 - `Find tracks similar to what I fully listened to`

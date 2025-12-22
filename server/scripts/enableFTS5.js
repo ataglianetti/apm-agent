@@ -15,19 +15,13 @@ const db = new Database(dbPath);
 
 // First, check what text fields exist in tracks table
 console.log('\nChecking tracks table schema...');
-const columns = db.prepare("PRAGMA table_info(tracks)").all();
+const columns = db.prepare('PRAGMA table_info(tracks)').all();
 const columnNames = columns.map(col => col.name);
 
 console.log(`Found ${columnNames.length} columns in tracks table`);
 
 // Standard text fields we want to index
-const textFields = [
-  'track_title',
-  'track_description',
-  'album_title',
-  'library_name',
-  'composer'
-];
+const textFields = ['track_title', 'track_description', 'album_title', 'library_name', 'composer'];
 
 // Optional fields that may or may not exist
 const optionalFields = ['album_description', 'lyrics', 'lyric_subject'];
@@ -73,7 +67,7 @@ const insertStmt = db.prepare(`
 const tracks = selectStmt.all();
 console.log(`Processing ${tracks.length} tracks...`);
 
-const transaction = db.transaction((tracks) => {
+const transaction = db.transaction(tracks => {
   let count = 0;
   for (const track of tracks) {
     const values = [track.id, ...fieldsToIndex.map(field => track[field] || '')];
@@ -116,27 +110,27 @@ console.log('✅ Triggers created');
 
 // Test FTS search
 console.log('\nTesting FTS search...');
-const testQueries = [
-  'piano',
-  'suspense',
-  'rock',
-  'hans zimmer',
-  'uplifting'
-];
+const testQueries = ['piano', 'suspense', 'rock', 'hans zimmer', 'uplifting'];
 
 for (const query of testQueries) {
-  const result = db.prepare(`
+  const result = db
+    .prepare(
+      `
     SELECT COUNT(*) as count
     FROM tracks_fts
     WHERE tracks_fts MATCH ?
-  `).get(query);
+  `
+    )
+    .get(query);
 
   console.log(`  "${query}": ${result.count} matches`);
 }
 
 // Show sample FTS results
 console.log('\nSample FTS Search for "piano":');
-const samples = db.prepare(`
+const samples = db
+  .prepare(
+    `
   SELECT
     t.track_title,
     t.track_description,
@@ -145,7 +139,9 @@ const samples = db.prepare(`
   JOIN tracks t ON tracks_fts.id = t.id
   WHERE tracks_fts MATCH 'piano'
   LIMIT 5
-`).all();
+`
+  )
+  .all();
 
 for (const sample of samples) {
   console.log(`\n  ${sample.track_title}`);

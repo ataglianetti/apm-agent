@@ -80,8 +80,10 @@ export function matchRules(query) {
   // Sort by priority (higher priority first)
   matched.sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
-  console.log(`Matched ${matched.length} rules for query "${query}":`,
-    matched.map(r => `${r.id} (priority: ${r.priority})`).join(', '));
+  console.log(
+    `Matched ${matched.length} rules for query "${query}":`,
+    matched.map(r => `${r.id} (priority: ${r.priority})`).join(', ')
+  );
 
   return matched;
 }
@@ -100,7 +102,7 @@ export async function applyRules(tracks, rules, query) {
       appliedRules: [],
       scoreAdjustments: [],
       expandedFacets: [],
-      autoFilters: []
+      autoFilters: [],
     };
   }
 
@@ -118,7 +120,7 @@ export async function applyRules(tracks, rules, query) {
         ruleId: rule.id,
         type: rule.type,
         description: rule.description,
-        affectedTracks: ruleResult.affectedTracks || 0
+        affectedTracks: ruleResult.affectedTracks || 0,
       });
 
       if (ruleResult.scoreAdjustments) {
@@ -144,7 +146,7 @@ export async function applyRules(tracks, rules, query) {
     appliedRules,
     scoreAdjustments,
     expandedFacets,
-    autoFilters
+    autoFilters,
   };
 }
 
@@ -198,7 +200,7 @@ function applyGenreSimplification(tracks, rule) {
   return {
     applied: true,
     expandedFacets: facets,
-    affectedTracks: 0 // Expansion happens at search time, not result time
+    affectedTracks: 0, // Expansion happens at search time, not result time
   };
 }
 
@@ -242,13 +244,13 @@ function applyLibraryBoost(tracks, rule) {
         originalScore: originalScore,
         newScore: newScore,
         scoreMultiplier: boostFactor,
-        reason: `Library boost: ${track.library_name} (${boostFactor}x)`
+        reason: `Library boost: ${track.library_name} (${boostFactor}x)`,
       });
 
       return {
         ...track,
         _relevance_score: newScore,
-        _boost_applied: boostFactor
+        _boost_applied: boostFactor,
       };
     }
 
@@ -269,7 +271,7 @@ function applyLibraryBoost(tracks, rule) {
     applied: true,
     tracks: boostedTracks,
     affectedTracks: affectedCount,
-    scoreAdjustments: adjustments
+    scoreAdjustments: adjustments,
   };
 }
 
@@ -285,7 +287,7 @@ function applyRecencyInterleaving(tracks, rule) {
     recent_count: _recent_count,
     vintage_count: _vintage_count,
     recent_threshold_months,
-    pattern
+    pattern,
   } = rule.action;
 
   if (!pattern || !recent_threshold_months) {
@@ -307,12 +309,12 @@ function applyRecencyInterleaving(tracks, rule) {
       try {
         // Parse date (formats: "MM/DD/YYYY" or "YYYY-MM-DD")
         const dateParts = releaseDate.includes('/')
-          ? releaseDate.split('/')  // MM/DD/YYYY
-          : releaseDate.split('-');  // YYYY-MM-DD
+          ? releaseDate.split('/') // MM/DD/YYYY
+          : releaseDate.split('-'); // YYYY-MM-DD
 
         const trackDate = releaseDate.includes('/')
-          ? new Date(dateParts[2], dateParts[0] - 1, dateParts[1])  // MM/DD/YYYY
-          : new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);  // YYYY-MM-DD
+          ? new Date(dateParts[2], dateParts[0] - 1, dateParts[1]) // MM/DD/YYYY
+          : new Date(dateParts[0], dateParts[1] - 1, dateParts[2]); // YYYY-MM-DD
 
         if (trackDate >= thresholdDate) {
           recentTracks.push(track);
@@ -358,7 +360,7 @@ function applyRecencyInterleaving(tracks, rule) {
   return {
     applied: true,
     tracks: interleavedTracks,
-    affectedTracks: interleavedTracks.length
+    affectedTracks: interleavedTracks.length,
   };
 }
 
@@ -396,13 +398,13 @@ function applyFeatureBoost(tracks, rule) {
         originalScore: originalScore,
         newScore: newScore,
         scoreMultiplier: boost_factor,
-        reason: `Feature boost: ${boost_field}=${boost_value} (${boost_factor}x)`
+        reason: `Feature boost: ${boost_field}=${boost_value} (${boost_factor}x)`,
       });
 
       return {
         ...track,
         _relevance_score: newScore,
-        _boost_applied: boost_factor
+        _boost_applied: boost_factor,
       };
     }
 
@@ -423,7 +425,7 @@ function applyFeatureBoost(tracks, rule) {
     applied: true,
     tracks: boostedTracks,
     affectedTracks: affectedCount,
-    scoreAdjustments: adjustments
+    scoreAdjustments: adjustments,
   };
 }
 
@@ -448,9 +450,9 @@ function applyFilterOptimization(tracks, rule) {
       field: filterConfig.field,
       value: filterConfig.value,
       operator: filterConfig.operator,
-      ruleId: rule.id
+      ruleId: rule.id,
     },
-    affectedTracks: 0 // Filtering happens at search time
+    affectedTracks: 0, // Filtering happens at search time
   };
 }
 
@@ -470,13 +472,17 @@ function applySubgenreInterleaving(tracks, rule) {
   }
 
   // Determine which field to check based on attribute
-  const getAttributeValue = (track) => {
+  const getAttributeValue = track => {
     switch (attribute) {
       case 'genre':
         // Check facet_labels, genre_name, or combined_genre
-        return (track.facet_labels || '') + ';' +
-               (track.genre_name || '') + ';' +
-               (track.combined_genre || '');
+        return (
+          (track.facet_labels || '') +
+          ';' +
+          (track.genre_name || '') +
+          ';' +
+          (track.combined_genre || '')
+        );
       case 'mood':
         return track.facet_labels || '';
       case 'library':
@@ -536,7 +542,7 @@ function applySubgenreInterleaving(tracks, rule) {
           letter,
           subgenre: values[letter],
           trackId: track.id,
-          trackTitle: track.track_title
+          trackTitle: track.track_title,
         });
         letterIndices[letter]++;
       }
@@ -559,7 +565,7 @@ function applySubgenreInterleaving(tracks, rule) {
               trackId: track.id,
               trackTitle: track.track_title,
               fallback: true,
-              requestedSubgenre: values[letter]
+              requestedSubgenre: values[letter],
             });
             letterIndices[otherLetter]++;
             filled = true;
@@ -588,7 +594,9 @@ function applySubgenreInterleaving(tracks, rule) {
     subgenreCounts[sg] = (subgenreCounts[sg] || 0) + 1;
   }
 
-  console.log(`Subgenre interleaving applied: ${interleaveDetails.length} tracks interleaved across ${Object.keys(subgenreCounts).length} subgenres`);
+  console.log(
+    `Subgenre interleaving applied: ${interleaveDetails.length} tracks interleaved across ${Object.keys(subgenreCounts).length} subgenres`
+  );
 
   return {
     applied: true,
@@ -597,8 +605,8 @@ function applySubgenreInterleaving(tracks, rule) {
     interleaveDetails: {
       pattern,
       subgenreCounts,
-      placements: interleaveDetails.slice(0, 12) // First 12 for transparency
-    }
+      placements: interleaveDetails.slice(0, 12), // First 12 for transparency
+    },
   };
 }
 
@@ -615,7 +623,7 @@ export function getAppliedRules(query) {
     type: rule.type,
     description: rule.description,
     priority: rule.priority,
-    pattern: rule.pattern
+    pattern: rule.pattern,
   }));
 }
 
@@ -650,7 +658,7 @@ export function getRuleStats() {
     total: rules.length,
     enabled: rules.filter(r => r.enabled).length,
     disabled: rules.filter(r => !r.enabled).length,
-    byType: {}
+    byType: {},
   };
 
   for (const rule of rules) {

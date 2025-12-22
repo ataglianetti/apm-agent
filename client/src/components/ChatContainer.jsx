@@ -26,7 +26,7 @@ export function ChatContainer({ messages, isLoading, onSoundsLike, onSendMessage
   // Handle "Show More" button click for pagination
   const handleShowMore = () => {
     if (onSendMessage) {
-      onSendMessage("show more");
+      onSendMessage('show more');
     }
   };
 
@@ -56,10 +56,7 @@ export function ChatContainer({ messages, isLoading, onSoundsLike, onSendMessage
         const isLastMessage = index === messages.length - 1;
 
         return (
-          <div
-            key={msg.id || `fallback-${index}`}
-            ref={isLastMessage ? lastMessageRef : null}
-          >
+          <div key={msg.id || `fallback-${index}`} ref={isLastMessage ? lastMessageRef : null}>
             <MessageBubble
               message={msg}
               onSoundsLike={onSoundsLike}

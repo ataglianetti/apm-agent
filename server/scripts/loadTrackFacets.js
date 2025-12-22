@@ -51,7 +51,7 @@ console.log('\nParsing track facets...');
 let totalFacets = 0;
 let tracksWithFacets = 0;
 
-const transaction = db.transaction((tracks) => {
+const transaction = db.transaction(tracks => {
   for (const track of tracks) {
     const facetIds = new Set();
 
@@ -96,14 +96,18 @@ console.log(`✅ Created ${totalFacets} track-facet relationships`);
 console.log(`✅ Average facets per track: ${(totalFacets / tracksWithFacets).toFixed(2)}`);
 
 // Verify data
-const stats = db.prepare(`
+const stats = db
+  .prepare(
+    `
   SELECT
     COUNT(DISTINCT track_id) as track_count,
     COUNT(*) as facet_count,
     COUNT(DISTINCT facet_id) as unique_facets,
     COUNT(DISTINCT category_id) as categories_used
   FROM track_facets
-`).get();
+`
+  )
+  .get();
 
 console.log('\nStatistics:');
 console.log(`  Tracks with facets: ${stats.track_count}`);
@@ -113,7 +117,9 @@ console.log(`  Categories represented: ${stats.categories_used}`);
 
 // Show facet usage breakdown by category
 console.log('\nFacet Usage by Category:');
-const categoryStats = db.prepare(`
+const categoryStats = db
+  .prepare(
+    `
   SELECT
     ft.category_name,
     COUNT(DISTINCT tf.track_id) as track_count,
@@ -123,15 +129,21 @@ const categoryStats = db.prepare(`
   WHERE ft.category_name IS NOT NULL
   GROUP BY ft.category_name
   ORDER BY track_count DESC
-`).all();
+`
+  )
+  .all();
 
 for (const cat of categoryStats) {
-  console.log(`  ${cat.category_name}: ${cat.track_count} tracks, ${cat.facet_count} facet assignments`);
+  console.log(
+    `  ${cat.category_name}: ${cat.track_count} tracks, ${cat.facet_count} facet assignments`
+  );
 }
 
 // Sample some track facets
 console.log('\nSample Track Facets:');
-const samples = db.prepare(`
+const samples = db
+  .prepare(
+    `
   SELECT
     tf.track_id,
     t.track_title,
@@ -141,11 +153,15 @@ const samples = db.prepare(`
   JOIN facet_taxonomy ft ON tf.facet_id = ft.facet_id
   GROUP BY tf.track_id
   LIMIT 5
-`).all();
+`
+  )
+  .all();
 
 for (const sample of samples) {
   console.log(`\n  Track: ${sample.track_title}`);
-  console.log(`    Facets: ${sample.facets.substring(0, 150)}${sample.facets.length > 150 ? '...' : ''}`);
+  console.log(
+    `    Facets: ${sample.facets.substring(0, 150)}${sample.facets.length > 150 ? '...' : ''}`
+  );
 }
 
 db.close();

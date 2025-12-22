@@ -43,16 +43,20 @@ export async function hybridSearch({ query, expandedFacets = [], limit = 1000 })
     taxonomyResults = searchByTaxonomy(query, limit, 0);
   }
 
-  console.log(`Hybrid search: ${taxonomyResults.tracks.length} taxonomy tracks (${taxonomyResults.total} total)`);
+  console.log(
+    `Hybrid search: ${taxonomyResults.tracks.length} taxonomy tracks (${taxonomyResults.total} total)`
+  );
 
   // 2. Get text search results
   const textResults = await metadataSearch({
     text: query,
     limit,
-    offset: 0
+    offset: 0,
   });
 
-  console.log(`Hybrid search: ${textResults.tracks.length} text tracks (${textResults.total} total)`);
+  console.log(
+    `Hybrid search: ${textResults.tracks.length} text tracks (${textResults.total} total)`
+  );
 
   // 3. Build ID sets for tracking match types
   const taxonomyIds = new Set(taxonomyResults.tracks.map(t => t.id));
@@ -75,7 +79,7 @@ export async function hybridSearch({ query, expandedFacets = [], limit = 1000 })
       const existing = trackMap.get(track.id);
       trackMap.set(track.id, {
         ...existing,
-        _text_score: textScore
+        _text_score: textScore,
       });
     } else {
       // Text-only match
@@ -92,8 +96,8 @@ export async function hybridSearch({ query, expandedFacets = [], limit = 1000 })
       ...track._score_breakdown,
       taxonomy_match: taxonomyIds.has(track.id) ? 4.0 : 0,
       text_score: track._text_score || (textIds.has(track.id) ? track._relevance_score : 0),
-      combined: taxonomyIds.has(track.id) && textIds.has(track.id)
-    }
+      combined: taxonomyIds.has(track.id) && textIds.has(track.id),
+    },
   }));
 
   // 7. Sort by relevance score
@@ -107,7 +111,7 @@ export async function hybridSearch({ query, expandedFacets = [], limit = 1000 })
 
   return {
     tracks: enrichedTracks,
-    total
+    total,
   };
 }
 

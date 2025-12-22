@@ -19,7 +19,7 @@ const csvContent = fs.readFileSync(facetCsvPath, 'utf-8');
 const records = parse(csvContent, {
   columns: true,
   skip_empty_lines: true,
-  trim: true
+  trim: true,
 });
 
 console.log(`\nParsed ${records.length} facet entries from CSV`);
@@ -50,8 +50,8 @@ db.exec(`
 
 // Category IDs (first 18 rows are categories)
 const categoryIds = new Set([
-  1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009,
-  1019, 1020, 1021, 1022, 1023, 1024, 1025, 1028
+  1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1019, 1020, 1021, 1022, 1023, 1024,
+  1025, 1028,
 ]);
 
 // Prepare insert statement
@@ -66,7 +66,7 @@ const insert = db.prepare(`
 const categories = {};
 
 // Process records
-const transaction = db.transaction((records) => {
+const transaction = db.transaction(records => {
   let categoryCount = 0;
   let facetCount = 0;
 
@@ -80,14 +80,14 @@ const transaction = db.transaction((records) => {
       categories[facetId] = fullName;
 
       insert.run(
-        facetId,           // facet_id
-        fullName,          // facet_name
-        fullName,          // facet_label (same as name for categories)
-        facetId,           // category_id (self for categories)
-        fullName,          // category_name
-        null,              // parent_id (null for categories)
-        0,                 // facet_level (0 for categories)
-        fullName           // full_path
+        facetId, // facet_id
+        fullName, // facet_name
+        fullName, // facet_label (same as name for categories)
+        facetId, // category_id (self for categories)
+        fullName, // category_name
+        null, // parent_id (null for categories)
+        0, // facet_level (0 for categories)
+        fullName // full_path
       );
 
       categoryCount++;
@@ -113,14 +113,14 @@ const transaction = db.transaction((records) => {
       const parentId = level === 1 ? categoryId : null;
 
       insert.run(
-        facetId,           // facet_id
-        fullName,          // facet_name (full hierarchical name)
-        facetLabel,        // facet_label (just the last part)
-        categoryId,        // category_id
-        categoryName,      // category_name
-        parentId,          // parent_id
-        level,             // facet_level
-        fullName           // full_path
+        facetId, // facet_id
+        fullName, // facet_name (full hierarchical name)
+        facetLabel, // facet_label (just the last part)
+        categoryId, // category_id
+        categoryName, // category_name
+        parentId, // parent_id
+        level, // facet_level
+        fullName // full_path
       );
 
       facetCount++;
@@ -142,13 +142,17 @@ console.log(`\n✅ Verified: ${totalCount.count} rows in facet_taxonomy table`);
 
 // Show category breakdown
 console.log('\nCategory Breakdown:');
-const categoryCounts = db.prepare(`
+const categoryCounts = db
+  .prepare(
+    `
   SELECT category_name, COUNT(*) as count
   FROM facet_taxonomy
   WHERE category_id IS NOT NULL
   GROUP BY category_name
   ORDER BY count DESC
-`).all();
+`
+  )
+  .all();
 
 for (const cat of categoryCounts) {
   console.log(`  ${cat.category_name}: ${cat.count} facets`);
@@ -156,15 +160,21 @@ for (const cat of categoryCounts) {
 
 // Sample some facets
 console.log('\nSample Facets:');
-const samples = db.prepare(`
+const samples = db
+  .prepare(
+    `
   SELECT facet_id, facet_name, category_name, facet_level
   FROM facet_taxonomy
   WHERE facet_level > 0
   LIMIT 10
-`).all();
+`
+  )
+  .all();
 
 for (const sample of samples) {
-  console.log(`  [${sample.facet_id}] ${sample.facet_name} (${sample.category_name}, level ${sample.facet_level})`);
+  console.log(
+    `  [${sample.facet_id}] ${sample.facet_name} (${sample.category_name}, level ${sample.facet_level})`
+  );
 }
 
 db.close();

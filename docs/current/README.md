@@ -14,6 +14,7 @@ This folder contains the current, up-to-date documentation for APM Agent v2.0.
 ## Architecture
 
 **v2.0 Features:**
+
 - SQLite database (10,001 tracks, 2,120 facets)
 - Business rules engine (16 PM-controlled rules)
 - 3-tier intelligent routing (<100ms, ~24ms, <4s)

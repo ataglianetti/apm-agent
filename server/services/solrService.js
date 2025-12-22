@@ -19,7 +19,7 @@ let solrConfig = {
   port: 8983,
   core: 'tracks',
   protocol: 'http',
-  timeout: 30000
+  timeout: 30000,
 };
 
 try {
@@ -41,32 +41,32 @@ try {
 
 // Map fieldWeights.json field names to Solr *_search field names
 const FIELD_TO_SEARCH_FIELD = {
-  'combined_genre': 'combined_genre_search',
-  'mood': 'mood_search',
-  'instruments': 'instruments_search',
-  'track_title': 'track_title_search',
-  'track_description': 'track_description_search',
-  'album_title': 'album_title_search',
-  'composer': 'composer_search',
-  'library': 'library_search',
-  'music_for': 'music_for_search',
-  'character': 'character_search',
-  'movement': 'movement_search',
-  'vocals': 'vocals_search',
-  'country_and_region': 'country_and_region_search',
-  'time_period': 'time_period_search',
-  'musical_form': 'musical_form_search',
-  'sound_effects': 'sound_effects_search',
-  'lyric_subject': 'lyric_subject_search',
-  'key': 'key_search',
-  'tempo': 'tempo_search',
-  'track_type': 'track_type_search',
-  'instrumental_and_vocal_groupings': 'instrumental_and_vocal_groupings_search',
-  'is_a': 'is_a_search',
-  'lyrics': 'lyrics_search',
-  'sound_alikes': 'sound_alikes_search',
-  'album_description': 'album_description_search',
-  'language': 'language_search'
+  combined_genre: 'combined_genre_search',
+  mood: 'mood_search',
+  instruments: 'instruments_search',
+  track_title: 'track_title_search',
+  track_description: 'track_description_search',
+  album_title: 'album_title_search',
+  composer: 'composer_search',
+  library: 'library_search',
+  music_for: 'music_for_search',
+  character: 'character_search',
+  movement: 'movement_search',
+  vocals: 'vocals_search',
+  country_and_region: 'country_and_region_search',
+  time_period: 'time_period_search',
+  musical_form: 'musical_form_search',
+  sound_effects: 'sound_effects_search',
+  lyric_subject: 'lyric_subject_search',
+  key: 'key_search',
+  tempo: 'tempo_search',
+  track_type: 'track_type_search',
+  instrumental_and_vocal_groupings: 'instrumental_and_vocal_groupings_search',
+  is_a: 'is_a_search',
+  lyrics: 'lyrics_search',
+  sound_alikes: 'sound_alikes_search',
+  album_description: 'album_description_search',
+  language: 'language_search',
   // Note: track_id, album_id are not text-searchable fields
 };
 
@@ -159,16 +159,16 @@ function buildFacetFilters(facetIds = [], excludeIds = []) {
  */
 function buildSort(sort = 'featured') {
   const sortModes = {
-    'featured': 'score desc, apm_release_date desc, random_boost desc',
-    'explore': 'score desc, random_boost desc',
-    'rdate': 'apm_release_date asc, score desc',
+    featured: 'score desc, apm_release_date desc, random_boost desc',
+    explore: 'score desc, random_boost desc',
+    rdate: 'apm_release_date asc, score desc',
     '-rdate': 'apm_release_date desc, score desc',
-    'duration': 'duration asc, score desc',
+    duration: 'duration asc, score desc',
     '-duration': 'duration desc, score desc',
-    'track_title': 'track_title asc, score desc',
+    track_title: 'track_title asc, score desc',
     '-track_title': 'track_title desc, score desc',
-    'album_title': 'album_title asc, score desc',
-    '-album_title': 'album_title desc, score desc'
+    album_title: 'album_title asc, score desc',
+    '-album_title': 'album_title desc, score desc',
   };
 
   // Handle random sorts
@@ -194,14 +194,14 @@ function buildSort(sort = 'featured') {
 export async function search(options = {}) {
   const {
     text = '*:*',
-    facetsByCategory = {},  // { "Mood": ["Mood/123", "Mood/456"], "Instruments": ["Instruments/789"] }
+    facetsByCategory = {}, // { "Mood": ["Mood/123", "Mood/456"], "Instruments": ["Instruments/789"] }
     excludeFacetIds = [],
-    fieldFilters = [],      // [{field, value, operator}] for text field filtering
+    fieldFilters = [], // [{field, value, operator}] for text field filtering
     sort = 'featured',
     limit = 12,
     offset = 0,
     ranges = {},
-    groupBy = 'song_id'
+    groupBy = 'song_id',
   } = options;
 
   // Build query
@@ -261,7 +261,9 @@ export async function search(options = {}) {
     fq.push(`duration:[${ranges.duration.min || '*'} TO ${ranges.duration.max || '*'}]`);
   }
   if (ranges.releaseDate) {
-    fq.push(`apm_release_date:[${ranges.releaseDate.min || '*'} TO ${ranges.releaseDate.max || '*'}]`);
+    fq.push(
+      `apm_release_date:[${ranges.releaseDate.min || '*'} TO ${ranges.releaseDate.max || '*'}]`
+    );
   }
 
   // Text field filters (composer, library, album, etc.)
@@ -296,12 +298,28 @@ export async function search(options = {}) {
   params.set('rows', limit.toString());
 
   // Fields to return
-  params.set('fl', [
-    'id', 'track_title', 'track_description', 'bpm', 'duration',
-    'apm_release_date', 'album_title', 'album_code', 'library_name',
-    'composer', 'genre', 'mood', 'instruments', 'music_for',
-    'facet_labels', 'versions', 'score'
-  ].join(','));
+  params.set(
+    'fl',
+    [
+      'id',
+      'track_title',
+      'track_description',
+      'bpm',
+      'duration',
+      'apm_release_date',
+      'album_title',
+      'album_code',
+      'library_name',
+      'composer',
+      'genre',
+      'mood',
+      'instruments',
+      'music_for',
+      'facet_labels',
+      'versions',
+      'score',
+    ].join(',')
+  );
 
   // Execute request
   const url = `${getSolrUrl()}?${params.toString()}`;
@@ -312,7 +330,7 @@ export async function search(options = {}) {
 
     const response = await fetch(url, {
       method: 'GET',
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
@@ -333,7 +351,6 @@ export async function search(options = {}) {
     }
 
     return mapResponse(data, options);
-
   } catch (error) {
     // Specific error handling for common network issues
     if (error.name === 'AbortError') {
@@ -342,7 +359,9 @@ export async function search(options = {}) {
     }
     if (error.code === 'ECONNREFUSED') {
       console.error('Solr connection refused at', getSolrUrl());
-      throw new Error(`Solr connection refused at ${solrConfig.host}:${solrConfig.port}. Is Solr running?`);
+      throw new Error(
+        `Solr connection refused at ${solrConfig.host}:${solrConfig.port}. Is Solr running?`
+      );
     }
     if (error.code === 'ENOTFOUND') {
       console.error('Solr host not found:', solrConfig.host);
@@ -368,21 +387,23 @@ function mapResponse(solrData, options) {
     return {
       tracks: (solrData.response?.docs || []).map(mapTrack),
       total: solrData.response?.numFound || 0,
-      qTime: solrData.responseHeader?.QTime
+      qTime: solrData.responseHeader?.QTime,
     };
   }
 
   // Grouped response - extract first doc from each group
-  const tracks = (grouped.groups || []).map(group => {
-    const doc = group.doclist?.docs?.[0];
-    return doc ? mapTrack(doc) : null;
-  }).filter(Boolean);
+  const tracks = (grouped.groups || [])
+    .map(group => {
+      const doc = group.doclist?.docs?.[0];
+      return doc ? mapTrack(doc) : null;
+    })
+    .filter(Boolean);
 
   return {
     tracks,
     total: grouped.ngroups || 0,
     matches: grouped.matches || 0,
-    qTime: solrData.responseHeader?.QTime
+    qTime: solrData.responseHeader?.QTime,
   };
 }
 
@@ -427,7 +448,7 @@ function mapTrack(doc) {
     versions: versions,
 
     // Score from Solr
-    _relevance_score: doc.score
+    _relevance_score: doc.score,
   };
 }
 
@@ -466,5 +487,5 @@ export default {
   buildQf,
   buildPf2,
   buildFacetFilters,
-  buildSort
+  buildSort,
 };

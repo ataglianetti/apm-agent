@@ -14,7 +14,7 @@ async function testMetadata() {
     // Test 1: Get a track and check if it has enhanced metadata
     console.log('\n1. Testing single track metadata:');
     const track = await executeFileTool('get_track_by_id', {
-      track_id: '2FM_2FM_0002_00301'
+      track_id: '2FM_2FM_0002_00301',
     });
 
     if (track) {
@@ -34,7 +34,7 @@ async function testMetadata() {
     const moodResults = await executeFileTool('grep_tracks', {
       pattern: 'uplifting',
       field: 'mood',
-      limit: 3
+      limit: 3,
     });
     console.log(`Found ${moodResults.length} tracks with uplifting mood`);
     moodResults.forEach(t => {
@@ -46,7 +46,7 @@ async function testMetadata() {
     const energyResults = await executeFileTool('grep_tracks', {
       pattern: 'high',
       field: 'energy_level',
-      limit: 3
+      limit: 3,
     });
     console.log(`Found ${energyResults.length} tracks with high energy`);
     energyResults.forEach(t => {
@@ -58,7 +58,7 @@ async function testMetadata() {
     const genreResults = await executeFileTool('grep_tracks', {
       pattern: '1322',
       field: 'genre',
-      limit: 3
+      limit: 3,
     });
     console.log(`Found ${genreResults.length} tracks in genre 1322`);
     genreResults.forEach(t => {
@@ -67,7 +67,6 @@ async function testMetadata() {
 
     console.log('\n' + '='.repeat(50));
     console.log('✅ All tests completed successfully!');
-
   } catch (error) {
     console.error('❌ Test failed:', error);
   }

@@ -48,9 +48,7 @@ export class ErrorBoundary extends Component {
               </svg>
             </div>
             <div className="flex-1">
-              <h3 className="text-red-800 dark:text-red-200 font-semibold">
-                Something went wrong
-              </h3>
+              <h3 className="text-red-800 dark:text-red-200 font-semibold">Something went wrong</h3>
               <p className="mt-1 text-red-700 dark:text-red-300 text-sm">
                 {this.state.error?.message || 'An unexpected error occurred'}
               </p>

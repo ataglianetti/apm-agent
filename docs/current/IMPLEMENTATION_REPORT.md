@@ -16,6 +16,7 @@ Successfully implemented a **PM-controlled business rules engine** with complete
 4. **Proprietary data moat** - 2,120 facets across 18 categories for search intelligence
 
 ### Performance Metrics
+
 - **@ filter queries**: <100ms (direct SQL, bypass LLM)
 - **Simple queries**: ~24ms (metadata search + rules, bypass LLM)
 - **Complex queries**: <4s (Claude with full context)
@@ -43,12 +44,14 @@ Direct SQL  Metadata       Claude +
 ```
 
 **Route 1: @ Filter Queries** (Direct SQL)
+
 - Examples: `@mood:uplifting`, `@library:MLB Music @tags:rock`
 - Bypasses LLM entirely
 - Direct facet/field filtering via SQL
 - Performance: <100ms
 
 **Route 2: Simple Queries** (Metadata Search + Business Rules)
+
 - Examples: `upbeat rock`, `dark suspenseful`, `corporate motivational`
 - Bypasses LLM for speed
 - Uses FTS5 full-text search + facet filtering
@@ -56,6 +59,7 @@ Direct SQL  Metadata       Claude +
 - Performance: ~24ms
 
 **Route 3: Complex Queries** (Claude + Tools)
+
 - Examples: `What did I download for my Super Bowl project?`, `Find tracks similar to what I fully listened to`
 - Uses Claude for orchestration
 - Full context awareness
@@ -71,6 +75,7 @@ Direct SQL  Metadata       Claude +
 **Status:** Already complete (verified existing implementation)
 
 **Capabilities:**
+
 - All 18 APM facet categories supported:
   - `@mood:`, `@instruments:`, `@vocals:`, `@tempo:`, `@genre:`
   - `@music-for:`, `@character:`, `@country-region:`, `@key:`
@@ -78,6 +83,7 @@ Direct SQL  Metadata       Claude +
   - `@sound-effects:`, `@time-period:`, `@track-type:`, `@groupings:`
 
 **Example:**
+
 ```
 @mood:uplifting @instruments:piano @energy:high
 → Returns tracks with uplifting mood, piano instrumentation, and high energy
@@ -86,6 +92,7 @@ Direct SQL  Metadata       Claude +
 ```
 
 **Files Verified:**
+
 - `server/services/facetSearchService.js` - Facet filtering with fuzzy matching
 - `server/services/filterParser.js` - @ syntax parser with 18 category mappings
 
@@ -128,6 +135,7 @@ Direct SQL  Metadata       Claude +
    - `vocal_preference`: Auto-filter for vocal tracks when vocals mentioned
 
 **Rule Format Example:**
+
 ```json
 {
   "id": "genre_simplification_rock",
@@ -138,9 +146,16 @@ Direct SQL  Metadata       Claude +
   "description": "Auto-expand rock search to include major rock subgenres",
   "action": {
     "auto_apply_facets": [
-      "Classic Rock", "Alternative Rock", "Indie Rock",
-      "Hard Rock", "Punk Rock", "Garage Rock",
-      "Southern Rock", "Blues / Rock", "Modern Rock", "Surf"
+      "Classic Rock",
+      "Alternative Rock",
+      "Indie Rock",
+      "Hard Rock",
+      "Punk Rock",
+      "Garage Rock",
+      "Southern Rock",
+      "Blues / Rock",
+      "Modern Rock",
+      "Surf"
     ],
     "mode": "expand"
   }
@@ -148,6 +163,7 @@ Direct SQL  Metadata       Claude +
 ```
 
 **PM Control:** PMs can edit this JSON file to:
+
 - Enable/disable rules
 - Adjust boost factors
 - Change pattern matching
@@ -166,6 +182,7 @@ Direct SQL  Metadata       Claude +
 3. `applyRules(tracks, rules, query)` - Apply rules with full transparency
 
 **Transparency Output:**
+
 ```javascript
 {
   results: [...],  // Modified tracks with adjusted scores
@@ -228,6 +245,7 @@ Direct SQL  Metadata       Claude +
 5. **Match Explanations** - Which fields matched and their weights
 
 **Search Flow:**
+
 ```javascript
 1. Facet filtering (if facets provided)
    ↓
@@ -247,6 +265,7 @@ Direct SQL  Metadata       Claude +
 ```
 
 **Output Format:**
+
 ```javascript
 {
   tracks: [...],  // 12 enhanced track objects
@@ -287,6 +306,7 @@ Direct SQL  Metadata       Claude +
    - Word count heuristic: 1-4 words with no special characters = simple
 
 2. **Route 2 Logic** - Simple query handling:
+
    ```javascript
    if (queryComplexity === 'simple') {
      // Match business rules
@@ -312,6 +332,7 @@ Direct SQL  Metadata       Claude +
    ```
 
 **Routing Decision Tree:**
+
 ```
 Query received
     ↓
@@ -349,6 +370,7 @@ Route 3 (Claude + Tools)
    - Groups: Mood, Instruments, Vocals, Genre, etc.
 
 **Example Response:**
+
 ```json
 {
   "track": {
@@ -407,11 +429,13 @@ Route 3 (Claude + Tools)
    - Purple accent color (APM brand)
 
 **Integration:**
+
 - Added "📊 View Metadata" button to every track card
 - Passes search query for context
 - Fetches data from `/api/tracks/:id/metadata` endpoint
 
 **Files Modified:**
+
 - `TrackCard.jsx` - Added metadata modal trigger
 - `TrackResultsList.jsx` - Pass searchQuery prop
 - `MessageBubble.jsx` - Pass searchQuery to cards
@@ -430,11 +454,13 @@ Route 3 (Claude + Tools)
 **Performance:** 24ms
 
 **Results:**
+
 - ✅ 12 tracks returned from 70 total matches
 - ✅ Business rule `genre_simplification_rock` matched and applied
 - ✅ Transparency metadata included in response
 
 **Console Output:**
+
 ```
 Detected simple query, using metadata search + business rules
 Loaded 16 business rules from configuration
@@ -445,6 +471,7 @@ Simple query completed in 24ms with 1 rules applied
 ```
 
 **Sample Track:**
+
 ```json
 {
   "id": "2FM_2FM_0046_05001",
@@ -470,11 +497,13 @@ Simple query completed in 24ms with 1 rules applied
 **Performance:** <100ms
 
 **Results:**
+
 - ✅ 12 tracks returned
 - ✅ 10,000 total matching tracks found
 - ✅ All tracks have "uplifting" in moods array
 
 **Sample Result:**
+
 ```json
 {
   "type": "track_results",
@@ -496,6 +525,7 @@ Simple query completed in 24ms with 1 rules applied
 **Request:** `GET /api/tracks/2FM_2FM_0046_05001/metadata?query=upbeat%20rock`
 
 **Response:**
+
 ```json
 {
   "track": {
@@ -514,6 +544,7 @@ Simple query completed in 24ms with 1 rules applied
 ```
 
 **Results:**
+
 - ✅ 35 facets returned
 - ✅ 13 categories populated
 - ✅ Genre names mapped from IDs
@@ -524,23 +555,27 @@ Simple query completed in 24ms with 1 rules applied
 ## Business Value
 
 ### 1. PM Control (CEO Hot Button)
+
 - **Zero Code Deployments**: Change search behavior by editing JSON
 - **Rapid Iteration**: Test new ranking strategies in minutes, not days
 - **A/B Testing Ready**: Multiple rule configurations for experimentation
 - **Audit Trail**: Complete visibility into what rules fire and when
 
 ### 2. Transparency (Moat Feature)
+
 - **Score Breakdown**: See exactly why each track ranked where it did
 - **Rule Tracking**: Which business rules fired for each query
 - **Rank Changes**: Before/after positions with score multipliers
 - **Facet Matches**: Which taxonomy terms contributed to results
 
 ### 3. Performance Optimization
+
 - **3-Tier Routing**: Most queries bypass LLM (24ms vs 2-4s)
 - **@ Filter Fast Path**: Direct SQL for power users (<100ms)
 - **Scalable**: Handles 10,000 tracks with sub-second performance
 
 ### 4. Data Moat
+
 - **2,120 Facets**: Proprietary taxonomy across 18 categories
 - **Enhanced Metadata**: Moods, energy levels, use cases extracted
 - **91 Genre Taxonomy**: Hierarchical genre classification
@@ -551,6 +586,7 @@ Simple query completed in 24ms with 1 rules applied
 ## Files Created/Modified
 
 ### Files Created (7 new files)
+
 1. `server/config/businessRules.json` - 16 business rules configuration
 2. `server/services/businessRulesEngine.js` - Rules engine with transparency
 3. `server/services/metadataSearch.js` - Unified search service
@@ -560,6 +596,7 @@ Simple query completed in 24ms with 1 rules applied
 7. `HOW_TO_DEMO.md` - Demo guide (to be created)
 
 ### Files Modified (6 files)
+
 1. `server/routes/chat.js` - Added 3-tier routing + query classification
 2. `server/index.js` - Registered trackMetadata routes
 3. `client/src/components/TrackCard.jsx` - Added metadata modal
@@ -604,6 +641,7 @@ User Query: "upbeat rock"
 ### Database Schema
 
 **Key Tables:**
+
 - `tracks` (10,001 rows) - Main track catalog
 - `track_facets` (35,000+ rows) - Track-to-facet mappings
 - `facet_taxonomy` (2,120 rows) - Facet definitions across 18 categories
@@ -637,13 +675,14 @@ From `server/config/fieldWeights.json`:
 
 ## Performance Benchmarks
 
-| Query Type | Route | LLM Used? | Avg Time | Example |
-|------------|-------|-----------|----------|---------|
-| @ Filter | Route 1 | No | <100ms | `@mood:uplifting @library:MLB Music` |
-| Simple Query | Route 2 | No | ~24ms | `upbeat rock`, `dark suspenseful` |
-| Complex Query | Route 3 | Yes | <4s | `What did I download for my project?` |
+| Query Type    | Route   | LLM Used? | Avg Time | Example                               |
+| ------------- | ------- | --------- | -------- | ------------------------------------- |
+| @ Filter      | Route 1 | No        | <100ms   | `@mood:uplifting @library:MLB Music`  |
+| Simple Query  | Route 2 | No        | ~24ms    | `upbeat rock`, `dark suspenseful`     |
+| Complex Query | Route 3 | Yes       | <4s      | `What did I download for my project?` |
 
 **Test Environment:**
+
 - 10,001 tracks
 - 2,120 facets
 - 35,000+ track-facet relationships
@@ -655,16 +694,19 @@ From `server/config/fieldWeights.json`:
 ## Future Enhancements
 
 ### Phase 8: Analytics Dashboard (Not Implemented)
+
 - Rule performance metrics (which rules fire most often)
 - A/B test framework for rule configurations
 - Search quality metrics (click-through rates, download rates)
 
 ### Phase 9: Machine Learning Integration (Not Implemented)
+
 - Learn optimal boost factors from user behavior
 - Personalized rule application based on user preferences
 - Auto-generate new rules from search patterns
 
 ### Phase 10: Advanced Transparency (Not Implemented)
+
 - Visual score waterfall showing each rule's impact
 - Comparison view (with rules vs without rules)
 - Export transparency data for analysis

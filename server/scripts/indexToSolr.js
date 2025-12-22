@@ -24,7 +24,7 @@ let solrConfig = {
   host: 'localhost',
   port: 8983,
   core: 'tracks',
-  protocol: 'http'
+  protocol: 'http',
 };
 
 try {
@@ -68,60 +68,71 @@ console.log('Loading facet taxonomy...');
 const facetTaxonomy = {};
 const categoryMapping = {};
 
-const taxonomyRows = db.prepare(`
+const taxonomyRows = db
+  .prepare(
+    `
   SELECT facet_id, category_name, facet_name, facet_label
   FROM facet_taxonomy
-`).all();
+`
+  )
+  .all();
 
 // Manual mapping from facet_taxonomy category names to Solr schema field names
 const CATEGORY_TO_FIELD = {
   'Master Genre': 'genre_ids',
   'Additional Genre': 'additional_genre_ids',
-  'Mood': 'mood_ids',
-  'Movement': 'movement_ids',
-  'Character': 'character_ids',
+  Mood: 'mood_ids',
+  Movement: 'movement_ids',
+  Character: 'character_ids',
   'Music For': 'music_for_ids',
   'Musical Form': 'musical_form_ids',
-  'Instruments': 'instruments_ids',
-  'Vocals': 'vocals_ids',
+  Instruments: 'instruments_ids',
+  Vocals: 'vocals_ids',
   'Instrumental & Vocal Groupings': 'instrumental_and_vocal_groupings_ids',
   'Sound Effects': 'sound_effects_ids',
   'Country & Region': 'country_and_region_ids',
   'Time Period': 'time_period_ids',
   'Lyric Subject': 'lyric_subject_ids',
   'Track Type': 'track_type_ids',
-  'Tempo': 'tempo_ids',
-  'Key': 'key_ids',
-  'Language': 'language_ids',
-  'is_a': 'is_a_ids'
+  Tempo: 'tempo_ids',
+  Key: 'key_ids',
+  Language: 'language_ids',
+  is_a: 'is_a_ids',
 };
 
 for (const row of taxonomyRows) {
   facetTaxonomy[row.facet_id] = {
     category: row.category_name,
     name: row.facet_name,
-    label: row.facet_label
+    label: row.facet_label,
   };
 
   // Use manual mapping if available, otherwise generate field name
   if (!categoryMapping[row.category_name]) {
-    categoryMapping[row.category_name] = CATEGORY_TO_FIELD[row.category_name] ||
+    categoryMapping[row.category_name] =
+      CATEGORY_TO_FIELD[row.category_name] ||
       row.category_name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and') + '_ids';
   }
 }
 
-console.log(`Loaded ${Object.keys(facetTaxonomy).length} facets across ${Object.keys(categoryMapping).length} categories`);
+console.log(
+  `Loaded ${Object.keys(facetTaxonomy).length} facets across ${Object.keys(categoryMapping).length} categories`
+);
 console.log('Category mappings:', categoryMapping);
 console.log('');
 
 // Pre-compute versions map (song_id -> array of track info)
 console.log('Building versions map...');
 const versionsMap = new Map();
-const versionRows = db.prepare(`
+const versionRows = db
+  .prepare(
+    `
   SELECT id, song_id, track_title, duration, library_name
   FROM tracks
   WHERE song_id IS NOT NULL AND song_id != ''
-`).all();
+`
+  )
+  .all();
 
 for (const row of versionRows) {
   if (!versionsMap.has(row.song_id)) {
@@ -131,7 +142,7 @@ for (const row of versionRows) {
     id: row.id,
     track_title: row.track_title,
     duration: row.duration,
-    library_name: row.library_name
+    library_name: row.library_name,
   });
 }
 console.log(`Built versions map for ${versionsMap.size} unique songs`);
@@ -148,10 +159,10 @@ function transformTrack(row) {
     track_number: row.track_number,
     bpm: row.bpm,
     duration: row.duration,
-    random_boost: Math.floor(Math.random() * 1000),  // Random tiebreaker
+    random_boost: Math.floor(Math.random() * 1000), // Random tiebreaker
 
     // Song ID for grouping/deduplication (e.g., "APM168051")
-    song_id: row.song_id || row.id,  // Fallback to track id if no song_id
+    song_id: row.song_id || row.id, // Fallback to track id if no song_id
 
     // Album info
     album_title: row.album_title || '',
@@ -174,7 +185,7 @@ function transformTrack(row) {
       const allVersions = versionsMap.get(row.song_id) || [];
       const otherVersions = allVersions.filter(v => v.id !== row.id);
       return JSON.stringify(otherVersions);
-    })()
+    })(),
   };
 
   // Parse dates
@@ -252,9 +263,9 @@ async function indexBatch(docs) {
   const response = await fetch(`${SOLR_UPDATE_URL}?commit=false`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
-    body: JSON.stringify(docs)
+    body: JSON.stringify(docs),
   });
 
   if (!response.ok) {
@@ -272,9 +283,9 @@ async function commit() {
   const response = await fetch(`${SOLR_UPDATE_URL}?commit=true`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
-    body: JSON.stringify({})
+    body: JSON.stringify({}),
   });
 
   if (!response.ok) {
@@ -290,9 +301,9 @@ async function deleteAll() {
   const response = await fetch(`${SOLR_UPDATE_URL}?commit=true`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ delete: { query: '*:*' } })
+    body: JSON.stringify({ delete: { query: '*:*' } }),
   });
 
   if (!response.ok) {
@@ -372,7 +383,9 @@ async function main() {
         const elapsed = (Date.now() - startTime) / 1000;
         const rate = Math.round(indexed / elapsed);
         const pct = ((indexed / tracksToIndex) * 100).toFixed(1);
-        process.stdout.write(`\r  Indexed ${indexed.toLocaleString()} tracks (${pct}%) - ${rate}/sec`);
+        process.stdout.write(
+          `\r  Indexed ${indexed.toLocaleString()} tracks (${pct}%) - ${rate}/sec`
+        );
       }
     } catch (error) {
       errors++;

@@ -7,10 +7,10 @@ function TrackCardComponent({
   index,
   onSoundsLike,
   searchQuery = '',
-  onShowVersions,      // Callback to show/hide versions
+  onShowVersions, // Callback to show/hide versions
   hasVersions = false, // Whether track has multiple versions
-  isVersion = false,   // Whether this is a version card (for styling)
-  searchMeta = null    // Business rules metadata from search response
+  isVersion = false, // Whether this is a version card (for styling)
+  searchMeta = null, // Business rules metadata from search response
 }) {
   const { isDark } = useTheme();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -57,10 +57,10 @@ function TrackCardComponent({
   // Generate deterministic waveform heights based on track ID (stable across re-renders)
   const barHeights = useMemo(() => {
     // Create seeded pseudo-random based on track ID
-    const seed = (track.id || 'default').split('').reduce((acc, char, i) =>
-      acc + char.charCodeAt(0) * (i + 1), 0
-    );
-    const seededRandom = (i) => {
+    const seed = (track.id || 'default')
+      .split('')
+      .reduce((acc, char, i) => acc + char.charCodeAt(0) * (i + 1), 0);
+    const seededRandom = i => {
       const x = Math.sin(seed + i * 9999) * 10000;
       return x - Math.floor(x);
     };
@@ -77,7 +77,7 @@ function TrackCardComponent({
           setIsPlaying(false);
           return 0;
         }
-        return prev + (100 / durationSeconds / 10);
+        return prev + 100 / durationSeconds / 10;
       });
     }, 100);
 
@@ -102,11 +102,14 @@ function TrackCardComponent({
 
   // Parse additional genres from comma-separated string
   const additionalGenres = track.additional_genres
-    ? track.additional_genres.split(',').map(g => g.trim()).filter(Boolean)
+    ? track.additional_genres
+        .split(',')
+        .map(g => g.trim())
+        .filter(Boolean)
     : [];
 
   // Helper to capitalize first letter
-  const capitalize = (str) => str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+  const capitalize = str => (str ? str.charAt(0).toUpperCase() + str.slice(1) : '');
 
   // Build enhanced metadata tags from real APM taxonomy data (Solr fields only)
   // Each tag includes its category for the hover tooltip
@@ -119,12 +122,16 @@ function TrackCardComponent({
 
   // Add instruments (from Solr instruments field - real taxonomy data)
   if (track.instruments && Array.isArray(track.instruments)) {
-    track.instruments.forEach(i => enhancedTags.push({ label: capitalize(i), category: 'Instruments' }));
+    track.instruments.forEach(i =>
+      enhancedTags.push({ label: capitalize(i), category: 'Instruments' })
+    );
   }
 
   // Add music_for / use cases (from Solr music_for field - real taxonomy data)
   if (track.music_for && Array.isArray(track.music_for)) {
-    track.music_for.forEach(m => enhancedTags.push({ label: capitalize(m), category: 'Music For' }));
+    track.music_for.forEach(m =>
+      enhancedTags.push({ label: capitalize(m), category: 'Music For' })
+    );
   }
 
   // Add additional genres with category context
@@ -139,20 +146,24 @@ function TrackCardComponent({
   const hasMoreTags = allTags.length > maxVisibleTags;
 
   return (
-    <div className={`rounded-lg p-4 transition-colors ${
-      isVersion
-        ? isDark
-          ? 'bg-apm-navy/70 border-l-4 border-apm-purple ml-8'
-          : 'bg-gray-50 border-l-4 border-apm-purple ml-8 shadow-sm'
-        : isDark
-          ? 'bg-apm-navy hover:bg-apm-navy/80'
-          : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
-    }`}>
+    <div
+      className={`rounded-lg p-4 transition-colors ${
+        isVersion
+          ? isDark
+            ? 'bg-apm-navy/70 border-l-4 border-apm-purple ml-8'
+            : 'bg-gray-50 border-l-4 border-apm-purple ml-8 shadow-sm'
+          : isDark
+            ? 'bg-apm-navy hover:bg-apm-navy/80'
+            : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
+      }`}
+    >
       {/* Header Row: Track number, play button, title, action icons */}
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-3">
           {/* Track Number */}
-          <span className={`text-sm w-6 ${isDark ? 'text-apm-gray-light' : 'text-gray-400'}`}>{index + 1}</span>
+          <span className={`text-sm w-6 ${isDark ? 'text-apm-gray-light' : 'text-gray-400'}`}>
+            {index + 1}
+          </span>
 
           {/* Play/Pause Button */}
           <button
@@ -173,7 +184,9 @@ function TrackCardComponent({
 
           {/* Title, ID, and Library */}
           <div>
-            <h3 className={`font-semibold text-base leading-tight ${isDark ? 'text-apm-light' : 'text-gray-900'}`}>
+            <h3
+              className={`font-semibold text-base leading-tight ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+            >
               {track.track_title}
             </h3>
             <p className={`text-xs mt-0.5 ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
@@ -211,8 +224,19 @@ function TrackCardComponent({
             aria-label={`Add ${track.track_title} to favorites`}
             className={`p-2 hover:text-apm-purple transition-colors ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+              />
             </svg>
           </button>
           {/* Download */}
@@ -220,8 +244,19 @@ function TrackCardComponent({
             aria-label={`Download ${track.track_title}`}
             className={`p-2 hover:text-apm-purple transition-colors ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
             </svg>
           </button>
           {/* Add to Project */}
@@ -229,8 +264,19 @@ function TrackCardComponent({
             aria-label={`Add ${track.track_title} to project`}
             className={`p-2 hover:text-apm-purple transition-colors ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
           </button>
         </div>
@@ -239,7 +285,9 @@ function TrackCardComponent({
       {/* Description + Metadata Grid */}
       <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 mb-3 ml-[52px]">
         {/* Description (left column, takes remaining space) */}
-        <p className={`text-sm leading-relaxed pr-4 ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}>
+        <p
+          className={`text-sm leading-relaxed pr-4 ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}
+        >
           {track.track_description}
         </p>
 
@@ -247,8 +295,16 @@ function TrackCardComponent({
         <div className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-light' : 'text-gray-800'}`}>
           {track.genre_name || track.genre || '—'}
         </div>
-        <div className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>{formattedDuration}</div>
-        <div className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>{track.bpm} BPM</div>
+        <div
+          className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+        >
+          {formattedDuration}
+        </div>
+        <div
+          className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+        >
+          {track.bpm} BPM
+        </div>
       </div>
 
       {/* Waveform with Playback Progress */}
@@ -256,7 +312,7 @@ function TrackCardComponent({
         className={`h-10 rounded ml-[52px] mb-3 relative overflow-hidden cursor-pointer ${
           isDark ? 'bg-apm-dark/50' : 'bg-gray-100'
         }`}
-        onClick={(e) => {
+        onClick={e => {
           const rect = e.currentTarget.getBoundingClientRect();
           const clickX = e.clientX - rect.left;
           const newProgress = (clickX / rect.width) * 100;
@@ -274,8 +330,12 @@ function TrackCardComponent({
                 key={i}
                 className={`flex-1 rounded-sm transition-colors duration-100 ${
                   isPlayed
-                    ? (isDark ? 'bg-white' : 'bg-apm-purple')
-                    : (isDark ? 'bg-apm-gray/40' : 'bg-gray-300')
+                    ? isDark
+                      ? 'bg-white'
+                      : 'bg-apm-purple'
+                    : isDark
+                      ? 'bg-apm-gray/40'
+                      : 'bg-gray-300'
                 }`}
                 style={{ height: `${height}%`, marginRight: '1px' }}
               />
@@ -299,7 +359,9 @@ function TrackCardComponent({
             key={i}
             title={`${tag.category} > ${tag.label}`}
             className={`px-3 py-1 text-xs rounded-full transition-colors cursor-pointer ${
-              isDark ? 'bg-apm-dark/60 text-apm-gray-light hover:bg-apm-dark' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              isDark
+                ? 'bg-apm-dark/60 text-apm-gray-light hover:bg-apm-dark'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
             {tag.label}

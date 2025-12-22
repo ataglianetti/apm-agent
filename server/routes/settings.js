@@ -8,9 +8,9 @@ const router = express.Router();
 
 // Runtime settings state (overrides environment variables)
 const runtimeSettings = {
-  llmMode: null,  // null = use env var, 'primary' or 'fallback' = override
-  businessRulesEnabled: null,  // null = use config file, true/false = override
-  taxonomyParserEnabled: null  // null = enabled (default), true/false = override
+  llmMode: null, // null = use env var, 'primary' or 'fallback' = override
+  businessRulesEnabled: null, // null = use config file, true/false = override
+  taxonomyParserEnabled: null, // null = enabled (default), true/false = override
 };
 
 // Path to business rules config
@@ -102,8 +102,8 @@ router.get('/settings', (req, res) => {
       globalEnabled: businessRulesEnabled,
       source: runtimeSettings.businessRulesEnabled !== null ? 'runtime' : 'config',
       activeRuleCount: activeRules.length,
-      activeRules: activeRules.map(r => ({ id: r.id, type: r.type, description: r.description }))
-    }
+      activeRules: activeRules.map(r => ({ id: r.id, type: r.type, description: r.description })),
+    },
   });
 });
 
@@ -127,7 +127,7 @@ router.post('/settings/llm-mode', (req, res) => {
   } else {
     return res.status(400).json({
       error: 'Invalid mode',
-      details: "Mode must be 'primary', 'fallback', 'toggle', or 'reset'"
+      details: "Mode must be 'primary', 'fallback', 'toggle', or 'reset'",
     });
   }
 
@@ -137,7 +137,7 @@ router.post('/settings/llm-mode', (req, res) => {
   res.json({
     llmMode: newMode,
     llmModeSource: runtimeSettings.llmMode !== null ? 'runtime' : 'environment',
-    message: `LLM mode set to ${newMode}`
+    message: `LLM mode set to ${newMode}`,
   });
 });
 
@@ -161,7 +161,7 @@ router.post('/settings/business-rules', (req, res) => {
   } else {
     return res.status(400).json({
       error: 'Invalid value',
-      details: "enabled must be true, false, 'toggle', or 'reset'"
+      details: "enabled must be true, false, 'toggle', or 'reset'",
     });
   }
 
@@ -169,14 +169,16 @@ router.post('/settings/business-rules', (req, res) => {
   const config = getBusinessRulesConfig();
   const activeRules = config?.rules?.filter(r => r.enabled) || [];
 
-  console.log(`Business rules ${newEnabled ? 'ENABLED' : 'DISABLED'} (${activeRules.length} active rules)`);
+  console.log(
+    `Business rules ${newEnabled ? 'ENABLED' : 'DISABLED'} (${activeRules.length} active rules)`
+  );
 
   res.json({
     globalEnabled: newEnabled,
     source: runtimeSettings.businessRulesEnabled !== null ? 'runtime' : 'config',
     activeRuleCount: activeRules.length,
     activeRules: activeRules.map(r => ({ id: r.id, type: r.type })),
-    message: `Business rules ${newEnabled ? 'enabled' : 'disabled'}`
+    message: `Business rules ${newEnabled ? 'enabled' : 'disabled'}`,
   });
 });
 
@@ -200,10 +202,10 @@ router.get('/settings/business-rules', (req, res) => {
     source: runtimeSettings.businessRulesEnabled !== null ? 'runtime' : 'config',
     rules: {
       active: activeRules,
-      activeCount: activeRules.length
+      activeCount: activeRules.length,
     },
     templates: Object.keys(config.templates || {}),
-    disabledRulesCount: disabledRules.length
+    disabledRulesCount: disabledRules.length,
   });
 });
 
@@ -226,7 +228,7 @@ router.post('/settings/taxonomy-parser', (req, res) => {
   } else {
     return res.status(400).json({
       error: 'Invalid value',
-      details: "enabled must be true, false, 'toggle', or 'reset'"
+      details: "enabled must be true, false, 'toggle', or 'reset'",
     });
   }
 
@@ -236,7 +238,7 @@ router.post('/settings/taxonomy-parser', (req, res) => {
   res.json({
     taxonomyParserEnabled: newEnabled,
     source: runtimeSettings.taxonomyParserEnabled !== null ? 'runtime' : 'default',
-    message: `Taxonomy parser ${newEnabled ? 'enabled' : 'disabled'}`
+    message: `Taxonomy parser ${newEnabled ? 'enabled' : 'disabled'}`,
   });
 });
 

@@ -100,7 +100,6 @@ export async function executeProjectTool(action, params) {
     }
 
     return { success: true, output: stdout.trim() };
-
   } catch (error) {
     return { error: error.message };
   }

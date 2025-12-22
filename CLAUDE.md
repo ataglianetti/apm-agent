@@ -11,6 +11,7 @@
 ## Project Overview
 
 APM Agent is a production-ready music search system that combines:
+
 - **Solr search engine** with 1.4M tracks indexed (matching APM production)
 - **Song-level deduplication** via song_id grouping (406K unique songs)
 - **19 facet categories** (2,120 total facets) for precise filtering
@@ -117,11 +118,13 @@ APM Agent uses query classification to route requests to the optimal processing 
 ```
 
 #### Route 1: @ Filter Queries (Fastest - Power User)
+
 **File:** `server/services/metadataSearch.js` → `solrService.js`
 **Business Rules:** ❌ Bypassed (intentional for power users who want precise control)
 
 **Triggers:** Query contains `@category:value` syntax
 **Processing:**
+
 1. Parse filters using `filterParser.js`
 2. Map facet values to IDs via `facet_taxonomy` table
 3. Build Solr `fq` (filter query) with `combined_ids` field
@@ -131,6 +134,7 @@ APM Agent uses query classification to route requests to the optimal processing 
 **Performance:** <100ms via Solr
 
 **Example:**
+
 ```
 User: "@mood:uplifting @instruments:piano"
 → metadataSearch.search({ facets: [...] })
@@ -139,16 +143,19 @@ User: "@mood:uplifting @instruments:piano"
 ```
 
 #### Route 2: Simple Queries (Fast)
+
 **File:** `server/services/metadataSearch.js` → `solrService.js`
 **Business Rules:** ✅ Applied (PM-controlled ranking adjustments)
 
 **Triggers:**
+
 - 1-4 words
 - Descriptive (no questions)
 - No @ syntax
 - No history references
 
 **Processing:**
+
 1. Build Solr edismax query with field weights from `fieldWeights.json`
 2. Apply `qf` (query fields) and `pf2` (phrase fields) weights
 3. Execute Solr search with song_id grouping for deduplication
@@ -159,6 +166,7 @@ User: "@mood:uplifting @instruments:piano"
 **Performance:** <100ms average (fallback to FTS5 if Solr unavailable)
 
 **Example:**
+
 ```
 User: "upbeat rock"
 → metadataSearch.search()
@@ -168,16 +176,19 @@ User: "upbeat rock"
 ```
 
 #### Route 3: Complex Queries (Smart)
+
 **File:** `server/services/claude.js`
 **Business Rules:** ✅ Applied to track results (PM-controlled ranking adjustments)
 
 **Triggers:**
+
 - Questions (What/How/Why/When/Where/Who)
 - Multi-step workflows
 - History/project references
 - Comparative queries
 
 **Processing:**
+
 1. Load system prompt from `config/chat-system-prompt.md`
 2. Send to Anthropic API with tool definitions
 3. Claude uses tools: `read_csv`, `grep_tracks`, `get_track_by_id`, `manage_project`
@@ -188,6 +199,7 @@ User: "upbeat rock"
 **Performance:** <4s average (depends on tool usage)
 
 **Example:**
+
 ```
 User: "What did I download for my Super Bowl project?"
 → claude.js → Anthropic API
@@ -254,6 +266,7 @@ User query: "uptempo solo jazz piano"
 **Coverage:** 19 categories, ~1,955 QUICK_LOOKUP entries, 100% category coverage
 
 **API Endpoints:**
+
 - `POST /api/taxonomy/parse` - Hybrid parsing (local + LLM)
 - `POST /api/taxonomy/parse-local` - Local only (instant)
 - `POST /api/taxonomy/parse-llm` - Force LLM
@@ -263,6 +276,7 @@ User query: "uptempo solo jazz piano"
 **UI Toggle:** Settings gear → "Taxonomy Parser" (cyan) - shows "NLP" badge when enabled
 
 **Files:**
+
 - `server/services/queryToTaxonomy.js` - Main parser with QUICK_LOOKUP
 - `server/routes/taxonomy.js` - API endpoints
 - `docs/NATURAL_LANGUAGE_TAXONOMY.md` - Full documentation
@@ -277,26 +291,29 @@ User query: "uptempo solo jazz piano"
 
 **Available cores:**
 
-| Core | Documents | Purpose |
-|------|-----------|---------|
-| `tracks` | 1,403,568 | Main track search with song deduplication |
-| `composers` | 16,784 | Composer autocomplete (predictive text) |
-| `sound_alikes` | 0 | Sound-alike artist/song search (needs data) |
-| `terms` | - | Taxonomy terms (from production) |
+| Core           | Documents | Purpose                                     |
+| -------------- | --------- | ------------------------------------------- |
+| `tracks`       | 1,403,568 | Main track search with song deduplication   |
+| `composers`    | 16,784    | Composer autocomplete (predictive text)     |
+| `sound_alikes` | 0         | Sound-alike artist/song search (needs data) |
+| `terms`        | -         | Taxonomy terms (from production)            |
 
 **tracks core features:**
+
 - **song_id grouping:** 406,675 unique songs (deduplication)
 - **combined_ids field:** All facet IDs in format `"Category/facet_id"` for unified filtering
 - **Field weights:** Applied via `qf` and `pf2` from `fieldWeights.json`
 - **Text analysis:** Synonyms for instruments, genres, places
 
 **composers core features:**
+
 - **predict_composer field:** EdgeNGram tokenization for autocomplete
 - **Usage:** `q=predict_composer:greg` returns composers starting with "greg"
 
 ### SQLite Tables (Metadata Source)
 
 #### tracks (1.4M rows)
+
 Primary catalog table with track metadata.
 
 ```sql
@@ -359,6 +376,7 @@ CREATE INDEX idx_tracks_master_genre ON tracks(master_genre_id);
 ```
 
 #### track_facets (35,000+ rows)
+
 Many-to-many relationship between tracks and facets.
 
 ```sql
@@ -375,6 +393,7 @@ CREATE INDEX idx_track_facets_track ON track_facets(track_id);
 ```
 
 #### facet_taxonomy (2,120 rows)
+
 Facet definitions across 18 categories.
 
 ```sql
@@ -390,6 +409,7 @@ CREATE INDEX idx_facet_name ON facet_taxonomy(facet_name);
 ```
 
 #### genre_taxonomy (91 rows)
+
 Genre ID to human-readable name mapping.
 
 ```sql
@@ -401,6 +421,7 @@ CREATE TABLE genre_taxonomy (
 ```
 
 #### tracks_fts (FTS5 virtual table)
+
 Full-text search index for fast text queries (fallback when Solr unavailable).
 
 ```sql
@@ -418,6 +439,7 @@ CREATE VIRTUAL TABLE tracks_fts USING fts5(
 ### Design Decisions
 
 **Why Solr over SQLite FTS5?**
+
 - Production parity with APM's live system
 - 1.4M tracks requires enterprise-grade search
 - Field-level weighting via `qf` and `pf2` parameters
@@ -426,12 +448,14 @@ CREATE VIRTUAL TABLE tracks_fts USING fts5(
 - FTS5 retained as fallback when Solr unavailable
 
 **Why SQLite for metadata?**
+
 - Single-file database (easy deployment)
 - Source of truth for track data and facet taxonomy
 - Used by indexToSolr.js to populate Solr
 - Fast facet ID lookups via indexed tables
 
 **Why combined_ids for facet filtering?**
+
 - Unified field for all 18 facet categories
 - Format: `"Category/facet_id"` (e.g., `"Mood/2223"`)
 - Enables efficient `fq` queries with AND/OR logic
@@ -442,18 +466,19 @@ CREATE VIRTUAL TABLE tracks_fts USING fts5(
 ## API Endpoints Reference
 
 ### POST /api/chat
+
 Main search endpoint with 3-tier routing.
 
 **Request:**
+
 ```json
 {
-  "messages": [
-    {"role": "user", "content": "upbeat rock"}
-  ]
+  "messages": [{ "role": "user", "content": "upbeat rock" }]
 }
 ```
 
 **Response (Route 2 - Simple query):**
+
 ```json
 {
   "type": "track_results",
@@ -491,20 +516,22 @@ Main search endpoint with 3-tier routing.
 ```
 
 ### GET /api/tracks/:id/metadata
+
 Comprehensive track metadata with facets and scores.
 
 **Response:**
+
 ```json
 {
   "track": {
     "id": "NFL_NFL_0036_01901",
-    "track_title": "Gridiron Glory",
+    "track_title": "Gridiron Glory"
     // ... all track fields
   },
   "facets": {
     "Mood": ["powerful", "energetic", "dramatic"],
     "Instruments": ["electric_guitar", "drums", "brass"],
-    "Genre": ["Orchestral Rock", "Sports Anthem"],
+    "Genre": ["Orchestral Rock", "Sports Anthem"]
     // ... all 13 categories
   },
   "facet_count": 35,
@@ -517,9 +544,11 @@ Comprehensive track metadata with facets and scores.
 ```
 
 ### GET /api/tracks/:id/similar
+
 Find tracks with most shared facets.
 
 **Response:**
+
 ```json
 {
   "track_id": "NFL_NFL_0036_01901",
@@ -536,20 +565,20 @@ Find tracks with most shared facets.
 ```
 
 ### GET /api/tracks/:id/facets
+
 Facets grouped by category.
 
 **Response:**
+
 ```json
 {
   "track_id": "NFL_NFL_0036_01901",
   "facets_by_category": {
     "Mood": [
-      {"facet_id": 123, "facet_name": "powerful"},
-      {"facet_id": 456, "facet_name": "energetic"}
+      { "facet_id": 123, "facet_name": "powerful" },
+      { "facet_id": 456, "facet_name": "energetic" }
     ],
-    "Instruments": [
-      {"facet_id": 789, "facet_name": "electric_guitar"}
-    ]
+    "Instruments": [{ "facet_id": 789, "facet_name": "electric_guitar" }]
     // ... all categories
   },
   "category_counts": {
@@ -567,10 +596,12 @@ Facets grouped by category.
 ## Configuration System
 
 ### businessRules.json
+
 **File:** `server/config/businessRules.json`
 **Purpose:** PM-controlled search ranking without code changes
 
 **Structure:**
+
 ```json
 [
   {
@@ -588,6 +619,7 @@ Facets grouped by category.
 ```
 
 **16 Active Rules:**
+
 - 5 Genre Simplification: rock, classical, electronic, hip hop, jazz
 - 4 Library Boosting: MLB Music, NFL Music, Corporate, Cinematic
 - 4 Recency Interleaving: pop, electronic, hip hop, balanced
@@ -595,6 +627,7 @@ Facets grouped by category.
 - 2 Filter Optimization: instrumental, vocal preference
 
 **How to modify:**
+
 1. Edit `server/config/businessRules.json`
 2. Change `boost_factor`, `pattern`, `enabled`, or add new rule
 3. Restart server (rules loaded at startup)
@@ -603,10 +636,12 @@ Facets grouped by category.
 **No code deployment needed!**
 
 ### fieldWeights.json
+
 **File:** `server/config/fieldWeights.json`
 **Purpose:** Solr-style field weights for relevance scoring
 
 **Format:**
+
 ```json
 {
   "qf": "track_title^3.0 combined_genre^4.0 composer^0.8 album_title^0.6 track_description^0.15",
@@ -615,6 +650,7 @@ Facets grouped by category.
 ```
 
 **Field Weights:**
+
 - `track_title`: 3.0 (highest priority for exact matches)
 - `combined_genre`: 4.0 (genre matches ranked very high)
 - `composer`: 0.8 (medium-high)
@@ -622,12 +658,14 @@ Facets grouped by category.
 - `track_description`: 0.15 (low - catch-all)
 
 **How to modify:**
+
 1. Edit `server/config/fieldWeights.json`
 2. Adjust weights (higher = more important)
 3. Restart server
 4. Test relevance with sample queries
 
 ### chat-system-prompt.md
+
 **File:** `server/config/chat-system-prompt.md`
 **Purpose:** LLM behavior instructions for Route 3 queries
 
@@ -635,6 +673,7 @@ Facets grouped by category.
 **Used in:** Anthropic API calls for complex queries
 
 **How to modify:**
+
 1. Edit `server/config/chat-system-prompt.md`
 2. Update instructions, examples, or tool guidance
 3. Restart server
@@ -645,9 +684,11 @@ Facets grouped by category.
 ## Services Architecture
 
 ### solrService.js
+
 **Purpose:** Solr search client (Route 1 & 2)
 
 **Key Functions:**
+
 - `search(options)` - Execute Solr edismax query
 - `buildQf()` - Build query fields from fieldWeights.json
 - `buildPf2()` - Build phrase fields from fieldWeights.json
@@ -656,34 +697,41 @@ Facets grouped by category.
 - `mapResponse(solrData)` - Convert grouped response to app format
 
 **Key Features:**
+
 - Song deduplication via `group.field=song_id`
 - Field weight mapping: config names → `*_search` fields
 - Facet filtering: `combined_ids:("Category/id")`
 
 ### metadataSearch.js
+
 **Purpose:** Unified search routing (Solr primary, FTS5 fallback)
 
 **Key Functions:**
+
 - `search(options)` - Main search entry point
 - `searchWithSolr(options)` - Route to Solr
 - `searchWithFTS5(options)` - Fallback to SQLite FTS5
 - `getFacetIds(category, value)` - Map facet values to `"Category/id"` format
 
 **Uses:**
+
 - `solrService.js` for Solr queries
 - `facet_taxonomy` table for facet ID lookups
 - Falls back to FTS5 when `SEARCH_ENGINE=fts5` or Solr unavailable
 
 ### businessRulesEngine.js
+
 **Purpose:** Pattern matching and score adjustment (Route 2)
 
 **Key Functions:**
+
 - `applyRules(query, results, allRules)` - Main rule application
 - `matchRules(query, rules)` - Find rules matching query pattern
 - `adjustScores(results, rule)` - Apply score boosts/adjustments
 - `interleaveResults(results, pattern)` - Reorder by recency pattern
 
 **Rule Types:**
+
 - Genre Simplification: Expand genres to subgenres
 - Library Boosting: Multiply scores for specific libraries
 - Recency Interleaving: Mix recent/vintage by pattern
@@ -691,15 +739,18 @@ Facets grouped by category.
 - Filter Optimization: Auto-apply filters
 
 ### claude.js
+
 **Purpose:** Anthropic API integration (Route 3)
 
 **Key Functions:**
+
 - `chat(messages, conversationHistory)` - Main chat entry point
 - `loadSystemPrompt()` - Load chat-system-prompt.md
 - `getClient()` - Lazy-initialize Anthropic client
 - `getModel()` - Get model from env (default: Haiku)
 
 **Tool Definitions:**
+
 - `read_csv` - Read CSV files (projects, history, etc.)
 - `grep_tracks` - Search tracks by field
 - `get_track_by_id` - Single track details
@@ -707,38 +758,46 @@ Facets grouped by category.
 - `manage_project` - Project management
 
 **Model Selection:**
+
 - Default: `claude-3-haiku-20240307` (fast, cheap)
 - Override: Set `CLAUDE_MODEL` env var
 - Options: `claude-3-sonnet-20240229`, `claude-3-opus-20240229`
 
 ### facetSearchService.js
+
 **Purpose:** SQLite facet filtering (fallback only)
 
 **Note:** This service is now only used as a fallback when Solr is unavailable.
 Primary facet filtering goes through `metadataSearch.js` → `solrService.js`.
 
 **Key Functions:**
+
 - `searchByFacetCategory(category, value)` - Search by single facet category
 - `searchByFacets(facets)` - Intersect multiple facet filters (AND logic)
 
 ### genreMapper.js
+
 **Purpose:** Map numeric genre IDs to human-readable names
 
 **Key Functions:**
+
 - `mapGenreIds(tracks)` - Map genre IDs for all tracks
 - `getGenreName(genreId)` - Single genre ID lookup
 - `loadGenreTaxonomy()` - Load genre_taxonomy.csv
 
 **Example:**
+
 ```javascript
 // Input: genre_id = "1103"
 // Output: "Classic Rock"
 ```
 
 ### queryToTaxonomy.js
+
 **Purpose:** Natural language → taxonomy parser with hybrid local/LLM approach
 
 **Key Functions:**
+
 - `parseQuery(query, options)` - Main entry point (local first, LLM fallback)
 - `parseQueryLocal(query)` - Local-only parsing using QUICK_LOOKUP
 - `parseQueryToTaxonomy(query)` - LLM-only parsing
@@ -746,10 +805,12 @@ Primary facet filtering goes through `metadataSearch.js` → `solrService.js`.
 - `getTaxonomyStats()` - Return category coverage statistics
 
 **Key Data:**
+
 - `QUICK_LOOKUP` - ~1,955 entries mapping terms to facet IDs
 - N-gram matching: 3-word → 2-word → single word phrases
 
 **Example:**
+
 ```javascript
 // Input: "uptempo solo jazz piano"
 // Output: {
@@ -769,6 +830,7 @@ Primary facet filtering goes through `metadataSearch.js` → `solrService.js`.
 ### Adding a New Business Rule
 
 1. **Edit businessRules.json:**
+
 ```json
 {
   "id": "library_boost_holiday_music",
@@ -789,11 +851,13 @@ Primary facet filtering goes through `metadataSearch.js` → `solrService.js`.
 ```
 
 2. **Restart server:**
+
 ```bash
 npm run dev
 ```
 
 3. **Test:**
+
 ```bash
 curl -X POST http://localhost:3001/api/chat \
   -H "Content-Type: application/json" \
@@ -801,6 +865,7 @@ curl -X POST http://localhost:3001/api/chat \
 ```
 
 4. **Verify in logs:**
+
 ```
 Matched 1 rules for query "christmas music": library_boost_holiday_music
 ```
@@ -808,6 +873,7 @@ Matched 1 rules for query "christmas music": library_boost_holiday_music
 ### Modifying Search Field Weights
 
 1. **Edit fieldWeights.json:**
+
 ```json
 {
   "qf": "track_title^5.0 combined_genre^4.0 ...",
@@ -818,6 +884,7 @@ Matched 1 rules for query "christmas music": library_boost_holiday_music
 2. **Restart server**
 
 3. **Test relevance:**
+
 ```bash
 # Should rank exact title matches higher
 curl ... -d '{"messages": [{"role": "user", "content": "Epic Cinematic"}]}'
@@ -826,20 +893,25 @@ curl ... -d '{"messages": [{"role": "user", "content": "Epic Cinematic"}]}'
 ### Adding a New Facet Category
 
 **Database changes:**
+
 1. Add facets to `facet_taxonomy` table:
+
 ```sql
 INSERT INTO facet_taxonomy (facet_id, category_name, facet_name)
 VALUES (2121, 'Mood Types', 'contemplative');
 ```
 
 2. Add track-to-facet mappings to `track_facets`:
+
 ```sql
 INSERT INTO track_facets (track_id, facet_id)
 VALUES ('NFL_NFL_0036_01901', 2121);
 ```
 
 **Code changes:**
+
 1. Update `filterParser.js` to recognize new category syntax:
+
 ```javascript
 const FACET_CATEGORIES = [
   'mood', 'instruments', ..., 'mood-types'  // Add new category
@@ -853,6 +925,7 @@ const FACET_CATEGORIES = [
 ### Adding a New API Endpoint
 
 1. **Create route file:**
+
 ```javascript
 // server/routes/trackAnalytics.js
 import express from 'express';
@@ -872,12 +945,14 @@ export default router;
 ```
 
 2. **Register in server/index.js:**
+
 ```javascript
 import trackAnalyticsRoutes from './routes/trackAnalytics.js';
 app.use('/api', trackAnalyticsRoutes);
 ```
 
 3. **Test:**
+
 ```bash
 curl http://localhost:3001/api/tracks/NFL_NFL_0036_01901/analytics
 ```
@@ -887,42 +962,51 @@ curl http://localhost:3001/api/tracks/NFL_NFL_0036_01901/analytics
 ## Testing Strategy
 
 ### Current Test Coverage
+
 **Status:** Minimal (needs expansion)
 
 ### Manual Testing
 
 **Route 1 (@ filters):**
+
 ```bash
 curl -X POST http://localhost:3001/api/chat \
   -H "Content-Type: application/json" \
   -d '{"messages": [{"role": "user", "content": "@mood:uplifting @instruments:piano"}]}'
 ```
+
 **Expected:** <100ms, 12 unique songs, 47K+ total matches
 
 **Route 2 (simple queries):**
+
 ```bash
 curl -X POST http://localhost:3001/api/chat \
   -H "Content-Type: application/json" \
   -d '{"messages": [{"role": "user", "content": "upbeat rock"}]}'
 ```
+
 **Expected:** <100ms, 12 unique songs, business rules applied
 
 **Route 3 (complex queries):**
+
 ```bash
 curl -X POST http://localhost:3001/api/chat \
   -H "Content-Type: application/json" \
   -d '{"messages": [{"role": "user", "content": "What did I download last week?"}]}'
 ```
+
 **Expected:** <4s, uses tools, markdown response
 
 ### Performance Benchmarks
 
 **Maintain these targets (Solr):**
+
 - Route 1: <100ms (average: 50ms)
 - Route 2: <100ms (average: 90ms)
 - Route 3: <4s (average: 2.3s)
 
 **How to test:**
+
 ```bash
 time curl -X POST http://localhost:3001/api/chat \
   -H "Content-Type: application/json" \
@@ -935,15 +1019,16 @@ time curl -X POST http://localhost:3001/api/chat \
 
 ### Current Benchmarks
 
-| Operation | Target | Actual | Status |
-|-----------|--------|--------|--------|
-| @ filter queries | <100ms | ~45ms | ✅ 2x better |
-| Simple queries | <2s | ~24ms | ✅ 100x better |
-| Complex queries | <4s | ~2.3s | ✅ 2x better |
+| Operation        | Target | Actual | Status         |
+| ---------------- | ------ | ------ | -------------- |
+| @ filter queries | <100ms | ~45ms  | ✅ 2x better   |
+| Simple queries   | <2s    | ~24ms  | ✅ 100x better |
+| Complex queries  | <4s    | ~2.3s  | ✅ 2x better   |
 
 ### Database Optimization
 
 **Indexes (already created):**
+
 ```sql
 CREATE INDEX idx_tracks_library ON tracks(library_name);
 CREATE INDEX idx_tracks_song_id ON tracks(song_id);
@@ -955,11 +1040,13 @@ CREATE INDEX idx_facet_name ON facet_taxonomy(facet_name);
 ```
 
 **When to add more indexes:**
+
 - Frequent filtering by new fields → Create index
 - Slow queries in logs → EXPLAIN QUERY PLAN
 - Example: If filtering by `bpm` frequently, add `CREATE INDEX idx_tracks_bpm ON tracks(bpm)`
 
 **When NOT to index:**
+
 - Low cardinality fields
 - Fields rarely queried
 - Text fields (use FTS5 instead)
@@ -967,11 +1054,13 @@ CREATE INDEX idx_facet_name ON facet_taxonomy(facet_name);
 ### FTS5 Optimization
 
 **Current strategy:**
+
 - Index 5 fields: title, description, album, composer, genre
 - Exclude `id` from indexing (UNINDEXED)
 - Rebuild index: `INSERT INTO tracks_fts(tracks_fts) VALUES('rebuild');`
 
 **Maintenance:**
+
 ```sql
 -- Check FTS5 stats
 SELECT * FROM tracks_fts WHERE tracks_fts MATCH 'rank';
@@ -983,6 +1072,7 @@ INSERT INTO tracks_fts(tracks_fts) VALUES('optimize');
 ### Query Performance Monitoring
 
 **Add timing logs:**
+
 ```javascript
 const start = Date.now();
 const results = await metadataSearch.search(query);
@@ -991,6 +1081,7 @@ console.log(`Search completed in ${duration}ms`);
 ```
 
 **Track in production:**
+
 - Average query time per route
 - p95, p99 latency
 - Slow query log (>1s for Route 2)
@@ -1002,6 +1093,7 @@ console.log(`Search completed in ${duration}ms`);
 ### Graceful Degradation
 
 **FTS5 Search Fails:**
+
 ```javascript
 try {
   results = await db.all(`SELECT * FROM tracks_fts WHERE tracks_fts MATCH ?`, [query]);
@@ -1015,6 +1107,7 @@ try {
 ```
 
 **Business Rules Error:**
+
 ```javascript
 try {
   appliedRules = await businessRulesEngine.applyRules(query, results, allRules);
@@ -1025,6 +1118,7 @@ try {
 ```
 
 **Database Connection Error:**
+
 ```javascript
 try {
   const db = await openDatabase();
@@ -1032,7 +1126,7 @@ try {
   console.error('Database connection failed:', error);
   res.status(500).json({
     error: 'Database unavailable',
-    details: process.env.NODE_ENV === 'development' ? error.message : 'Internal error'
+    details: process.env.NODE_ENV === 'development' ? error.message : 'Internal error',
   });
   return;
 }
@@ -1041,6 +1135,7 @@ try {
 ### Logging Patterns
 
 **Development:**
+
 ```javascript
 console.log(`Detected simple query, using metadata search + business rules`);
 console.log(`Matched ${matchedRules.length} rules for query "${query}"`);
@@ -1048,13 +1143,14 @@ console.log(`Metadata search returned ${results.length} tracks (total: ${totalCo
 ```
 
 **Production (future):**
+
 ```javascript
 logger.info('query_processed', {
   route: 'Route 2',
   query_length: query.length,
   results_count: results.length,
   duration_ms: duration,
-  rules_applied: matchedRules.map(r => r.id)
+  rules_applied: matchedRules.map(r => r.id),
 });
 ```
 
@@ -1065,11 +1161,13 @@ logger.info('query_processed', {
 ### Environment Setup
 
 **Required:**
+
 - Node.js v18+ (for native ESM support)
 - Docker Desktop (for Solr)
 - npm or yarn
 
 **Environment Variables:**
+
 ```bash
 # .env
 ANTHROPIC_API_KEY=sk-ant-...          # Required for Route 3
@@ -1082,24 +1180,28 @@ SEARCH_ENGINE=solr                     # Optional: 'solr' (default) or 'fts5'
 ### Solr Setup
 
 **Start Solr:**
+
 ```bash
 docker compose up -d        # Start Solr container
 # Wait for Solr to be ready at http://localhost:8983
 ```
 
 **Index tracks to Solr:**
+
 ```bash
 node server/scripts/indexToSolr.js --delete-first
 # Indexes 1.4M tracks in ~10 minutes
 ```
 
 **Index composers for autocomplete:**
+
 ```bash
 node server/scripts/indexComposersToSolr.js --delete-first
 # Indexes 16,784 unique composers in ~1 second
 ```
 
 **Verify Solr:**
+
 ```bash
 curl "http://localhost:8983/solr/tracks/select?q=*:*&rows=0"
 # Should show numFound: 1403568
@@ -1116,6 +1218,7 @@ curl "http://localhost:8983/solr/composers/select?q=*:*&rows=0"
 New developers must generate it locally using the scripts below.
 
 **To generate the database:**
+
 ```bash
 cd server
 
@@ -1133,12 +1236,14 @@ node scripts/enableFTS5.js
 ```
 
 **Tables used:**
+
 - `tracks` - Source data for Solr indexing
 - `facet_taxonomy` - Facet ID lookups for search queries
 
 ### Server Startup
 
 **Development:**
+
 ```bash
 docker compose up -d   # Start Solr first
 npm run dev            # Starts both server and client with hot reload
@@ -1147,6 +1252,7 @@ npm run dev:client     # Client only
 ```
 
 **Production:**
+
 ```bash
 npm run build          # Build client
 npm start              # Start server (serves built client)
@@ -1157,6 +1263,7 @@ npm start              # Start server (serves built client)
 **Endpoint:** `GET /api/health` (future)
 
 **Response:**
+
 ```json
 {
   "status": "healthy",
@@ -1171,6 +1278,7 @@ npm start              # Start server (serves built client)
 ### Configuration Updates
 
 **After editing config files:**
+
 1. Edit `server/config/businessRules.json` or `fieldWeights.json`
 2. Restart server: `npm run dev:server`
 3. Test changes with sample queries
@@ -1183,11 +1291,13 @@ npm start              # Start server (serves built client)
 ## Repository Etiquette
 
 **Branching:**
+
 - ALWAYS create a feature branch before starting major changes
 - NEVER commit directly to `main`
 - Branch naming: `feature/description` or `fix/description`
 
 **Git workflow for major changes:**
+
 1. Create a new branch: `git checkout -b feature/your-feature-name`
 2. Develop and commit on the feature branch
 3. Test locally before pushing:
@@ -1198,17 +1308,20 @@ npm start              # Start server (serves built client)
 5. Create a PR to merge into `main`
 
 **Commits:**
+
 - Write clear commit messages describing the change
 - Keep commits focused on single changes
 - Reference issue numbers if applicable
 
 **Pull Requests:**
+
 - Create PRs for all changes to `main`
 - NEVER force push to `main`
 - Include description of what changed and why
 - Test all 3 routing tiers before requesting review
 
 **Before pushing:**
+
 1. Test Route 1 (@ filters): `curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "@mood:uplifting"}]}'`
 2. Test Route 2 (simple query): `curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "upbeat rock"}]}'`
 3. Test Route 3 (complex query): `curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "What tracks are in my project?"}]}'`
@@ -1222,6 +1335,7 @@ npm start              # Start server (serves built client)
 When working on this codebase:
 
 ### General Guidelines
+
 1. **Follow existing patterns** - Check services/ for similar code before creating new patterns
 2. **Prefer editing over creating** - Edit existing files rather than creating new ones
 3. **Update configs before code** - Modify businessRules.json or fieldWeights.json before changing code
@@ -1229,6 +1343,7 @@ When working on this codebase:
 5. **Maintain performance** - Keep Route 1 <100ms, Route 2 <100ms, Route 3 <4s
 
 ### Implementation Status Tracking
+
 **IMPORTANT:** When completing any milestone from `docs/IMPLEMENTATION_STATUS.md`, you MUST update that file:
 
 1. **After implementing a feature:**
@@ -1243,6 +1358,7 @@ When working on this codebase:
    - Agent features (Disambiguation, Proactive Suggestions)
 
 3. **Example changelog entry:**
+
    ```markdown
    | 2025-12-19 | Implemented user authentication with JWT |
    ```
@@ -1252,6 +1368,7 @@ When working on this codebase:
 This ensures stakeholders can track progress against the December 16, 2025 presentation.
 
 ### Adding Features
+
 1. **Check configuration first** - Can this be solved with businessRules.json?
 2. **Use existing services** - Extend metadataSearch.js or businessRulesEngine.js
 3. **Follow service layer** - Business logic in services/, routes/ just handle HTTP
@@ -1259,6 +1376,7 @@ This ensures stakeholders can track progress against the December 16, 2025 prese
 5. **Update implementation status** - Mark completed milestones in `docs/IMPLEMENTATION_STATUS.md`
 
 ### Modifying Search Behavior
+
 1. **Field weights** - Edit fieldWeights.json (Solr qf/pf2 format, no code changes)
 2. **Business rules** - Edit businessRules.json (no code changes)
 3. **Query routing** - Edit server/routes/chat.js (lines 25-60)
@@ -1266,12 +1384,14 @@ This ensures stakeholders can track progress against the December 16, 2025 prese
 5. **FTS5 fallback** - Edit server/services/metadataSearch.js (used when Solr unavailable)
 
 ### Search Engine Changes
+
 1. **Solr schema changes** - Update solr/tracks/conf/managed-schema, restart Solr
 2. **Reindex tracks** - Run `node server/scripts/indexToSolr.js --delete-first`
 3. **Reindex composers** - Run `node server/scripts/indexComposersToSolr.js --delete-first`
 4. **SQLite schema** - Update CREATE TABLE and rebuild database (source for Solr)
 
 ### Testing After Changes
+
 ```bash
 # Route 1: @ filters
 curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" \
@@ -1291,6 +1411,7 @@ curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" 
 ## Quick Reference
 
 **Key Files:**
+
 - Routing: `server/routes/chat.js`
 - Route 1: `server/services/facetSearchService.js`
 - Route 2: `server/services/metadataSearch.js` + `businessRulesEngine.js`
@@ -1300,13 +1421,16 @@ curl -X POST http://localhost:3001/api/chat -H "Content-Type: application/json" 
 - Database: `server/apm_music.db`
 
 **Performance Targets:**
+
 - Route 1: <100ms | Route 2: <2s | Route 3: <4s
 
 **PM-Controlled Config:**
+
 - Business rules: `server/config/businessRules.json` (16 rules)
 - Field weights: `server/config/fieldWeights.json` (Solr format)
 
 **Common Commands:**
+
 ```bash
 # Solr (must be running for search)
 docker compose up -d                              # Start Solr container

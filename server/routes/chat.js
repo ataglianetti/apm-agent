@@ -6,7 +6,10 @@ import { matchRules, applyRules } from '../services/businessRulesEngine.js';
 // searchFacets available from '../services/taxonomySearch.js' if needed
 import { enrichTracksWithGenreNames } from '../services/genreMapper.js';
 import { getLLMMode, getTaxonomyParserEnabled } from './settings.js';
-import { enhanceTracksMetadata, enrichTracksWithFullVersions } from '../services/metadataEnhancer.js';
+import {
+  enhanceTracksMetadata,
+  enrichTracksWithFullVersions,
+} from '../services/metadataEnhancer.js';
 import { parseQueryLocal } from '../services/queryToTaxonomy.js';
 
 const router = express.Router();
@@ -41,7 +44,7 @@ function classifyQueryComplexity(query) {
   // Complex query indicators
   const complexIndicators = [
     // Questions and conversational
-    /\?$/,  // Ends with question mark
+    /\?$/, // Ends with question mark
     /^(what|how|why|when|where|who|can you|could you|would you|show me|tell me|find me)/,
 
     // Multi-step workflows
@@ -92,14 +95,14 @@ router.post('/chat', async (req, res) => {
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({
         error: 'Invalid request format',
-        details: 'Messages array is required'
+        details: 'Messages array is required',
       });
     }
 
     if (messages.length === 0) {
       return res.status(400).json({
         error: 'Invalid request',
-        details: 'Messages array cannot be empty'
+        details: 'Messages array cannot be empty',
       });
     }
 
@@ -108,7 +111,7 @@ router.post('/chat', async (req, res) => {
     if (!lastMessage || lastMessage.role !== 'user') {
       return res.status(400).json({
         error: 'Invalid message format',
-        details: 'Last message must be from user'
+        details: 'Last message must be from user',
       });
     }
 
@@ -143,7 +146,8 @@ router.post('/chat', async (req, res) => {
 
       if (!previousQuery) {
         return res.json({
-          reply: "I don't have a previous search to show more results for. Please start a new search."
+          reply:
+            "I don't have a previous search to show more results for. Please start a new search.",
         });
       }
 
@@ -157,22 +161,20 @@ router.post('/chat', async (req, res) => {
         const matchedRules = matchRules(previousQuery);
 
         // Use unified Solr search with pagination
-        console.log(`Pagination: Using Solr search for "${previousQuery}" offset ${previousOffset}`);
+        console.log(
+          `Pagination: Using Solr search for "${previousQuery}" offset ${previousOffset}`
+        );
 
         const searchOptions = {
           text: previousQuery,
           limit: 12,
-          offset: previousOffset
+          offset: previousOffset,
         };
 
         const searchResults = await metadataSearch(searchOptions);
         const enrichedTracks = enrichTracksWithGenreNames(searchResults.tracks);
 
-        const enhancedResults = await applyRules(
-          enrichedTracks,
-          matchedRules,
-          previousQuery
-        );
+        const enhancedResults = await applyRules(enrichedTracks, matchedRules, previousQuery);
 
         const elapsed = Date.now() - startTime;
         console.log(`Pagination query completed in ${elapsed}ms`);
@@ -182,15 +184,19 @@ router.post('/chat', async (req, res) => {
 
         return res.json({
           type: 'track_results',
-          message: buildResultsMessage(previousQuery, searchResults.total, searchResults.totalVersions),
+          message: buildResultsMessage(
+            previousQuery,
+            searchResults.total,
+            searchResults.totalVersions
+          ),
           tracks: tracksWithVersions,
           total_count: searchResults.total,
           total_versions: searchResults.totalVersions,
           showing: `${previousOffset + 1}-${previousOffset + enhancedResults.results.length}`,
           _meta: {
             appliedRules: enhancedResults.appliedRules,
-            scoreAdjustments: enhancedResults.scoreAdjustments
-          }
+            scoreAdjustments: enhancedResults.scoreAdjustments,
+          },
         });
       }
 
@@ -213,8 +219,8 @@ router.post('/chat', async (req, res) => {
       console.log('Parsed filters:', JSON.stringify(parsed, null, 2));
 
       // Convert parsed filters to metadataSearch format
-      const facets = [];      // For facet category filters (go to combined_ids)
-      const filters = [];     // For metadata field filters (bpm, duration, etc.)
+      const facets = []; // For facet category filters (go to combined_ids)
+      const filters = []; // For metadata field filters (bpm, duration, etc.)
 
       for (const filter of parsed.filters) {
         if (filter.field.startsWith('facet:')) {
@@ -227,7 +233,7 @@ router.post('/chat', async (req, res) => {
           filters.push({
             field: 'bpm',
             operator: 'range',
-            value: { min: filter.parsed.min, max: filter.parsed.max }
+            value: { min: filter.parsed.min, max: filter.parsed.max },
           });
         } else if (filter.field === 'bpm' && filter.parsed?.type === 'greater') {
           filters.push({ field: 'bpm', operator: 'greater', value: filter.parsed.value });
@@ -237,19 +243,21 @@ router.post('/chat', async (req, res) => {
           filters.push({
             field: 'duration',
             operator: filter.parsed.type,
-            value: filter.parsed.value
+            value: filter.parsed.value,
           });
         } else {
           // Other metadata field filters
           filters.push({
             field: filter.field,
             operator: filter.operatorType || 'contains',
-            value: filter.value
+            value: filter.value,
           });
         }
       }
 
-      console.log(`Solr search: ${facets.length} facets, ${filters.length} filters, text="${parsed.searchText}"`);
+      console.log(
+        `Solr search: ${facets.length} facets, ${filters.length} filters, text="${parsed.searchText}"`
+      );
 
       // Execute search via Solr
       const searchResults = await metadataSearch({
@@ -257,7 +265,7 @@ router.post('/chat', async (req, res) => {
         filters,
         text: parsed.searchText || '',
         limit: 12,
-        offset: 0
+        offset: 0,
       });
 
       // Enrich with genre names
@@ -267,16 +275,22 @@ router.post('/chat', async (req, res) => {
       const tracksWithVersions = enrichTracksWithFullVersions(enrichedTracks);
 
       const elapsed = Date.now() - startTime;
-      console.log(`Filter query completed in ${elapsed}ms via ${searchResults._meta?.engine || 'unknown'}`);
+      console.log(
+        `Filter query completed in ${elapsed}ms via ${searchResults._meta?.engine || 'unknown'}`
+      );
 
       return res.json({
         type: 'track_results',
-        message: buildResultsMessage(lastMessage.content, searchResults.total, searchResults.totalVersions),
+        message: buildResultsMessage(
+          lastMessage.content,
+          searchResults.total,
+          searchResults.totalVersions
+        ),
         tracks: tracksWithVersions,
         total_count: searchResults.total,
         total_versions: searchResults.totalVersions,
         showing: `1-${enrichedTracks.length}`,
-        _meta: searchResults._meta
+        _meta: searchResults._meta,
       });
     }
 
@@ -288,7 +302,9 @@ router.post('/chat', async (req, res) => {
     const llmMode = getLLMMode();
 
     if (llmMode === 'primary') {
-      console.log(`LLM_MODE=primary: Routing ALL queries to Claude (bypassing simple query optimization)`);
+      console.log(
+        `LLM_MODE=primary: Routing ALL queries to Claude (bypassing simple query optimization)`
+      );
     }
 
     if (queryComplexity === 'simple' && llmMode !== 'primary') {
@@ -298,14 +314,24 @@ router.post('/chat', async (req, res) => {
       // TAXONOMY PARSING: Parse query into structured facet filters
       // This maps terms like "solo jazz piano" to actual facet IDs
       const taxonomyEnabled = getTaxonomyParserEnabled();
-      let taxonomyResult = { mappings: [], filters: {}, confidence: 0, remainingText: lastMessage.content };
+      let taxonomyResult = {
+        mappings: [],
+        filters: {},
+        confidence: 0,
+        remainingText: lastMessage.content,
+      };
 
       if (taxonomyEnabled) {
         taxonomyResult = parseQueryLocal(lastMessage.content);
-        console.log(`Taxonomy parsing: ${taxonomyResult.mappings.length} terms mapped, confidence: ${taxonomyResult.confidence}`);
+        console.log(
+          `Taxonomy parsing: ${taxonomyResult.mappings.length} terms mapped, confidence: ${taxonomyResult.confidence}`
+        );
 
         if (taxonomyResult.mappings.length > 0) {
-          console.log('Taxonomy mappings:', taxonomyResult.mappings.map(m => `${m.term}→${m.category}/${m.id}`).join(', '));
+          console.log(
+            'Taxonomy mappings:',
+            taxonomyResult.mappings.map(m => `${m.term}→${m.category}/${m.id}`).join(', ')
+          );
         }
       } else {
         console.log('Taxonomy parser DISABLED - using raw text query only');
@@ -313,7 +339,10 @@ router.post('/chat', async (req, res) => {
 
       // Match applicable business rules
       const matchedRules = matchRules(lastMessage.content);
-      console.log(`Matched ${matchedRules.length} business rules:`, matchedRules.map(r => r.id).join(', '));
+      console.log(
+        `Matched ${matchedRules.length} business rules:`,
+        matchedRules.map(r => r.id).join(', ')
+      );
 
       // Extract expanded facets from genre_simplification rules
       const expandedFacets = [];
@@ -343,9 +372,10 @@ router.post('/chat', async (req, res) => {
 
       // If all terms were mapped to taxonomy, use empty text query (will match all)
       // Only fall back to full query if NO terms were mapped
-      const textQuery = taxonomyResult.mappings.length > 0
-        ? (taxonomyResult.remainingText || '')
-        : lastMessage.content;
+      const textQuery =
+        taxonomyResult.mappings.length > 0
+          ? taxonomyResult.remainingText || ''
+          : lastMessage.content;
 
       if (taxonomyFacets.length > 0) {
         console.log(`Using taxonomy filters: ${taxonomyFacets.map(f => f.fullId).join(', ')}`);
@@ -355,15 +385,17 @@ router.post('/chat', async (req, res) => {
       }
 
       if (expandedFacets.length > 0) {
-        console.log(`Business rules would expand to: ${expandedFacets.join(', ')} (handled by Solr field weights)`);
+        console.log(
+          `Business rules would expand to: ${expandedFacets.join(', ')} (handled by Solr field weights)`
+        );
       }
 
       // Execute Solr search with taxonomy facets + text search
       const searchOptions = {
         text: textQuery,
         taxonomyFilters: taxonomyFacets.length > 0 ? taxonomyResult.filters : null,
-        limit: 100,  // Get more for business rules to work with
-        offset: 0
+        limit: 100, // Get more for business rules to work with
+        offset: 0,
       };
 
       searchResults = await metadataSearch(searchOptions);
@@ -371,19 +403,23 @@ router.post('/chat', async (req, res) => {
       // FALLBACK: If taxonomy filters returned 0 results, retry with pure text search
       // This handles cases where facet intersection is too restrictive (e.g., "cinematic trailer")
       if (searchResults.total === 0 && taxonomyFacets.length > 0) {
-        console.log(`Taxonomy filters returned 0 results, falling back to text search for: "${lastMessage.content}"`);
+        console.log(
+          `Taxonomy filters returned 0 results, falling back to text search for: "${lastMessage.content}"`
+        );
         searchResults = await metadataSearch({
           text: lastMessage.content,
           taxonomyFilters: null,
           limit: 100,
-          offset: 0
+          offset: 0,
         });
       }
 
       // Enrich with genre names
       searchResults.tracks = enrichTracksWithGenreNames(searchResults.tracks);
 
-      console.log(`Solr search: ${searchResults.tracks.length} tracks (total: ${searchResults.total})`);
+      console.log(
+        `Solr search: ${searchResults.tracks.length} tracks (total: ${searchResults.total})`
+      );
 
       // Add score breakdown from Solr score
       searchResults.tracks = searchResults.tracks.map(track => ({
@@ -391,11 +427,13 @@ router.post('/chat', async (req, res) => {
         _score_breakdown: {
           solr_score: track._relevance_score || 0,
           // Note: Solr score already includes combined_genre_search^4.0 for taxonomy matches
-          note: 'Score includes field weights from fieldWeights.json'
-        }
+          note: 'Score includes field weights from fieldWeights.json',
+        },
       }));
 
-      console.log(`Search returned ${searchResults.tracks.length} tracks (total: ${searchResults.total})`);
+      console.log(
+        `Search returned ${searchResults.tracks.length} tracks (total: ${searchResults.total})`
+      );
 
       // Apply business rules to results
       const enhancedResults = await applyRules(
@@ -405,7 +443,9 @@ router.post('/chat', async (req, res) => {
       );
 
       const elapsed = Date.now() - startTime;
-      console.log(`Simple query completed in ${elapsed}ms with ${enhancedResults.appliedRules.length} rules applied`);
+      console.log(
+        `Simple query completed in ${elapsed}ms with ${enhancedResults.appliedRules.length} rules applied`
+      );
 
       // Log transparency data (for potential UI display)
       if (enhancedResults.appliedRules.length > 0) {
@@ -418,7 +458,11 @@ router.post('/chat', async (req, res) => {
 
       return res.json({
         type: 'track_results',
-        message: buildResultsMessage(lastMessage.content, searchResults.total, searchResults.totalVersions),
+        message: buildResultsMessage(
+          lastMessage.content,
+          searchResults.total,
+          searchResults.totalVersions
+        ),
         tracks: tracksWithVersions,
         total_count: searchResults.total,
         total_versions: searchResults.totalVersions,
@@ -426,8 +470,8 @@ router.post('/chat', async (req, res) => {
         // Include transparency metadata (optional - for future UI enhancement)
         _meta: {
           appliedRules: enhancedResults.appliedRules,
-          scoreAdjustments: enhancedResults.scoreAdjustments.slice(0, 12)
-        }
+          scoreAdjustments: enhancedResults.scoreAdjustments.slice(0, 12),
+        },
       });
     }
 
@@ -559,10 +603,19 @@ router.post('/chat', async (req, res) => {
           }
 
           if (parsed) {
-            console.log('JSON parsed successfully, type:', parsed.type, 'tracks count:', parsed.tracks?.length);
+            console.log(
+              'JSON parsed successfully, type:',
+              parsed.type,
+              'tracks count:',
+              parsed.tracks?.length
+            );
             if (parsed.type === 'track_results' && Array.isArray(parsed.tracks)) {
               trackResults = parsed;
-              console.log('Valid track_results JSON found with', trackResults.tracks.length, 'tracks');
+              console.log(
+                'Valid track_results JSON found with',
+                trackResults.tracks.length,
+                'tracks'
+              );
             }
           }
         }
@@ -581,12 +634,16 @@ router.post('/chat', async (req, res) => {
         const solrResults = await metadataSearch({
           text: lastMessage.content,
           limit: 12,
-          offset: 0
+          offset: 0,
         });
         if (solrResults.tracks && solrResults.tracks.length > 0) {
           const enrichedTracks = enrichTracksWithGenreNames(solrResults.tracks);
           const matchedRules = matchRules(lastMessage.content);
-          const enhancedResults = await applyRules(enrichedTracks, matchedRules, lastMessage.content);
+          const enhancedResults = await applyRules(
+            enrichedTracks,
+            matchedRules,
+            lastMessage.content
+          );
 
           const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
 
@@ -594,7 +651,11 @@ router.post('/chat', async (req, res) => {
 
           return res.json({
             type: 'track_results',
-            message: buildResultsMessage(lastMessage.content, solrResults.total, solrResults.totalVersions),
+            message: buildResultsMessage(
+              lastMessage.content,
+              solrResults.total,
+              solrResults.totalVersions
+            ),
             tracks: tracksWithVersions,
             total_count: solrResults.total,
             total_versions: solrResults.totalVersions,
@@ -602,8 +663,8 @@ router.post('/chat', async (req, res) => {
             _meta: {
               appliedRules: enhancedResults.appliedRules,
               scoreAdjustments: enhancedResults.scoreAdjustments,
-              fallback: 'solr_direct'
-            }
+              fallback: 'solr_direct',
+            },
           });
         }
       } catch (fallbackError) {
@@ -620,13 +681,18 @@ router.post('/chat', async (req, res) => {
       let showingText = trackResults.showing;
 
       // If Claude returned few tracks but indicated more exist, do a direct Solr search
-      if (trackResults.tracks.length < 12 && (trackResults.total_count > 12 || !trackResults.total_count)) {
+      if (
+        trackResults.tracks.length < 12 &&
+        (trackResults.total_count > 12 || !trackResults.total_count)
+      ) {
         try {
-          console.log(`Claude returned only ${trackResults.tracks.length} tracks, fetching full results from Solr`);
+          console.log(
+            `Claude returned only ${trackResults.tracks.length} tracks, fetching full results from Solr`
+          );
           const solrResults = await metadataSearch({
             text: lastMessage.content,
             limit: 12,
-            offset: 0
+            offset: 0,
           });
           if (solrResults.tracks && solrResults.tracks.length > trackResults.tracks.length) {
             finalTracks = solrResults.tracks;
@@ -644,13 +710,11 @@ router.post('/chat', async (req, res) => {
 
       // Apply business rules
       const matchedRules = matchRules(lastMessage.content);
-      const enhancedResults = await applyRules(
-        enrichedTracks,
-        matchedRules,
-        lastMessage.content
-      );
+      const enhancedResults = await applyRules(enrichedTracks, matchedRules, lastMessage.content);
 
-      console.log(`Route 3: Applied ${enhancedResults.appliedRules.length} business rules to ${finalTracks.length} tracks`);
+      console.log(
+        `Route 3: Applied ${enhancedResults.appliedRules.length} business rules to ${finalTracks.length} tracks`
+      );
 
       // Enrich tracks with full version data
       const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
@@ -663,21 +727,21 @@ router.post('/chat', async (req, res) => {
         showing: showingText,
         _meta: {
           appliedRules: enhancedResults.appliedRules,
-          scoreAdjustments: enhancedResults.scoreAdjustments
-        }
+          scoreAdjustments: enhancedResults.scoreAdjustments,
+        },
       });
     } else {
       // Check if Claude returned markdown that looks like track results
       // (numbered list with track names, libraries, genres, etc.)
       // If so, fall back to Solr search to return proper track cards
-      const isMarkdownTrackListing = typeof reply === 'string' && (
+      const isMarkdownTrackListing =
+        typeof reply === 'string' &&
         // Numbered list with track info patterns (multiline)
-        /^\d+\.\s+\*\*[^*]+\*\*/m.test(reply) ||  // "1. **Track Name**"
-        /^\d+\.\s+[^(]+\([^)]+\)/m.test(reply) ||  // "1. Track Name (Library)"
-        // Contains music metadata patterns (indicating track details)
-        (/BPM:/i.test(reply) && /Mood/i.test(reply)) ||
-        (/Genre:/i.test(reply) && /BPM:/i.test(reply))
-      );
+        (/^\d+\.\s+\*\*[^*]+\*\*/m.test(reply) || // "1. **Track Name**"
+          /^\d+\.\s+[^(]+\([^)]+\)/m.test(reply) || // "1. Track Name (Library)"
+          // Contains music metadata patterns (indicating track details)
+          (/BPM:/i.test(reply) && /Mood/i.test(reply)) ||
+          (/Genre:/i.test(reply) && /BPM:/i.test(reply)));
 
       if (isMarkdownTrackListing) {
         console.log('Claude returned markdown track listing - extracting track info');
@@ -699,7 +763,9 @@ router.post('/chat', async (req, res) => {
           if (trackIds.length > 0) {
             console.log(`Found ${trackIds.length} track IDs in markdown`);
             const placeholders = trackIds.map(() => '?').join(',');
-            tracks = dbConn.prepare(`SELECT * FROM tracks WHERE id IN (${placeholders})`).all(...trackIds);
+            tracks = dbConn
+              .prepare(`SELECT * FROM tracks WHERE id IN (${placeholders})`)
+              .all(...trackIds);
           }
 
           // If no track IDs found, try to extract track titles and search by title
@@ -715,9 +781,9 @@ router.post('/chat', async (req, res) => {
               console.log(`Searching for ${trackTitles.length} track titles from markdown`);
               // Search for each title
               for (const title of trackTitles.slice(0, 12)) {
-                const found = dbConn.prepare(
-                  `SELECT * FROM tracks WHERE track_title LIKE ? LIMIT 1`
-                ).get(`%${title}%`);
+                const found = dbConn
+                  .prepare(`SELECT * FROM tracks WHERE track_title LIKE ? LIMIT 1`)
+                  .get(`%${title}%`);
                 if (found && !tracks.some(t => t.id === found.id)) {
                   tracks.push(found);
                 }
@@ -730,7 +796,11 @@ router.post('/chat', async (req, res) => {
           if (tracks.length > 0) {
             const enrichedTracks = enrichTracksWithGenreNames(tracks);
             const matchedRules = matchRules(lastMessage.content);
-            const enhancedResults = await applyRules(enrichedTracks, matchedRules, lastMessage.content);
+            const enhancedResults = await applyRules(
+              enrichedTracks,
+              matchedRules,
+              lastMessage.content
+            );
             const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
 
             console.log(`Markdown fallback: Retrieved ${tracksWithVersions.length} tracks`);
@@ -744,8 +814,8 @@ router.post('/chat', async (req, res) => {
               _meta: {
                 appliedRules: enhancedResults.appliedRules,
                 scoreAdjustments: enhancedResults.scoreAdjustments,
-                fallback: 'markdown_extraction'
-              }
+                fallback: 'markdown_extraction',
+              },
             });
           }
         } catch (fallbackError) {
@@ -756,7 +826,6 @@ router.post('/chat', async (req, res) => {
       // Return regular text response
       res.json({ reply });
     }
-
   } catch (error) {
     console.error('Chat error:', error);
 
@@ -764,21 +833,22 @@ router.post('/chat', async (req, res) => {
     if (error.message?.includes('API key')) {
       return res.status(500).json({
         error: 'Configuration error',
-        details: 'API key not configured. Please check your .env file.'
+        details: 'API key not configured. Please check your .env file.',
       });
     }
 
     if (error.status === 401) {
       return res.status(500).json({
         error: 'Authentication error',
-        details: 'Invalid API key. Please check your .env file.'
+        details: 'Invalid API key. Please check your .env file.',
       });
     }
 
     // Generic error response
     res.status(500).json({
       error: 'Failed to process chat message',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred'
+      details:
+        process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred',
     });
   }
 });
@@ -788,7 +858,7 @@ router.get('/chat/health', (req, res) => {
   res.json({
     status: 'healthy',
     model: process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307',
-    hasApiKey: !!process.env.ANTHROPIC_API_KEY
+    hasApiKey: !!process.env.ANTHROPIC_API_KEY,
   });
 });
 

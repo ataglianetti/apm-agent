@@ -42,14 +42,15 @@ User query: "uptempo solo jazz piano"
 
 ### Two-Tier Architecture
 
-| Tier | Speed | When Used | How |
-|------|-------|-----------|-----|
-| **QUICK_LOOKUP** | <5ms | ~95% of queries | Pre-computed term→facet mapping |
+| Tier             | Speed | When Used             | How                                 |
+| ---------------- | ----- | --------------------- | ----------------------------------- |
+| **QUICK_LOOKUP** | <5ms  | ~95% of queries       | Pre-computed term→facet mapping     |
 | **LLM Fallback** | ~1-2s | Unusual/complex terms | Claude parses against full taxonomy |
 
 ### N-gram Matching
 
 The local parser checks phrases in order of length:
+
 1. **3-word phrases**: `"solo jazz piano"`
 2. **2-word phrases**: `"jazz piano"`, `"solo jazz"`
 3. **Single words**: `"solo"`, `"jazz"`, `"piano"`
@@ -60,28 +61,28 @@ This ensures compound terms like `"string quartet"` or `"acid jazz"` are matched
 
 ### Categories (19 total)
 
-| Category | Facets | QUICK_LOOKUP Entries |
-|----------|--------|---------------------|
-| Additional Genre | 309 | ~200 |
-| Instrumental & Vocal Groupings | 75 | ~100 |
-| Sound Effects | 102 | ~196 |
-| Mood | 178 | ~142 |
-| Instruments | 263 | ~135 |
-| Country & Region | 224 | ~119 |
-| Musical Form | 94 | ~118 |
-| Music For | 221 | ~115 |
-| Movement | 46 | ~115 |
-| Character | 35 | ~103 |
-| Language | 62 | ~98 |
-| Master Genre | 309 | ~94 |
-| Key | 51 | ~88 |
-| Lyric Subject | 36 | ~78 |
-| Time Period | 51 | ~62 |
-| Tempo | 11 | ~56 |
-| is_a | 17 | ~54 |
-| Vocals | 30 | ~46 |
-| Track Type | 5 | ~21 |
-| **Total** | **2,120** | **~1,950** |
+| Category                       | Facets    | QUICK_LOOKUP Entries |
+| ------------------------------ | --------- | -------------------- |
+| Additional Genre               | 309       | ~200                 |
+| Instrumental & Vocal Groupings | 75        | ~100                 |
+| Sound Effects                  | 102       | ~196                 |
+| Mood                           | 178       | ~142                 |
+| Instruments                    | 263       | ~135                 |
+| Country & Region               | 224       | ~119                 |
+| Musical Form                   | 94        | ~118                 |
+| Music For                      | 221       | ~115                 |
+| Movement                       | 46        | ~115                 |
+| Character                      | 35        | ~103                 |
+| Language                       | 62        | ~98                  |
+| Master Genre                   | 309       | ~94                  |
+| Key                            | 51        | ~88                  |
+| Lyric Subject                  | 36        | ~78                  |
+| Time Period                    | 51        | ~62                  |
+| Tempo                          | 11        | ~56                  |
+| is_a                           | 17        | ~54                  |
+| Vocals                         | 30        | ~46                  |
+| Track Type                     | 5         | ~21                  |
+| **Total**                      | **2,120** | **~1,950**           |
 
 ### Sample Mappings
 
@@ -127,6 +128,7 @@ curl -X POST http://localhost:3001/api/taxonomy/parse \
 ```
 
 **Response:**
+
 ```json
 {
   "query": "uptempo solo jazz piano",
@@ -184,6 +186,7 @@ curl -X POST http://localhost:3001/api/settings/taxonomy-parser \
 ```
 
 **Response:**
+
 ```json
 {
   "taxonomyParserEnabled": false,
@@ -212,16 +215,16 @@ When enabled, a cyan **"NLP"** badge appears next to the settings icon.
 
 ## Strategic Comparison: vs AIMS Prompt Search
 
-| Aspect | AIMS Prompt Search | Our Implementation |
-|--------|-------------------|-------------------|
-| **Method** | LLM-only (likely) | Hybrid: Local + LLM fallback |
-| **Speed** | ~1-2s per query | <5ms for 95%+ of queries |
-| **Cost** | LLM call per query | LLM only for edge cases (~5%) |
-| **Latency** | Network-dependent | Mostly local, instant |
-| **Taxonomy** | AIMS taxonomy | APM taxonomy (2,120 facets) |
-| **Customization** | Unknown | Full control via QUICK_LOOKUP |
-| **Offline capable** | No | Yes (local parsing) |
-| **Reliability** | LLM availability | Works without LLM |
+| Aspect              | AIMS Prompt Search | Our Implementation            |
+| ------------------- | ------------------ | ----------------------------- |
+| **Method**          | LLM-only (likely)  | Hybrid: Local + LLM fallback  |
+| **Speed**           | ~1-2s per query    | <5ms for 95%+ of queries      |
+| **Cost**            | LLM call per query | LLM only for edge cases (~5%) |
+| **Latency**         | Network-dependent  | Mostly local, instant         |
+| **Taxonomy**        | AIMS taxonomy      | APM taxonomy (2,120 facets)   |
+| **Customization**   | Unknown            | Full control via QUICK_LOOKUP |
+| **Offline capable** | No                 | Yes (local parsing)           |
+| **Reliability**     | LLM availability   | Works without LLM             |
 
 ### Why This Approach Is Better
 
@@ -280,25 +283,26 @@ curl -X POST http://localhost:3001/api/taxonomy/parse-local \
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `server/services/queryToTaxonomy.js` | Main parser with QUICK_LOOKUP |
-| `server/routes/taxonomy.js` | API endpoints |
-| `server/apm_music.db` | SQLite database with `facet_taxonomy` table |
+| File                                 | Purpose                                     |
+| ------------------------------------ | ------------------------------------------- |
+| `server/services/queryToTaxonomy.js` | Main parser with QUICK_LOOKUP               |
+| `server/routes/taxonomy.js`          | API endpoints                               |
+| `server/apm_music.db`                | SQLite database with `facet_taxonomy` table |
 
 ## Performance Benchmarks
 
-| Query Type | Example | Latency |
-|------------|---------|---------|
-| All local | "uptempo jazz piano" | 2-5ms |
-| Mostly local | "experimental jazz fusion" | 3-8ms |
-| LLM fallback | "music for underwater documentary" | 1-2s |
+| Query Type   | Example                            | Latency |
+| ------------ | ---------------------------------- | ------- |
+| All local    | "uptempo jazz piano"               | 2-5ms   |
+| Mostly local | "experimental jazz fusion"         | 3-8ms   |
+| LLM fallback | "music for underwater documentary" | 1-2s    |
 
 ## Tuning & Refining the Hybrid Approach
 
 ### When to Add Terms to QUICK_LOOKUP
 
 Add a term when:
+
 1. **LLM fallback is triggered** - Check logs for queries hitting the LLM
 2. **LLM mapping is wrong** - Override with correct mapping
 3. **Common search term** - Frequently used terms should be instant

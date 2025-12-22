@@ -74,7 +74,7 @@ export function MessageBubble({ message, onShowMore, onSoundsLike, searchQuery =
               tracks: message.tracks,
               total_count: message.totalCount,
               showing: message.showing,
-              _meta: message._meta
+              _meta: message._meta,
             }}
             onShowMore={onShowMore}
             onSoundsLike={onSoundsLike}
@@ -83,16 +83,11 @@ export function MessageBubble({ message, onShowMore, onSoundsLike, searchQuery =
 
           {/* Performance metrics if available */}
           {message.timings && message.performance && (
-            <PerformanceDisplay
-              timings={message.timings}
-              performance={message.performance}
-            />
+            <PerformanceDisplay timings={message.timings} performance={message.performance} />
           )}
 
           {/* Architecture flow if available */}
-          {message.architecture && (
-            <ArchitectureFlow architecture={message.architecture} />
-          )}
+          {message.architecture && <ArchitectureFlow architecture={message.architecture} />}
         </div>
       </div>
     );
@@ -125,9 +120,12 @@ export function MessageBubble({ message, onShowMore, onSoundsLike, searchQuery =
         <div
           className={`
             rounded-2xl px-4 py-3 rounded-bl-md
-            ${isError
-              ? 'bg-red-900/50 text-red-200'
-              : isDark ? 'bg-apm-navy text-apm-light' : 'bg-white text-gray-800 border border-gray-200 shadow-sm'
+            ${
+              isError
+                ? 'bg-red-900/50 text-red-200'
+                : isDark
+                  ? 'bg-apm-navy text-apm-light'
+                  : 'bg-white text-gray-800 border border-gray-200 shadow-sm'
             }
           `}
         >
@@ -138,16 +136,11 @@ export function MessageBubble({ message, onShowMore, onSoundsLike, searchQuery =
 
         {/* Performance metrics if available */}
         {message.timings && message.performance && (
-          <PerformanceDisplay
-            timings={message.timings}
-            performance={message.performance}
-          />
+          <PerformanceDisplay timings={message.timings} performance={message.performance} />
         )}
 
         {/* Architecture flow if available */}
-        {message.architecture && (
-          <ArchitectureFlow architecture={message.architecture} />
-        )}
+        {message.architecture && <ArchitectureFlow architecture={message.architecture} />}
       </div>
     </div>
   );

@@ -61,15 +61,16 @@ function loadFieldWeights() {
  * @returns {Promise<object>} - { tracks, total, matchExplanations }
  */
 export async function search(options) {
-  const {
-    facets = [],
-    text = '',
-    filters = [],
-    limit = 12,
-    offset = 0
-  } = options;
+  const { facets = [], text = '', filters = [], limit = 12, offset = 0 } = options;
 
-  console.log('Metadata search:', { facets, text, filters, limit, offset, engine: USE_SOLR ? 'solr' : 'fts5' });
+  console.log('Metadata search:', {
+    facets,
+    text,
+    filters,
+    limit,
+    offset,
+    engine: USE_SOLR ? 'solr' : 'fts5',
+  });
 
   // Try Solr first if enabled
   if (USE_SOLR) {
@@ -91,7 +92,14 @@ export async function search(options) {
  * Search using Solr backend
  */
 async function searchWithSolr(options) {
-  const { facets = [], text = '', filters = [], limit = 12, offset = 0, taxonomyFilters = null } = options;
+  const {
+    facets = [],
+    text = '',
+    filters = [],
+    limit = 12,
+    offset = 0,
+    taxonomyFilters = null,
+  } = options;
 
   // Map facets to facet IDs for Solr
   // Group by category for proper AND/OR logic:
@@ -136,24 +144,28 @@ async function searchWithSolr(options) {
       fieldFilters.push({
         field: filter.field,
         value: filter.value,
-        operator: filter.operator
+        operator: filter.operator,
       });
     }
   }
 
-  console.log(`Solr search: ${Object.keys(facetsByCategory).length} facet categories, ${fieldFilters.length} field filters, text="${text}"`);
+  console.log(
+    `Solr search: ${Object.keys(facetsByCategory).length} facet categories, ${fieldFilters.length} field filters, text="${text}"`
+  );
 
   // Execute Solr search with facets grouped by category
   const result = await solrService.search({
     text: text || '*:*',
-    facetsByCategory,  // Grouped facet IDs for combined_ids
-    fieldFilters,      // Text field filters (composer, library, etc.)
+    facetsByCategory, // Grouped facet IDs for combined_ids
+    fieldFilters, // Text field filters (composer, library, etc.)
     limit,
     offset,
-    ranges
+    ranges,
   });
 
-  console.log(`Solr search returned ${result.tracks.length} tracks (total: ${result.total}, qTime: ${result.qTime}ms)`);
+  console.log(
+    `Solr search returned ${result.tracks.length} tracks (total: ${result.total}, qTime: ${result.qTime}ms)`
+  );
 
   // Enhance metadata
   const enhancedTracks = enhanceTracksMetadata(result.tracks);
@@ -163,13 +175,13 @@ async function searchWithSolr(options) {
 
   return {
     tracks: enhancedTracks,
-    total: result.total,           // Unique songs (ngroups)
+    total: result.total, // Unique songs (ngroups)
     totalVersions: result.matches, // Total track versions
     matchExplanations,
     _meta: {
       engine: 'solr',
-      qTime: result.qTime
-    }
+      qTime: result.qTime,
+    },
   };
 }
 
@@ -187,7 +199,9 @@ async function getFacetIds(category, value) {
   const rows = db.prepare(query).all(category, pattern, pattern);
   // Return in "Category/facet_id" format for Solr combined_ids matching
   const ids = rows.map(r => `${r.category_name}/${r.facet_id}`);
-  console.log(`getFacetIds: ${category}="${value}" → ${ids.length} IDs: ${ids.slice(0, 5).join(', ')}${ids.length > 5 ? '...' : ''}`);
+  console.log(
+    `getFacetIds: ${category}="${value}" → ${ids.length} IDs: ${ids.slice(0, 5).join(', ')}${ids.length > 5 ? '...' : ''}`
+  );
   return ids;
 }
 
@@ -195,13 +209,7 @@ async function getFacetIds(category, value) {
  * Original FTS5 search implementation
  */
 async function searchWithFTS5(options) {
-  const {
-    facets = [],
-    text = '',
-    filters = [],
-    limit = 12,
-    offset = 0
-  } = options;
+  const { facets = [], text = '', filters = [], limit = 12, offset = 0 } = options;
 
   let candidateTracks = [];
 
@@ -220,7 +228,9 @@ async function searchWithFTS5(options) {
       // Intersect with facet results (AND logic)
       const candidateIds = new Set(candidateTracks.map(t => t.id));
       const intersected = textResults.filter(t => candidateIds.has(t.id));
-      console.log(`Intersection: ${candidateTracks.length} facet results × ${textResults.length} text results = ${intersected.length} combined`);
+      console.log(
+        `Intersection: ${candidateTracks.length} facet results × ${textResults.length} text results = ${intersected.length} combined`
+      );
       candidateTracks = intersected;
     } else {
       candidateTracks = textResults;
@@ -254,8 +264,8 @@ async function searchWithFTS5(options) {
     total,
     matchExplanations: matchExplanations.slice(offset, offset + limit),
     _meta: {
-      engine: 'fts5'
-    }
+      engine: 'fts5',
+    },
   };
 }
 
@@ -389,7 +399,7 @@ async function calculateRelevanceScores(tracks, facets, text) {
         { name: 'track_description', value: track.track_description },
         { name: 'album_title', value: track.album_title },
         { name: 'composer', value: track.composer },
-        { name: 'library', value: track.library_name }
+        { name: 'library', value: track.library_name },
       ];
 
       for (const field of textFields) {
@@ -428,7 +438,7 @@ async function calculateRelevanceScores(tracks, facets, text) {
     return {
       ...track,
       _relevance_score: score,
-      _score_breakdown: scoreBreakdown
+      _score_breakdown: scoreBreakdown,
     };
   });
 }
@@ -447,14 +457,16 @@ function buildMatchExplanations(tracks, facets, text) {
       matchedFacets: [],
       matchedTextFields: [],
       scoreBreakdown: track._score_breakdown || {},
-      totalScore: track._relevance_score || 0
+      totalScore: track._relevance_score || 0,
     };
 
     // Add facet matches
     for (const facet of facets) {
       const facetFieldName = categoryToFieldName(facet.category);
       const weight = explanation.scoreBreakdown[facetFieldName] || 0;
-      explanation.matchedFacets.push(`${facet.category} | ${facet.value} (weight: ${weight.toFixed(2)})`);
+      explanation.matchedFacets.push(
+        `${facet.category} | ${facet.value} (weight: ${weight.toFixed(2)})`
+      );
     }
 
     // Add text field matches
@@ -463,22 +475,33 @@ function buildMatchExplanations(tracks, facets, text) {
 
       if (track.track_title && String(track.track_title).toLowerCase().includes(textLower)) {
         const weight = explanation.scoreBreakdown.track_title || 0;
-        explanation.matchedTextFields.push(`track_title contains "${text}" (weight: ${weight.toFixed(2)})`);
+        explanation.matchedTextFields.push(
+          `track_title contains "${text}" (weight: ${weight.toFixed(2)})`
+        );
       }
 
-      if (track.track_description && String(track.track_description).toLowerCase().includes(textLower)) {
+      if (
+        track.track_description &&
+        String(track.track_description).toLowerCase().includes(textLower)
+      ) {
         const weight = explanation.scoreBreakdown.track_description || 0;
-        explanation.matchedTextFields.push(`track_description contains "${text}" (weight: ${weight.toFixed(2)})`);
+        explanation.matchedTextFields.push(
+          `track_description contains "${text}" (weight: ${weight.toFixed(2)})`
+        );
       }
 
       if (track.album_title && String(track.album_title).toLowerCase().includes(textLower)) {
         const weight = explanation.scoreBreakdown.album_title || 0;
-        explanation.matchedTextFields.push(`album_title contains "${text}" (weight: ${weight.toFixed(2)})`);
+        explanation.matchedTextFields.push(
+          `album_title contains "${text}" (weight: ${weight.toFixed(2)})`
+        );
       }
 
       if (track.composer && String(track.composer).toLowerCase().includes(textLower)) {
         const weight = explanation.scoreBreakdown.composer || 0;
-        explanation.matchedTextFields.push(`composer contains "${text}" (weight: ${weight.toFixed(2)})`);
+        explanation.matchedTextFields.push(
+          `composer contains "${text}" (weight: ${weight.toFixed(2)})`
+        );
       }
     }
 
@@ -493,24 +516,24 @@ function buildMatchExplanations(tracks, facets, text) {
  */
 function categoryToFieldName(category) {
   const mapping = {
-    'Mood': 'mood',
+    Mood: 'mood',
     'Master Genre': 'combined_genre',
     'Additional Genre': 'combined_genre',
-    'Instruments': 'instruments',
-    'Vocals': 'vocals',
-    'Tempo': 'tempo',
+    Instruments: 'instruments',
+    Vocals: 'vocals',
+    Tempo: 'tempo',
     'Music For': 'music_for',
-    'Character': 'character',
+    Character: 'character',
     'Country & Region': 'country_and_region',
-    'Key': 'key',
-    'Language': 'language',
+    Key: 'key',
+    Language: 'language',
     'Lyric Subject': 'lyric_subject',
-    'Movement': 'movement',
+    Movement: 'movement',
     'Musical Form': 'musical_form',
     'Sound Effects': 'sound_effects',
     'Time Period': 'time_period',
     'Track Type': 'track_type',
-    'Instrumental & Vocal Groupings': 'instrumental_and_vocal_groupings'
+    'Instrumental & Vocal Groupings': 'instrumental_and_vocal_groupings',
   };
 
   return mapping[category] || category.toLowerCase().replace(/\s+/g, '_');

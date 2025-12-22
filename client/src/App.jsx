@@ -10,18 +10,20 @@ function AppContent() {
   const { isDark } = useTheme();
 
   // Handle settings change from demo controls
-  const handleSettingsChange = (settings) => {
+  const handleSettingsChange = settings => {
     updateSettings(settings);
   };
 
   // Handle "Sounds Like" audio similarity search
-  const handleSoundsLike = (track) => {
+  const handleSoundsLike = track => {
     const query = `Find tracks that sound like "${track.track_title}" (${track.id})`;
     sendMessage(query);
   };
 
   return (
-    <div className={`h-screen flex flex-col font-poppins ${isDark ? 'bg-apm-dark' : 'bg-gray-100'}`}>
+    <div
+      className={`h-screen flex flex-col font-poppins ${isDark ? 'bg-apm-dark' : 'bg-gray-100'}`}
+    >
       <Header onClear={clearChat} onSettingsChange={handleSettingsChange} />
       <ErrorBoundary>
         <ChatContainer

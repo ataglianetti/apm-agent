@@ -8,7 +8,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const dbPath = path.join(__dirname, '../apm_music.db');
-const catalogCsvPath = path.join(__dirname, '../../data/AnthonyOutput_v2_20251218_095451_CLEANED.csv');
+const catalogCsvPath = path.join(
+  __dirname,
+  '../../data/AnthonyOutput_v2_20251218_095451_CLEANED.csv'
+);
 
 console.log('Loading Full APM Production Catalog...');
 console.log('Database:', dbPath);
@@ -148,47 +151,48 @@ function processBatch(batchRecords) {
         const composerFirstname = row.comp1_firstname || '';
         const composerMiddlename = row.comp1_middlename || '';
         const composerLastname = row.comp1_lastname || '';
-        const composerFullname = [composerFirstname, composerMiddlename, composerLastname]
-          .filter(n => n.trim())
-          .join(' ') || null;
+        const composerFullname =
+          [composerFirstname, composerMiddlename, composerLastname]
+            .filter(n => n.trim())
+            .join(' ') || null;
 
         insertTrack.run(
-          row.aktrack,                          // id
-          row.parent_akTrack,                   // parent_aktrack (new in v2)
-          row.track_title,                      // track_title
-          row.track_number,                     // track_number
-          trackIndex,                           // track_index
-          row.track_description,                // track_description
-          duration,                             // duration
-          bpm,                                  // bpm
-          row.track_internal_release_date,      // internal_release_date
-          row.track_apm_release_date,           // apm_release_date
-          row.track_recording_date,             // recording_date
-          row.track_facet_ids,                  // facet_ids
-          row.track_facet_labels,               // facet_labels (new in v2)
-          masterGenreId,                        // master_genre_id
-          row.track_additional_genres,          // additional_genre_ids
-          row.track_language_iso,               // language_iso
-          row.track_artists,                    // artists
-          row.ISRC_main,                        // isrc_main
-          row.ISRC_all,                         // isrc_all
-          row.song_id,                          // song_id
-          row.song_title,                       // song_title
-          row.song_composers,                   // song_composers
-          row.song_lyricists,                   // song_lyricists
-          row.song_arrangers,                   // song_arrangers
-          row.akcd,                             // album_id
-          row.album_title,                      // album_title
-          row.album_description,                // album_description
-          row.album_release_date,               // album_release_date
-          row.album_artists,                    // album_artists
-          row.library_id,                       // library_id
-          row.library_name,                     // library_name
-          composerLastname,                     // composer_lastname
-          composerFirstname,                    // composer_firstname
-          composerFullname,                     // composer_fullname
-          row.comp1_affilid,                    // composer_affiliation
-          row.comp1_caenum                      // composer_cae_number
+          row.aktrack, // id
+          row.parent_akTrack, // parent_aktrack (new in v2)
+          row.track_title, // track_title
+          row.track_number, // track_number
+          trackIndex, // track_index
+          row.track_description, // track_description
+          duration, // duration
+          bpm, // bpm
+          row.track_internal_release_date, // internal_release_date
+          row.track_apm_release_date, // apm_release_date
+          row.track_recording_date, // recording_date
+          row.track_facet_ids, // facet_ids
+          row.track_facet_labels, // facet_labels (new in v2)
+          masterGenreId, // master_genre_id
+          row.track_additional_genres, // additional_genre_ids
+          row.track_language_iso, // language_iso
+          row.track_artists, // artists
+          row.ISRC_main, // isrc_main
+          row.ISRC_all, // isrc_all
+          row.song_id, // song_id
+          row.song_title, // song_title
+          row.song_composers, // song_composers
+          row.song_lyricists, // song_lyricists
+          row.song_arrangers, // song_arrangers
+          row.akcd, // album_id
+          row.album_title, // album_title
+          row.album_description, // album_description
+          row.album_release_date, // album_release_date
+          row.album_artists, // album_artists
+          row.library_id, // library_id
+          row.library_name, // library_name
+          composerLastname, // composer_lastname
+          composerFirstname, // composer_firstname
+          composerFullname, // composer_fullname
+          row.comp1_affilid, // composer_affiliation
+          row.comp1_caenum // composer_cae_number
         );
       } catch (error) {
         skipped++;
@@ -204,16 +208,16 @@ function processBatch(batchRecords) {
 }
 
 await new Promise((resolve, reject) => {
-  const parser = fs
-    .createReadStream(catalogCsvPath)
-    .pipe(parse({
+  const parser = fs.createReadStream(catalogCsvPath).pipe(
+    parse({
       columns: true,
       skip_empty_lines: true,
       trim: true,
-      relax_column_count: true
-    }));
+      relax_column_count: true,
+    })
+  );
 
-  parser.on('readable', function() {
+  parser.on('readable', function () {
     let record;
     while ((record = parser.read()) !== null) {
       batch.push(record);
@@ -226,7 +230,7 @@ await new Promise((resolve, reject) => {
     }
   });
 
-  parser.on('end', function() {
+  parser.on('end', function () {
     // Process remaining batch
     if (batch.length > 0) {
       processBatch(batch);
@@ -278,7 +282,8 @@ const loadFacets = db.transaction(() => {
   for (const track of tracks) {
     if (!track.facet_ids) continue;
 
-    const facetIds = track.facet_ids.split(';')
+    const facetIds = track.facet_ids
+      .split(';')
       .map(id => parseInt(id.trim()))
       .filter(id => !isNaN(id));
 
@@ -310,19 +315,27 @@ console.log(`✅ Created ${totalFacets.toLocaleString()} track-facet relationshi
 // Verify data and show statistics
 console.log('\nDatabase Statistics:');
 
-const trackStats = db.prepare(`
+const trackStats = db
+  .prepare(
+    `
   SELECT COUNT(*) as total_tracks FROM tracks
-`).get();
+`
+  )
+  .get();
 console.log(`  Total tracks: ${trackStats.total_tracks.toLocaleString()}`);
 
-const facetStats = db.prepare(`
+const facetStats = db
+  .prepare(
+    `
   SELECT
     COUNT(DISTINCT track_id) as tracks_with_facets,
     COUNT(*) as total_assignments,
     COUNT(DISTINCT facet_id) as unique_facets,
     COUNT(DISTINCT category_id) as categories_used
   FROM track_facets
-`).get();
+`
+  )
+  .get();
 console.log(`  Tracks with facets: ${facetStats.tracks_with_facets.toLocaleString()}`);
 console.log(`  Total facet assignments: ${facetStats.total_assignments.toLocaleString()}`);
 console.log(`  Unique facets used: ${facetStats.unique_facets.toLocaleString()}`);
@@ -330,7 +343,9 @@ console.log(`  Categories represented: ${facetStats.categories_used}`);
 
 // Show facet usage by category
 console.log('\nFacet Usage by Category:');
-const categoryStats = db.prepare(`
+const categoryStats = db
+  .prepare(
+    `
   SELECT
     ft.category_name,
     COUNT(DISTINCT tf.facet_id) as unique_facets,
@@ -341,22 +356,30 @@ const categoryStats = db.prepare(`
   WHERE ft.category_name IS NOT NULL
   GROUP BY ft.category_name
   ORDER BY track_count DESC
-`).all();
+`
+  )
+  .all();
 
 for (const cat of categoryStats) {
-  console.log(`  ${cat.category_name}: ${cat.track_count.toLocaleString()} tracks, ${cat.unique_facets} facets, ${cat.assignment_count.toLocaleString()} assignments`);
+  console.log(
+    `  ${cat.category_name}: ${cat.track_count.toLocaleString()} tracks, ${cat.unique_facets} facets, ${cat.assignment_count.toLocaleString()} assignments`
+  );
 }
 
 // Show library distribution
 console.log('\nTop 10 Libraries:');
-const libraryStats = db.prepare(`
+const libraryStats = db
+  .prepare(
+    `
   SELECT library_name, COUNT(*) as track_count
   FROM tracks
   WHERE library_name IS NOT NULL
   GROUP BY library_name
   ORDER BY track_count DESC
   LIMIT 10
-`).all();
+`
+  )
+  .all();
 
 for (const lib of libraryStats) {
   console.log(`  ${lib.library_name}: ${lib.track_count.toLocaleString()} tracks`);

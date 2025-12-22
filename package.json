@@ -14,10 +14,13 @@
     "lint:fix": "npm run lint:fix:client && npm run lint:fix:server",
     "lint:fix:client": "cd client && npm run lint:fix",
     "lint:fix:server": "cd server && npm run lint:fix",
+    "format": "prettier --write \"**/*.{js,jsx,json,md,css}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,json,md,css}\"",
     "prepare": "husky"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "husky": "^9.1.7"
+    "husky": "^9.1.7",
+    "prettier": "^3.7.4"
   }
 }

@@ -55,71 +55,92 @@ function getModel() {
 // Tool definitions (same as claude.js)
 const tools = [
   {
-    name: "read_csv",
-    description: "Read a CSV file from the data directory.",
+    name: 'read_csv',
+    description: 'Read a CSV file from the data directory.',
     input_schema: {
-      type: "object",
+      type: 'object',
       properties: {
-        filename: { type: "string", description: "Name of the CSV file" },
-        limit: { type: "number", description: "Optional: limit number of rows" }
+        filename: { type: 'string', description: 'Name of the CSV file' },
+        limit: { type: 'number', description: 'Optional: limit number of rows' },
       },
-      required: ["filename"]
-    }
+      required: ['filename'],
+    },
   },
   {
-    name: "grep_tracks",
-    description: "Search tracks for matching patterns.",
+    name: 'grep_tracks',
+    description: 'Search tracks for matching patterns.',
     input_schema: {
-      type: "object",
+      type: 'object',
       properties: {
-        pattern: { type: "string", description: "Search pattern" },
-        field: { type: "string", enum: ["genre", "track_title", "track_description", "composer", "library_name", "album_title", "has_stems", "all"] },
-        limit: { type: "number", description: "Max results (default: 12)" }
+        pattern: { type: 'string', description: 'Search pattern' },
+        field: {
+          type: 'string',
+          enum: [
+            'genre',
+            'track_title',
+            'track_description',
+            'composer',
+            'library_name',
+            'album_title',
+            'has_stems',
+            'all',
+          ],
+        },
+        limit: { type: 'number', description: 'Max results (default: 12)' },
       },
-      required: ["pattern"]
-    }
+      required: ['pattern'],
+    },
   },
   {
-    name: "get_track_by_id",
-    description: "Get full details for a specific track.",
+    name: 'get_track_by_id',
+    description: 'Get full details for a specific track.',
     input_schema: {
-      type: "object",
+      type: 'object',
       properties: {
-        track_id: { type: "string", description: "The track ID" }
+        track_id: { type: 'string', description: 'The track ID' },
       },
-      required: ["track_id"]
-    }
+      required: ['track_id'],
+    },
   },
   {
-    name: "get_tracks_by_ids",
-    description: "Get details for multiple tracks by their IDs.",
+    name: 'get_tracks_by_ids',
+    description: 'Get details for multiple tracks by their IDs.',
     input_schema: {
-      type: "object",
+      type: 'object',
       properties: {
-        track_ids: { type: "array", items: { type: "string" } },
-        limit: { type: "number", description: "Max results (default: 12)" }
+        track_ids: { type: 'array', items: { type: 'string' } },
+        limit: { type: 'number', description: 'Max results (default: 12)' },
       },
-      required: ["track_ids"]
-    }
+      required: ['track_ids'],
+    },
   },
   {
-    name: "manage_project",
-    description: "Manage user projects and track assignments.",
+    name: 'manage_project',
+    description: 'Manage user projects and track assignments.',
     input_schema: {
-      type: "object",
+      type: 'object',
       properties: {
-        action: { type: "string", enum: ["add_track", "add_multiple_tracks", "remove_track", "list_tracks", "create_project"] },
-        project_id: { type: "string" },
-        track_id: { type: "string" },
-        track_ids: { type: "array", items: { type: "string" } },
-        notes: { type: "string" },
-        name: { type: "string" },
-        description: { type: "string" },
-        for_field: { type: "string" }
+        action: {
+          type: 'string',
+          enum: [
+            'add_track',
+            'add_multiple_tracks',
+            'remove_track',
+            'list_tracks',
+            'create_project',
+          ],
+        },
+        project_id: { type: 'string' },
+        track_id: { type: 'string' },
+        track_ids: { type: 'array', items: { type: 'string' } },
+        notes: { type: 'string' },
+        name: { type: 'string' },
+        description: { type: 'string' },
+        for_field: { type: 'string' },
       },
-      required: ["action"]
-    }
-  }
+      required: ['action'],
+    },
+  },
 ];
 
 async function chat(client, messages, systemPrompt) {
@@ -131,7 +152,7 @@ async function chat(client, messages, systemPrompt) {
     max_tokens: 4096,
     system: systemPrompt,
     tools: tools,
-    messages: messages
+    messages: messages,
   });
 
   // Tool use loop
@@ -150,19 +171,23 @@ async function chat(client, messages, systemPrompt) {
       }
 
       const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
-      log(colors.dim, '[result]', resultStr.substring(0, 200) + (resultStr.length > 200 ? '...' : ''));
+      log(
+        colors.dim,
+        '[result]',
+        resultStr.substring(0, 200) + (resultStr.length > 200 ? '...' : '')
+      );
 
       toolResults.push({
         type: 'tool_result',
         tool_use_id: toolUse.id,
-        content: resultStr
+        content: resultStr,
       });
     }
 
     messages = [
       ...messages,
       { role: 'assistant', content: response.content },
-      { role: 'user', content: toolResults }
+      { role: 'user', content: toolResults },
     ];
 
     response = await client.messages.create({
@@ -170,7 +195,7 @@ async function chat(client, messages, systemPrompt) {
       max_tokens: 4096,
       system: systemPrompt,
       tools: tools,
-      messages: messages
+      messages: messages,
     });
   }
 
@@ -181,17 +206,19 @@ async function chat(client, messages, systemPrompt) {
 async function runInteractive(client, systemPrompt) {
   const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
   });
 
   const conversationHistory = [];
 
   console.log(`\n${colors.bright}APM Music Search Assistant - Interactive Mode${colors.reset}`);
   console.log(`${colors.dim}Model: ${getModel()}${colors.reset}`);
-  console.log(`${colors.dim}Type 'exit' or 'quit' to end, 'clear' to reset conversation${colors.reset}\n`);
+  console.log(
+    `${colors.dim}Type 'exit' or 'quit' to end, 'clear' to reset conversation${colors.reset}\n`
+  );
 
   const prompt = () => {
-    rl.question(`${colors.cyan}You:${colors.reset} `, async (input) => {
+    rl.question(`${colors.cyan}You:${colors.reset} `, async input => {
       const trimmed = input.trim();
 
       if (!trimmed) {

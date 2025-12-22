@@ -21,11 +21,11 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Add size limit for security
 
 // API routes
-app.use('/api', healthRouter);  // Health checks first (no auth needed)
-app.use('/api', settingsRouter);  // Settings API
+app.use('/api', healthRouter); // Health checks first (no auth needed)
+app.use('/api', settingsRouter); // Settings API
 app.use('/api', chatRouter);
 app.use('/api', trackMetadataRouter);
-app.use('/api/taxonomy', taxonomyRouter);  // Taxonomy parsing API
+app.use('/api/taxonomy', taxonomyRouter); // Taxonomy parsing API
 
 // Production: serve client build
 if (process.env.NODE_ENV === 'production') {

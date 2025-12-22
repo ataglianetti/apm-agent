@@ -34,7 +34,7 @@ router.get('/health', async (req, res) => {
     version: process.env.npm_package_version || '1.0.0',
     solr: { status: 'unknown' },
     sqlite: { status: 'unknown' },
-    anthropic_api: { configured: !!process.env.ANTHROPIC_API_KEY }
+    anthropic_api: { configured: !!process.env.ANTHROPIC_API_KEY },
   };
 
   // Check Solr
@@ -56,7 +56,7 @@ router.get('/health', async (req, res) => {
         status: 'connected',
         url: `${solrConfig.host}:${solrConfig.port}`,
         core: solrConfig.core,
-        numDocs: statsData.response?.numFound || 0
+        numDocs: statsData.response?.numFound || 0,
       };
     } else {
       health.solr = { status: 'error', message: `HTTP ${response.status}` };
@@ -64,7 +64,7 @@ router.get('/health', async (req, res) => {
   } catch (e) {
     health.solr = {
       status: 'disconnected',
-      message: e.name === 'AbortError' ? 'timeout' : e.message
+      message: e.name === 'AbortError' ? 'timeout' : e.message,
     };
   }
 
@@ -79,7 +79,7 @@ router.get('/health', async (req, res) => {
     health.sqlite = {
       status: 'connected',
       track_count: trackCount.count,
-      facet_count: facetCount.count
+      facet_count: facetCount.count,
     };
 
     db.close();
@@ -88,9 +88,7 @@ router.get('/health', async (req, res) => {
   }
 
   // Determine overall health
-  const isHealthy =
-    health.solr.status === 'connected' &&
-    health.sqlite.status === 'connected';
+  const isHealthy = health.solr.status === 'connected' && health.sqlite.status === 'connected';
 
   health.status = isHealthy ? 'healthy' : 'degraded';
 

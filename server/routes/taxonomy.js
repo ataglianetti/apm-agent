@@ -13,7 +13,7 @@ import {
   parseQueryLocal,
   parseQueryToTaxonomy,
   buildSolrFilters,
-  getTaxonomyStats
+  getTaxonomyStats,
 } from '../services/queryToTaxonomy.js';
 
 const router = express.Router();
@@ -59,7 +59,7 @@ router.post('/parse', async (req, res) => {
 
     if (!query || typeof query !== 'string') {
       return res.status(400).json({
-        error: 'Missing or invalid query parameter'
+        error: 'Missing or invalid query parameter',
       });
     }
 
@@ -73,7 +73,7 @@ router.post('/parse', async (req, res) => {
     console.error('Error parsing query to taxonomy:', error);
     res.status(500).json({
       error: 'Failed to parse query',
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -89,7 +89,7 @@ router.post('/parse-local', (req, res) => {
 
     if (!query || typeof query !== 'string') {
       return res.status(400).json({
-        error: 'Missing or invalid query parameter'
+        error: 'Missing or invalid query parameter',
       });
     }
 
@@ -103,7 +103,7 @@ router.post('/parse-local', (req, res) => {
     console.error('Error in local taxonomy parsing:', error);
     res.status(500).json({
       error: 'Failed to parse query locally',
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -119,7 +119,7 @@ router.post('/parse-llm', async (req, res) => {
 
     if (!query || typeof query !== 'string') {
       return res.status(400).json({
-        error: 'Missing or invalid query parameter'
+        error: 'Missing or invalid query parameter',
       });
     }
 
@@ -132,7 +132,7 @@ router.post('/parse-llm', async (req, res) => {
     console.error('Error in LLM taxonomy parsing:', error);
     res.status(500).json({
       error: 'Failed to parse query with LLM',
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -150,7 +150,7 @@ router.get('/stats', (req, res) => {
     console.error('Error getting taxonomy stats:', error);
     res.status(500).json({
       error: 'Failed to get taxonomy stats',
-      message: error.message
+      message: error.message,
     });
   }
 });

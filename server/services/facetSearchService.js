@@ -43,13 +43,11 @@ export async function searchByFacetCategory(categoryName, searchTerm, limit = 10
   `;
 
   const searchPattern = `%${searchTerm}%`;
-  const matchingFacets = db.prepare(facetQuery).all(
-    categoryName,
-    searchPattern,
-    searchPattern
-  );
+  const matchingFacets = db.prepare(facetQuery).all(categoryName, searchPattern, searchPattern);
 
-  console.log(`Found ${matchingFacets.length} matching facets in "${categoryName}" for term "${searchTerm}"`);
+  console.log(
+    `Found ${matchingFacets.length} matching facets in "${categoryName}" for term "${searchTerm}"`
+  );
 
   if (matchingFacets.length === 0) {
     return [];
@@ -106,54 +104,57 @@ export function getFacetCategories() {
     ORDER BY category_name
   `;
 
-  return db.prepare(query).all().map(row => row.category_name);
+  return db
+    .prepare(query)
+    .all()
+    .map(row => row.category_name);
 }
 
 /**
  * Map user-friendly category names to database category names
  */
 const CATEGORY_MAPPING = {
-  'mood': 'Mood',
-  'moods': 'Mood',
-  'instruments': 'Instruments',
-  'instrument': 'Instruments',
-  'vocals': 'Vocals',
-  'vocal': 'Vocals',
-  'tempo': 'Tempo',
-  'tempos': 'Tempo',
-  'genre': 'Master Genre',
-  'genres': 'Master Genre',
+  mood: 'Mood',
+  moods: 'Mood',
+  instruments: 'Instruments',
+  instrument: 'Instruments',
+  vocals: 'Vocals',
+  vocal: 'Vocals',
+  tempo: 'Tempo',
+  tempos: 'Tempo',
+  genre: 'Master Genre',
+  genres: 'Master Genre',
   'master-genre': 'Master Genre',
   'additional-genre': 'Additional Genre',
   'additional-genres': 'Additional Genre',
   'music-for': 'Music For',
   'use-case': 'Music For',
   'use-cases': 'Music For',
-  'character': 'Character',
-  'characters': 'Character',
-  'country': 'Country & Region',
-  'region': 'Country & Region',
+  character: 'Character',
+  characters: 'Character',
+  country: 'Country & Region',
+  region: 'Country & Region',
   'country-region': 'Country & Region',
   'instrumental-vocal': 'Instrumental & Vocal Groupings',
-  'groupings': 'Instrumental & Vocal Groupings',
-  'key': 'Key',
-  'keys': 'Key',
+  groupings: 'Instrumental & Vocal Groupings',
+  key: 'Key',
+  keys: 'Key',
   'musical-key': 'Key',
-  'language': 'Language',
-  'languages': 'Language',
+  language: 'Language',
+  languages: 'Language',
   'lyric-subject': 'Lyric Subject',
   'lyrics-subject': 'Lyric Subject',
-  'movement': 'Movement',
-  'movements': 'Movement',
+  movement: 'Movement',
+  movements: 'Movement',
   'musical-form': 'Musical Form',
-  'form': 'Musical Form',
+  form: 'Musical Form',
   'sound-effects': 'Sound Effects',
-  'sfx': 'Sound Effects',
+  sfx: 'Sound Effects',
   'time-period': 'Time Period',
-  'period': 'Time Period',
-  'era': 'Time Period',
+  period: 'Time Period',
+  era: 'Time Period',
   'track-type': 'Track Type',
-  'type': 'Track Type'
+  type: 'Track Type',
 };
 
 /**

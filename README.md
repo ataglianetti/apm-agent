@@ -5,6 +5,7 @@ Production music search system with intelligent 3-tier routing.
 ## Overview
 
 APM Agent is a music search application that combines:
+
 - **Solr search engine** with 1.4M tracks indexed (matching APM production)
 - **Song-level deduplication** via song_id grouping (406K unique songs)
 - **18 facet categories** (2,120 total facets) for precise filtering
@@ -22,11 +23,11 @@ APM Agent is a music search application that combines:
 
 ## Performance
 
-| Route | Use Case | Target | Actual |
-|-------|----------|--------|--------|
-| Route 1 | @ filter queries | <100ms | ~45ms |
-| Route 2 | Simple text queries | <100ms | ~90ms |
-| Route 3 | Complex/conversational | <4s | ~2.3s |
+| Route   | Use Case               | Target | Actual |
+| ------- | ---------------------- | ------ | ------ |
+| Route 1 | @ filter queries       | <100ms | ~45ms  |
+| Route 2 | Simple text queries    | <100ms | ~90ms  |
+| Route 3 | Complex/conversational | <4s    | ~2.3s  |
 
 ## Project Structure
 
@@ -139,12 +140,14 @@ npm run dev
 ### Search Examples
 
 **@ Filter Queries (Route 1 - fastest):**
+
 ```
 @mood:uplifting @instruments:piano
 @genre:rock @energy:high
 ```
 
 **Simple Text Queries (Route 2):**
+
 ```
 upbeat rock
 epic cinematic trailer
@@ -152,6 +155,7 @@ calm ambient piano
 ```
 
 **Complex Queries (Route 3 - uses Claude):**
+
 ```
 What tracks are in my project?
 Find something similar to the last track I downloaded
@@ -163,6 +167,7 @@ What did I download last week?
 ### Business Rules
 
 Edit `server/config/businessRules.json` to adjust search ranking:
+
 - Genre simplification (expand rock to subgenres)
 - Library boosting (prioritize specific catalogs)
 - Recency interleaving (mix new and classic)
@@ -170,6 +175,7 @@ Edit `server/config/businessRules.json` to adjust search ranking:
 ### Field Weights
 
 Edit `server/config/fieldWeights.json` to adjust relevance scoring:
+
 ```json
 {
   "qf": "track_title^3.0 combined_genre^4.0 composer^0.8 ...",
@@ -181,16 +187,17 @@ Changes take effect on server restart. No code deployment needed.
 
 ## API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/chat` | POST | Main search endpoint (3-tier routing) |
-| `/api/tracks/:id/metadata` | GET | Track metadata with facets |
-| `/api/tracks/:id/similar` | GET | Similar tracks by shared facets |
-| `/api/health` | GET | System health check |
+| Endpoint                   | Method | Description                           |
+| -------------------------- | ------ | ------------------------------------- |
+| `/api/chat`                | POST   | Main search endpoint (3-tier routing) |
+| `/api/tracks/:id/metadata` | GET    | Track metadata with facets            |
+| `/api/tracks/:id/similar`  | GET    | Similar tracks by shared facets       |
+| `/api/health`              | GET    | System health check                   |
 
 ## Documentation
 
 See [CLAUDE.md](./CLAUDE.md) for comprehensive documentation including:
+
 - Architecture deep dive
 - Database schema
 - Service layer details

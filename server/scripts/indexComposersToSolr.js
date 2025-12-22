@@ -24,7 +24,7 @@ let solrConfig = {
   host: 'localhost',
   port: 8983,
   core: 'composers',
-  protocol: 'http'
+  protocol: 'http',
 };
 
 try {
@@ -63,9 +63,9 @@ async function indexBatch(docs) {
   const response = await fetch(`${SOLR_UPDATE_URL}?commit=false`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
-    body: JSON.stringify(docs)
+    body: JSON.stringify(docs),
   });
 
   if (!response.ok) {
@@ -83,9 +83,9 @@ async function commit() {
   const response = await fetch(`${SOLR_UPDATE_URL}?commit=true`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
-    body: JSON.stringify({})
+    body: JSON.stringify({}),
   });
 
   if (!response.ok) {
@@ -101,9 +101,9 @@ async function deleteAll() {
   const response = await fetch(`${SOLR_UPDATE_URL}?commit=true`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ delete: { query: '*:*' } })
+    body: JSON.stringify({ delete: { query: '*:*' } }),
   });
 
   if (!response.ok) {
@@ -161,7 +161,7 @@ async function main() {
 
   for (const row of composers) {
     const doc = {
-      id: row.composer_fullname
+      id: row.composer_fullname,
     };
     batch.push(doc);
 
@@ -173,7 +173,9 @@ async function main() {
       const elapsed = (Date.now() - startTime) / 1000;
       const rate = Math.round(indexed / elapsed);
       const pct = ((indexed / composers.length) * 100).toFixed(1);
-      process.stdout.write(`\r  Indexed ${indexed.toLocaleString()} composers (${pct}%) - ${rate}/sec`);
+      process.stdout.write(
+        `\r  Indexed ${indexed.toLocaleString()} composers (${pct}%) - ${rate}/sec`
+      );
     }
   }
 

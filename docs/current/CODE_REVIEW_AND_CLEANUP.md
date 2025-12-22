@@ -25,27 +25,28 @@
 
 #### Server-Side
 
-| File | Purpose | Status | Notes |
-|------|---------|--------|-------|
-| `server/apm_music.db` | SQLite database (6.5GB) | ✅ Production | 10,001 tracks, 2,120 facets |
-| `server/config/businessRules.json` | PM-controlled rules | ✅ Production | 16 rules across 5 types |
-| `server/services/businessRulesEngine.js` | Rules engine | ✅ Production | Complete transparency |
-| `server/services/metadataSearch.js` | Unified search | ✅ Production | FTS5 + facets + weighting |
-| `server/services/metadataEnhancer.js` | Metadata extraction | ✅ Production | Moods, energy, instruments |
-| `server/services/facetSearchService.js` | Facet filtering | ✅ Production | 18 categories |
-| `server/services/filterParser.js` | @ syntax parser | ✅ Production | Power user filters |
-| `server/routes/trackMetadata.js` | Metadata API | ✅ Production | 3 endpoints |
-| `server/routes/chat.js` | Enhanced routing | ✅ Production | 3-tier intelligent routing |
+| File                                     | Purpose                 | Status        | Notes                       |
+| ---------------------------------------- | ----------------------- | ------------- | --------------------------- |
+| `server/apm_music.db`                    | SQLite database (6.5GB) | ✅ Production | 10,001 tracks, 2,120 facets |
+| `server/config/businessRules.json`       | PM-controlled rules     | ✅ Production | 16 rules across 5 types     |
+| `server/services/businessRulesEngine.js` | Rules engine            | ✅ Production | Complete transparency       |
+| `server/services/metadataSearch.js`      | Unified search          | ✅ Production | FTS5 + facets + weighting   |
+| `server/services/metadataEnhancer.js`    | Metadata extraction     | ✅ Production | Moods, energy, instruments  |
+| `server/services/facetSearchService.js`  | Facet filtering         | ✅ Production | 18 categories               |
+| `server/services/filterParser.js`        | @ syntax parser         | ✅ Production | Power user filters          |
+| `server/routes/trackMetadata.js`         | Metadata API            | ✅ Production | 3 endpoints                 |
+| `server/routes/chat.js`                  | Enhanced routing        | ✅ Production | 3-tier intelligent routing  |
 
 #### Client-Side
 
-| File | Purpose | Status | Notes |
-|------|---------|--------|-------|
-| `client/src/components/TrackMetadataModal.jsx` | Transparency UI | ✅ Production | 3-tab modal |
-| `client/src/components/TrackCard.jsx` | Enhanced display | ✅ Production | Shows moods, energy, instruments |
-| `client/src/components/TrackResultsList.jsx` | Pagination | ✅ Production | Show More support |
+| File                                           | Purpose          | Status        | Notes                            |
+| ---------------------------------------------- | ---------------- | ------------- | -------------------------------- |
+| `client/src/components/TrackMetadataModal.jsx` | Transparency UI  | ✅ Production | 3-tab modal                      |
+| `client/src/components/TrackCard.jsx`          | Enhanced display | ✅ Production | Shows moods, energy, instruments |
+| `client/src/components/TrackResultsList.jsx`   | Pagination       | ✅ Production | Show More support                |
 
 **Code Quality Metrics:**
+
 - ✅ No console errors
 - ✅ No TypeScript/ESLint warnings
 - ✅ Proper error handling
@@ -60,52 +61,52 @@
 
 #### Old CSV-Based Services (Replaced by SQLite)
 
-| File | Replacement | Reason |
-|------|-------------|--------|
-| `server/services/fileTools.js` | `fileToolsDb.js` | CSV-based, replaced by SQLite |
-| `data/tracks.csv` | `apm_music.db` | Old data source |
-| `data/tracks_original.csv` | `apm_music.db` | Backup, no longer needed |
-| `data/tracks_before_good_rockin.csv` | `apm_music.db` | Old backup |
+| File                                 | Replacement      | Reason                        |
+| ------------------------------------ | ---------------- | ----------------------------- |
+| `server/services/fileTools.js`       | `fileToolsDb.js` | CSV-based, replaced by SQLite |
+| `data/tracks.csv`                    | `apm_music.db`   | Old data source               |
+| `data/tracks_original.csv`           | `apm_music.db`   | Backup, no longer needed      |
+| `data/tracks_before_good_rockin.csv` | `apm_music.db`   | Old backup                    |
 
 #### Outdated Documentation
 
-| File | Status | Reason |
-|------|--------|--------|
-| `CLAUDE.md` | ⚠️ UPDATE REQUIRED | References old CSV prototype |
-| `CLAUDE-DEPRECATED.md` | ✅ Already archived | Good! |
-| `IMPLEMENTATION_SUMMARY.md` | 🔄 Old version | Replaced by new docs |
-| `POC_PROGRESS.md` | 🔄 Outdated | Pre-business rules |
-| `OPTIMIZATION-PLAN.md` | 🔄 Implemented | Now complete |
-| `PERFORMANCE_UPDATE.md` | 🔄 Old metrics | Superseded |
-| `FINDINGS_SUMMARY.md` | 🔄 Old findings | Pre-SQLite |
-| `FIXES_SUMMARY.md` | 🔄 Old fixes | Pre-business rules |
-| `FILTER_PILLS_IMPLEMENTATION_PLAN.md` | 🔄 Old UI plan | May be outdated |
-| `DEMO.md` | 🔄 Old demo | Use HOW_TO_DEMO.md |
+| File                                  | Status              | Reason                       |
+| ------------------------------------- | ------------------- | ---------------------------- |
+| `CLAUDE.md`                           | ⚠️ UPDATE REQUIRED  | References old CSV prototype |
+| `CLAUDE-DEPRECATED.md`                | ✅ Already archived | Good!                        |
+| `IMPLEMENTATION_SUMMARY.md`           | 🔄 Old version      | Replaced by new docs         |
+| `POC_PROGRESS.md`                     | 🔄 Outdated         | Pre-business rules           |
+| `OPTIMIZATION-PLAN.md`                | 🔄 Implemented      | Now complete                 |
+| `PERFORMANCE_UPDATE.md`               | 🔄 Old metrics      | Superseded                   |
+| `FINDINGS_SUMMARY.md`                 | 🔄 Old findings     | Pre-SQLite                   |
+| `FIXES_SUMMARY.md`                    | 🔄 Old fixes        | Pre-business rules           |
+| `FILTER_PILLS_IMPLEMENTATION_PLAN.md` | 🔄 Old UI plan      | May be outdated              |
+| `DEMO.md`                             | 🔄 Old demo         | Use HOW_TO_DEMO.md           |
 
 #### Old Test/Analysis Files
 
-| File | Reason |
-|------|--------|
+| File                                 | Reason                   |
+| ------------------------------------ | ------------------------ |
 | `server/MISSING_FILTERS_ANALYSIS.md` | Pre-facet implementation |
-| `server/TEST_FACET_FILTERS.md` | Old test documentation |
-| `TRACK_CARDS_ANALYSIS.md` | Pre-enhanced metadata |
-| `TRACK_CARDS_DOCUMENTATION_INDEX.md` | Old UI docs |
-| `TRACK_CARDS_FLOW_DIAGRAM.md` | Old flow |
-| `TRACK_CARDS_QUICK_REFERENCE.md` | Old reference |
-| `TEST_REPORT.md` | Old test results |
+| `server/TEST_FACET_FILTERS.md`       | Old test documentation   |
+| `TRACK_CARDS_ANALYSIS.md`            | Pre-enhanced metadata    |
+| `TRACK_CARDS_DOCUMENTATION_INDEX.md` | Old UI docs              |
+| `TRACK_CARDS_FLOW_DIAGRAM.md`        | Old flow                 |
+| `TRACK_CARDS_QUICK_REFERENCE.md`     | Old reference            |
+| `TEST_REPORT.md`                     | Old test results         |
 
 ### ⚠️ Medium Priority - Keep for Reference
 
 These files contain useful historical data but should be moved to `/deprecated`:
 
-| File | Keep Because |
-|------|--------------|
-| `data/search_history.csv` | Historical search patterns for analysis |
-| `data/download_history.csv` | Historical download patterns |
-| `data/audition_history.csv` | Historical audition data |
-| `data/projects.csv` | May be used for future features |
-| `data/mock_references.csv` | Test data for similarity search |
-| `data/audio_similarities.csv` | May be used for "Sounds Like" feature |
+| File                          | Keep Because                            |
+| ----------------------------- | --------------------------------------- |
+| `data/search_history.csv`     | Historical search patterns for analysis |
+| `data/download_history.csv`   | Historical download patterns            |
+| `data/audition_history.csv`   | Historical audition data                |
+| `data/projects.csv`           | May be used for future features         |
+| `data/mock_references.csv`    | Test data for similarity search         |
+| `data/audio_similarities.csv` | May be used for "Sounds Like" feature   |
 
 ---
 
@@ -166,7 +167,9 @@ apm-agent/
 ## 4. Critical Issue: CLAUDE.md is Outdated
 
 ### Current State
+
 CLAUDE.md still references the **old CSV-based prototype**:
+
 - References `./data/tracks.csv` (now replaced by SQLite)
 - References `./data/search_history.csv` (not actively used)
 - No mention of business rules engine
@@ -174,6 +177,7 @@ CLAUDE.md still references the **old CSV-based prototype**:
 - No mention of 3-tier routing
 
 ### Required Updates
+
 1. **Remove CSV references** - Replace with SQLite database info
 2. **Add business rules section** - Document the 16 rules and how to use them
 3. **Add facet search documentation** - Document @ filter syntax for 18 categories
@@ -181,6 +185,7 @@ CLAUDE.md still references the **old CSV-based prototype**:
 5. **Update search modes** - Add metadata search, remove CSV-based search
 
 ### Impact
+
 - **Medium Risk:** Claude (the LLM) won't know about new features when helping users
 - **Recommendation:** Update CLAUDE.md before production deployment
 
@@ -268,15 +273,16 @@ CLAUDE.md still references the **old CSV-based prototype**:
 
 ### ✅ Excellent Performance
 
-| Operation | Target | Actual | Status |
-|-----------|--------|--------|--------|
-| @ filter queries | <100ms | <100ms | ✅ Met |
-| Simple queries | <2s | ~24ms | ✅ 100x better |
-| Complex queries | <4s | <4s | ✅ Met |
-| Database size | - | 6.5GB | ✅ Reasonable |
-| Memory usage | - | ~50MB | ✅ Excellent |
+| Operation        | Target | Actual | Status         |
+| ---------------- | ------ | ------ | -------------- |
+| @ filter queries | <100ms | <100ms | ✅ Met         |
+| Simple queries   | <2s    | ~24ms  | ✅ 100x better |
+| Complex queries  | <4s    | <4s    | ✅ Met         |
+| Database size    | -      | 6.5GB  | ✅ Reasonable  |
+| Memory usage     | -      | ~50MB  | ✅ Excellent   |
 
 **Optimizations Applied:**
+
 - SQLite WAL mode
 - FTS5 full-text search
 - Field weight caching
@@ -373,6 +379,7 @@ CLAUDE.md still references the **old CSV-based prototype**:
 **Overall Assessment:** Production-ready with minor cleanup
 
 **Strengths:**
+
 - Clean, modular architecture
 - Excellent performance (100x improvement)
 - PM-controlled without code changes
@@ -380,12 +387,14 @@ CLAUDE.md still references the **old CSV-based prototype**:
 - Proper error handling
 
 **Minor Issues:**
+
 - Documentation needs update (CLAUDE.md)
 - Deprecated files need archiving
 - Missing unit tests
 - Could benefit from structured logging
 
 **Recommendation:**
+
 1. Archive deprecated files (30 min)
 2. Update CLAUDE.md (1 hour)
 3. Run npm audit (15 min)
@@ -413,4 +422,4 @@ CLAUDE.md still references the **old CSV-based prototype**:
 
 ---
 
-*Generated by Claude - December 18, 2025*
+_Generated by Claude - December 18, 2025_

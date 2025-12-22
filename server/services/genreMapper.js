@@ -17,7 +17,7 @@ function loadGenreMap() {
     const fileContent = fs.readFileSync(csvPath, 'utf-8');
     const records = parse(fileContent, {
       columns: true,
-      skip_empty_lines: true
+      skip_empty_lines: true,
     });
 
     genreMap = {};
@@ -48,9 +48,10 @@ export function enrichTrackWithGenreNames(track) {
   // Map additional genres (try additional_genre_ids first, then fall back to additional_genres)
   const additionalGenreIds = track.additional_genre_ids || track.additional_genres;
   if (additionalGenreIds) {
-    const additionalIds = (typeof additionalGenreIds === 'string'
-      ? additionalGenreIds.split(/[;,]/)
-      : String(additionalGenreIds).split(/[;,]/)
+    const additionalIds = (
+      typeof additionalGenreIds === 'string'
+        ? additionalGenreIds.split(/[;,]/)
+        : String(additionalGenreIds).split(/[;,]/)
     ).filter(id => id && id.trim());
 
     const additionalNames = additionalIds.map(id => mapping[id.trim()] || null).filter(Boolean);

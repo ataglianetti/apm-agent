@@ -9,12 +9,14 @@ Set up a local Solr instance via Docker using APM's production configuration, th
 **Location:** `/Users/echowreck/Downloads/cores/`
 
 **Available cores:**
+
 - `tracks` - Main track search (primary focus)
 - `composers` - Composer search
 - `terms` - Taxonomy terms
 - `sound_alikes` - Sound similarity
 
 **Key schema features (`tracks` core):**
+
 - `combined_ids` field - Aggregates ALL facet IDs for unified filtering
 - Custom field types: `apm_text_flat_en`, `apm_text_flat_en_stopwords`
 - `*_search` fields for text search (track_title_search, mood_search, etc.)
@@ -28,6 +30,7 @@ Set up a local Solr instance via Docker using APM's production configuration, th
 ### Install Docker Desktop
 
 **macOS:**
+
 1. Download from https://www.docker.com/products/docker-desktop/
 2. Install and launch Docker Desktop
 3. Verify: `docker --version` and `docker compose version`
@@ -39,6 +42,7 @@ Set up a local Solr instance via Docker using APM's production configuration, th
 ### 1.1 Create Docker Setup
 
 **New files:**
+
 ```
 docker-compose.yml
 solr/
@@ -50,6 +54,7 @@ solr/
 ```
 
 **docker-compose.yml:**
+
 ```yaml
 version: '3.8'
 services:
@@ -57,7 +62,7 @@ services:
     image: solr:8.11
     container_name: apm-solr
     ports:
-      - "8983:8983"
+      - '8983:8983'
     volumes:
       - ./solr:/var/solr/data
     environment:
@@ -84,24 +89,25 @@ cp -r /Users/echowreck/Downloads/cores/terms solr/
 
 Maps SQLite track data to Solr document format:
 
-| SQLite Column | Solr Field |
-|---------------|------------|
-| `id` | `id` |
-| `track_title` | `track_title`, `track_title_search` |
-| `track_description` | `track_description`, `track_description_search` |
-| `facet_ids` | Individual `*_ids` fields + `combined_ids` |
-| `facet_labels` | Individual facet name fields (mood, genre, etc.) |
-| `bpm` | `bpm` |
-| `duration` | `duration` |
-| `apm_release_date` | `apm_release_date` |
-| `library_name` | `library_name`, `library_search` |
-| `album_title` | `album_title`, `album_title_search` |
+| SQLite Column       | Solr Field                                       |
+| ------------------- | ------------------------------------------------ |
+| `id`                | `id`                                             |
+| `track_title`       | `track_title`, `track_title_search`              |
+| `track_description` | `track_description`, `track_description_search`  |
+| `facet_ids`         | Individual `*_ids` fields + `combined_ids`       |
+| `facet_labels`      | Individual facet name fields (mood, genre, etc.) |
+| `bpm`               | `bpm`                                            |
+| `duration`          | `duration`                                       |
+| `apm_release_date`  | `apm_release_date`                               |
+| `library_name`      | `library_name`, `library_search`                 |
+| `album_title`       | `album_title`, `album_title_search`              |
 
 **Key transformation:** Parse `facet_ids` (semicolon-separated) and map to category-specific `*_ids` fields using facet_taxonomy table.
 
 ### 2.2 Facet ID Mapping
 
 Need to map each facet_id to its category to populate:
+
 - `genre_ids`, `mood_ids`, `instruments_ids`, etc.
 - These all copy to `combined_ids` for unified filtering
 
@@ -121,6 +127,7 @@ Need to map each facet_id to its category to populate:
 ```
 
 **Query parameters (matching production):**
+
 - `defType: edismax`
 - `q.op: AND`
 - `mm: 100%`
@@ -146,13 +153,13 @@ const results = await solrService.search(text, { qf, pf2, fq, sort });
 
 ### 3.3 Files to Create/Modify
 
-| File | Action |
-|------|--------|
-| `server/services/solrService.js` | Create - Solr client |
-| `server/scripts/indexToSolr.js` | Create - Data indexer |
-| `server/config/solr.json` | Create - Connection config |
-| `server/services/metadataSearch.js` | Modify - Use Solr |
-| `server/config/fieldWeights.json` | Modify - Add facet_labels weight |
+| File                                | Action                           |
+| ----------------------------------- | -------------------------------- |
+| `server/services/solrService.js`    | Create - Solr client             |
+| `server/scripts/indexToSolr.js`     | Create - Data indexer            |
+| `server/config/solr.json`           | Create - Connection config       |
+| `server/services/metadataSearch.js` | Modify - Use Solr                |
+| `server/config/fieldWeights.json`   | Modify - Add facet_labels weight |
 
 ---
 
@@ -203,11 +210,13 @@ This enables searches like "uplifting piano" to match tracks with those facet la
 ## Solr Schema Key Fields Reference
 
 **Track metadata:**
+
 - `id`, `track_title`, `track_description`, `bpm`, `duration`
 - `apm_release_date`, `original_recording_date`
 - `album_title`, `album_code`, `library_name`
 
 **Facet fields (indexed for filtering):**
+
 - `genre`, `additional_genre`, `combined_genre`
 - `mood`, `movement`, `character`, `musical_form`
 - `music_for`, `instruments`, `vocals`
@@ -215,10 +224,12 @@ This enables searches like "uplifting piano" to match tracks with those facet la
 - `lyric_subject`, `is_a`, `track_type`, `tempo`, `key`, `language`
 
 **Facet ID fields (for combined_ids filtering):**
+
 - `genre_ids`, `mood_ids`, `instruments_ids`, etc.
 - All copy to `combined_ids` for unified fq filtering
 
 **Search fields (text-analyzed):**
+
 - `track_title_search`, `track_description_search`
 - `mood_search`, `instruments_search`, etc.
 
@@ -227,6 +238,7 @@ This enables searches like "uplifting piano" to match tracks with those facet la
 ## Environment Configuration
 
 **New:** `server/config/solr.json`
+
 ```json
 {
   "host": "localhost",
@@ -237,6 +249,7 @@ This enables searches like "uplifting piano" to match tracks with those facet la
 ```
 
 **Toggle:** Add `SEARCH_ENGINE` env var for fallback:
+
 ```
 SEARCH_ENGINE=solr  # or 'fts5' for SQLite fallback
 ```
