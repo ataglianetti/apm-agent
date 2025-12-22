@@ -159,7 +159,7 @@ router.get('/tracks/:id/metadata', async (req, res) => {
         metadata.scoreBreakdown = JSON.parse(track._score_breakdown);
         metadata.totalScore = track._relevance_score || 0;
         metadata.boostApplied = track._boost_applied || null;
-      } catch (e) {
+      } catch (_e) {
         // Score breakdown not available or malformed
         metadata.scoreBreakdown = null;
       }

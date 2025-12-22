@@ -29,7 +29,7 @@ let solrConfig = {
 
 try {
   solrConfig = JSON.parse(fs.readFileSync(SOLR_CONFIG_PATH, 'utf8'));
-} catch (error) {
+} catch (_error) {
   console.warn('Using default Solr config');
 }
 
@@ -184,7 +184,9 @@ function transformTrack(row) {
       if (!isNaN(date.getTime())) {
         doc.apm_release_date = date.toISOString();
       }
-    } catch (e) {}
+    } catch (_e) {
+      // Invalid date format, skip
+    }
   }
 
   if (row.internal_release_date) {
@@ -193,7 +195,9 @@ function transformTrack(row) {
       if (!isNaN(date.getTime())) {
         doc.library_original_release_date = date.toISOString();
       }
-    } catch (e) {}
+    } catch (_e) {
+      // Invalid date format, skip
+    }
   }
 
   // Parse facet IDs and distribute to category-specific fields
@@ -325,9 +329,6 @@ async function main() {
   }
 
   // Count tracks
-  const countQuery = LIMIT
-    ? `SELECT COUNT(*) as count FROM tracks LIMIT ${LIMIT}`
-    : 'SELECT COUNT(*) as count FROM tracks';
   const { count: totalTracks } = db.prepare('SELECT COUNT(*) as count FROM tracks').get();
   const tracksToIndex = LIMIT ? Math.min(LIMIT, totalTracks) : totalTracks;
 

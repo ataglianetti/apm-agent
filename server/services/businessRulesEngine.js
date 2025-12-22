@@ -155,7 +155,7 @@ export async function applyRules(tracks, rules, query) {
  * @param {string} query - Original search query
  * @returns {object} - { applied, tracks, affectedTracks, scoreAdjustments, ... }
  */
-async function applyRule(tracks, rule, query) {
+async function applyRule(tracks, rule, _query) {
   switch (rule.type) {
     case 'genre_simplification':
       return applyGenreSimplification(tracks, rule);
@@ -282,8 +282,8 @@ function applyLibraryBoost(tracks, rule) {
  */
 function applyRecencyInterleaving(tracks, rule) {
   const {
-    recent_count,
-    vintage_count,
+    recent_count: _recent_count,
+    vintage_count: _vintage_count,
     recent_threshold_months,
     pattern
   } = rule.action;
@@ -319,7 +319,7 @@ function applyRecencyInterleaving(tracks, rule) {
         } else {
           vintageTracks.push(track);
         }
-      } catch (error) {
+      } catch (_error) {
         // If date parsing fails, treat as vintage
         vintageTracks.push(track);
       }

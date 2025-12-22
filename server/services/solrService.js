@@ -240,7 +240,7 @@ export async function search(options = {}) {
   const fq = [];
 
   // Facet filters: separate fq per category (AND between categories, OR within)
-  for (const [category, ids] of Object.entries(facetsByCategory)) {
+  for (const [_category, ids] of Object.entries(facetsByCategory)) {
     if (ids.length > 0) {
       const quotedIds = ids.map(id => `"${id}"`);
       fq.push(`combined_ids:(${quotedIds.join(' OR ')})`);
@@ -399,7 +399,7 @@ function mapTrack(doc) {
       if (versionsStr) {
         versions = JSON.parse(versionsStr);
       }
-    } catch (e) {
+    } catch (_e) {
       // Invalid JSON, ignore
     }
   }
@@ -440,7 +440,7 @@ export async function ping() {
     const response = await fetch(url);
     const data = await response.json();
     return data.status === 'OK';
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }

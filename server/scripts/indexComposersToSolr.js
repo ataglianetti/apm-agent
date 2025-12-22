@@ -30,7 +30,7 @@ let solrConfig = {
 try {
   const baseConfig = JSON.parse(fs.readFileSync(SOLR_CONFIG_PATH, 'utf8'));
   solrConfig = { ...baseConfig, core: 'composers' };
-} catch (error) {
+} catch (_error) {
   console.warn('Using default Solr config');
 }
 

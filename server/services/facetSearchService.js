@@ -173,7 +173,7 @@ export function getCategoryName(userCategory) {
  */
 export function isFacetCategory(field) {
   const normalized = field.toLowerCase().trim();
-  return CATEGORY_MAPPING.hasOwnProperty(normalized);
+  return Object.hasOwn(CATEGORY_MAPPING, normalized);
 }
 
 export function closeDatabase() {

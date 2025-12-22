@@ -243,7 +243,7 @@ export async function parseQueryToTaxonomy(query) {
       // Try to extract JSON from the response (in case there's extra text)
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       parsed = JSON.parse(jsonMatch ? jsonMatch[0] : responseText);
-    } catch (parseError) {
+    } catch (_parseError) {
       console.error('Failed to parse LLM response as JSON:', responseText);
       parsed = {
         filters: {},
@@ -290,7 +290,7 @@ export async function parseQueryToTaxonomy(query) {
 export function buildSolrFilters(taxonomyResult) {
   const fqs = [];
 
-  for (const [category, facetIds] of Object.entries(taxonomyResult.filters || {})) {
+  for (const [_category, facetIds] of Object.entries(taxonomyResult.filters || {})) {
     if (facetIds && facetIds.length > 0) {
       // Build OR query for multiple facets in same category
       const orClauses = facetIds.map(id => `"${id}"`).join(' OR ');

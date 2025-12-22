@@ -366,7 +366,6 @@ function applyAdditionalFilters(tracks, filters) {
  */
 async function calculateRelevanceScores(tracks, facets, text) {
   const weights = loadFieldWeights();
-  const db = getDb();
 
   return tracks.map(track => {
     let score = 0;

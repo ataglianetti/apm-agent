@@ -3,11 +3,11 @@ import { chat as claudeChat } from '../services/claude.js';
 import { parseFilterQuery, hasFilters } from '../services/filterParser.js';
 import { search as metadataSearch } from '../services/metadataSearch.js';
 import { matchRules, applyRules } from '../services/businessRulesEngine.js';
-import { searchFacets } from '../services/taxonomySearch.js';
+// searchFacets available from '../services/taxonomySearch.js' if needed
 import { enrichTracksWithGenreNames } from '../services/genreMapper.js';
-import { getLLMMode, getBusinessRulesEnabled, getTaxonomyParserEnabled } from './settings.js';
+import { getLLMMode, getTaxonomyParserEnabled } from './settings.js';
 import { enhanceTracksMetadata, enrichTracksWithFullVersions } from '../services/metadataEnhancer.js';
-import { parseQueryLocal, buildSolrFilters } from '../services/queryToTaxonomy.js';
+import { parseQueryLocal } from '../services/queryToTaxonomy.js';
 
 const router = express.Router();
 
@@ -68,25 +68,13 @@ function classifyQueryComplexity(query) {
     }
   }
 
-  // Simple query indicators - straightforward descriptive terms
-  const simplePatterns = [
-    // Genre + mood combinations
-    /^(rock|classical|jazz|electronic|pop|hip hop|country|blues)\s+(upbeat|dark|mellow|energetic|calm)/,
-
-    // Pure descriptive (2-4 words)
-    /^[\w\s]{5,30}$/,  // Short, simple text without special chars
-
-    // Use case + mood
-    /^(corporate|advertising|commercial|sports|film|trailer)\s+[\w\s]+$/,
-  ];
-
   // Word count heuristic: very short queries (1-4 words) = simple
   // Longer descriptive queries (5+ words) go to Claude for interpretation
   // e.g., "high speed chase through a neon city scape" needs LLM to understand vibes
   const wordCount = lowerQuery.trim().split(/\s+/).length;
   if (wordCount >= 1 && wordCount <= 4) {
     // Check if it's purely descriptive (no special characters, no questions)
-    if (!/[?!@#$%^&*()_+=\[\]{}|\\:;"'<>,]/.test(lowerQuery)) {
+    if (!/[?!@#$%^&*()_+=[\]{}|\\:;"'<>,]/.test(lowerQuery)) {
       return 'simple';
     }
   }
@@ -457,7 +445,7 @@ router.post('/chat', async (req, res) => {
         // Try to parse as JSON string to unescape it
         const unescaped = JSON.parse(`"${reply}"`);
         reply = unescaped;
-      } catch (e) {
+      } catch (_e) {
         // If parsing fails, use the original reply
         // This is fine - it just means it wasn't double-encoded
       }
@@ -599,13 +587,6 @@ router.post('/chat', async (req, res) => {
           const enrichedTracks = enrichTracksWithGenreNames(solrResults.tracks);
           const matchedRules = matchRules(lastMessage.content);
           const enhancedResults = await applyRules(enrichedTracks, matchedRules, lastMessage.content);
-
-          // Extract a friendly message from Claude's response if possible
-          let friendlyMessage = `Found tracks matching "${lastMessage.content}"`;
-          const msgMatch = reply.match(/"message"\s*:\s*"([^"]+)"/);
-          if (msgMatch) {
-            friendlyMessage = msgMatch[1];
-          }
 
           const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
 

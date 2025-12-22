@@ -18,7 +18,7 @@ try {
   if (fs.existsSync(configPath)) {
     solrConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
   }
-} catch (e) {
+} catch (_e) {
   // Use defaults
 }
 
