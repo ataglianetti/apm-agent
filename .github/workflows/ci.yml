@@ -39,16 +39,9 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
-      - name: Upload client coverage report
-        uses: actions/upload-artifact@v4
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
         with:
-          name: client-coverage
-          path: client/coverage/
-          retention-days: 7
-
-      - name: Upload server coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-coverage
-          path: server/coverage/
-          retention-days: 7
+          files: ./client/coverage/coverage-final.json,./server/coverage/coverage-final.json
+          fail_ci_if_error: false
+          verbose: true

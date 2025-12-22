@@ -1,6 +1,7 @@
 # APM Agent
 
 [![CI](https://github.com/ataglianetti/apm-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/ataglianetti/apm-agent/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ataglianetti/apm-agent/graph/badge.svg)](https://codecov.io/gh/ataglianetti/apm-agent)
 
 Production music search system with intelligent 3-tier routing.
 

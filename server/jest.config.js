@@ -4,5 +4,5 @@ export default {
   testMatch: ['**/*.test.js'],
   moduleFileExtensions: ['js'],
   collectCoverageFrom: ['services/**/*.js', 'routes/**/*.js', '!**/*.test.js'],
-  coverageReporters: ['text', 'text-summary', 'html'],
+  coverageReporters: ['text', 'text-summary', 'html', 'json'],
 };
