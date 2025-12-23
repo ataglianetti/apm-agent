@@ -8,10 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const dbPath = path.join(__dirname, '../apm_music.db');
-const catalogCsvPath = path.join(
-  __dirname,
-  '../../data/AnthonyOutput_v2_20251218_095451_CLEANED.csv'
-);
+const catalogCsvPath = path.join(__dirname, '../../data/tracks.csv');
 
 console.log('Loading Full APM Production Catalog...');
 console.log('Database:', dbPath);
