@@ -22,18 +22,25 @@ const FIELD_OPTIONS = [
     field: 'library_name',
     description: 'Search by library name',
   },
-  { key: 'tags', label: 'Tags/Genre', field: 'genre', description: 'Search by genre tags' },
+  { key: 'genre', label: 'Genre', field: 'genre', description: 'Search by genre' },
   { key: 'mood', label: 'Mood', field: 'mood', description: 'Search by mood' },
-  { key: 'energy', label: 'Energy', field: 'energy_level', description: 'Search by energy level' },
-  { key: 'use-case', label: 'Use Case', field: 'use_case', description: 'Search by use case' },
+  { key: 'music-for', label: 'Music For', field: 'music_for', description: 'Search by use case' },
   {
     key: 'instruments',
     label: 'Instruments',
     field: 'instruments',
     description: 'Search by instruments',
   },
-  { key: 'era', label: 'Era', field: 'era', description: 'Search by era/period' },
-  { key: 'bpm', label: 'BPM', field: 'bpm', description: 'Search by tempo' },
+  { key: 'tempo', label: 'Tempo', field: 'tempo', description: 'Search by tempo' },
+  {
+    key: 'movement',
+    label: 'Movement',
+    field: 'movement',
+    description: 'Search by movement/energy',
+  },
+  { key: 'character', label: 'Character', field: 'character', description: 'Search by character' },
+  { key: 'vocals', label: 'Vocals', field: 'vocals', description: 'Search by vocal type' },
+  { key: 'time-period', label: 'Era', field: 'time_period', description: 'Search by era/period' },
 ];
 
 // Field labels for better display
@@ -43,15 +50,15 @@ const fieldLabels = {
   'album-title': 'Album',
   composer: 'Composer',
   library: 'Library',
-  tags: 'Genre',
+  genre: 'Genre',
   mood: 'Mood',
-  energy: 'Energy',
-  'use-case': 'Use Case',
+  'music-for': 'Music For',
   instruments: 'Instruments',
-  era: 'Era',
-  bpm: 'BPM',
-  duration: 'Duration',
-  'has-stems': 'Stems',
+  tempo: 'Tempo',
+  movement: 'Movement',
+  character: 'Character',
+  vocals: 'Vocals',
+  'time-period': 'Era',
 };
 
 /**
