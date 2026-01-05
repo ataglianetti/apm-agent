@@ -212,18 +212,20 @@ manage_project('list_tracks', { project_id: 'P012' });
 
 ## Response Format Requirements
 
-### For Pill Extraction (NEW - Search Intent Queries)
+### For Pill Extraction (Search Intent Queries)
 
-When a user expresses a search intent that can be converted to specific filters, you should extract their intent as "pills" (search filters). This helps the user see what you understood and allows them to modify the search.
+**CRITICAL:** When a user expresses a search intent (e.g., "I need X music for Y"), you MUST respond with ONLY the pill_extraction JSON below. Do NOT include any text before or after the JSON. The entire response must be valid JSON.
 
-**When to use pill extraction:**
+When a user expresses a search intent that can be converted to specific filters, extract their intent as "pills" (search filters). This helps the user see what you understood and allows them to modify the search.
+
+**When to use pill extraction (respond with JSON ONLY):**
 
 - User says "I need intense music for a workout video" → Extract mood and text pills
 - User says "hard rock for a football commercial" → Extract genre and text pills
 - User says "but more upbeat" (with existing context) → Add mood pill to existing set
 - User says "actually, try electronic instead" → Replace genre pill
 
-**Pill Extraction JSON Format:**
+**Pill Extraction JSON Format (respond with this JSON ONLY, no other text):**
 
 ```json
 {

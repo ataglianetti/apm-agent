@@ -226,6 +226,9 @@ export async function chat(messages) {
     messages: messages,
   });
 
+  // Track search results for fallback use
+  let lastSearchResults = null;
+
   // Tool use loop - keep going until we get a text response
   while (response.stop_reason === 'tool_use') {
     // Find all tool use blocks
@@ -242,6 +245,15 @@ export async function chat(messages) {
         result = await executeProjectTool(toolUse.input.action, toolUse.input);
       } else {
         result = await executeFileTool(toolUse.name, toolUse.input);
+      }
+
+      // Capture search_tracks results for fallback
+      if (toolUse.name === 'search_tracks' && result && typeof result === 'object') {
+        lastSearchResults = {
+          tracks: result.tracks || [],
+          total: result.total || 0,
+          query: toolUse.input.query,
+        };
       }
 
       toolResults.push({
@@ -270,5 +282,8 @@ export async function chat(messages) {
 
   // Extract text response
   const textContent = response.content.find(c => c.type === 'text');
-  return textContent?.text || 'No response generated.';
+  const reply = textContent?.text || 'No response generated.';
+
+  // Return both reply and search results for fallback use
+  return { reply, searchResults: lastSearchResults };
 }

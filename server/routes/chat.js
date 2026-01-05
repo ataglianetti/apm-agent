@@ -477,10 +477,19 @@ router.post('/chat', async (req, res) => {
 
     // Route 3: Complex queries (Claude + metadata search + business rules)
     const startTime = Date.now();
-    let reply = await claudeChat(messages);
+    const claudeResult = await claudeChat(messages);
     const elapsed = Date.now() - startTime;
 
+    // Extract reply and fallback search results
+    let reply = claudeResult.reply || claudeResult;
+    const fallbackSearchResults = claudeResult.searchResults;
+
     console.log(`Response generated in ${elapsed}ms`);
+    if (fallbackSearchResults) {
+      console.log(
+        `Fallback search results available: ${fallbackSearchResults.tracks?.length} tracks`
+      );
+    }
 
     // Check if the reply has been double-encoded (common issue with JSON responses)
     // This happens when markdown text gets JSON.stringify'd multiple times
@@ -514,10 +523,12 @@ router.post('/chat', async (req, res) => {
         // Try to find JSON object if it doesn't start with {
         if (!trimmed.startsWith('{')) {
           console.log('Reply does not start with {, searching for JSON object...');
-          // Find the start of a track_results JSON object
-          const jsonStartMatch = trimmed.match(/\{\s*"type"\s*:\s*"track_results"/);
+          // Find the start of a track_results or pill_extraction JSON object
+          const jsonStartMatch = trimmed.match(
+            /\{\s*"type"\s*:\s*"(?:track_results|pill_extraction)"/
+          );
           if (jsonStartMatch) {
-            console.log('Found track_results JSON start pattern');
+            console.log('Found JSON start pattern:', jsonStartMatch[0].substring(0, 50));
             const startIdx = trimmed.indexOf(jsonStartMatch[0]);
             // Extract from the opening brace and find matching closing brace
             let braceCount = 0;
@@ -559,7 +570,7 @@ router.post('/chat', async (req, res) => {
             trimmed = trimmed.substring(startIdx, endIdx);
             console.log('Extracted JSON first 200 chars:', trimmed.substring(0, 200));
           } else {
-            console.log('No track_results JSON pattern found in reply');
+            console.log('No track_results or pill_extraction JSON pattern found in reply');
           }
         }
 
@@ -875,6 +886,30 @@ router.post('/chat', async (req, res) => {
         } catch (fallbackError) {
           console.log('Markdown extraction fallback failed:', fallbackError.message);
         }
+      }
+
+      // Use fallback search results if Claude found tracks but didn't format correctly
+      if (fallbackSearchResults && fallbackSearchResults.tracks?.length > 0) {
+        console.log(
+          `Using fallback search results: ${fallbackSearchResults.tracks.length} tracks from query "${fallbackSearchResults.query}"`
+        );
+        const enrichedTracks = enrichTracksWithGenreNames(fallbackSearchResults.tracks);
+        const matchedRules = matchRules(lastMessage.content);
+        const enhancedResults = await applyRules(enrichedTracks, matchedRules, lastMessage.content);
+        const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
+
+        return res.json({
+          type: 'track_results',
+          message: reply, // Use Claude's conversational message
+          tracks: tracksWithVersions,
+          total_count: fallbackSearchResults.total,
+          showing: `1-${Math.min(12, tracksWithVersions.length)}`,
+          _meta: {
+            appliedRules: enhancedResults.appliedRules,
+            scoreAdjustments: enhancedResults.scoreAdjustments,
+            fallback: 'tool_results',
+          },
+        });
       }
 
       // Return regular text response
