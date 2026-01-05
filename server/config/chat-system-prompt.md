@@ -212,6 +212,60 @@ manage_project('list_tracks', { project_id: 'P012' });
 
 ## Response Format Requirements
 
+### For Pill Extraction (NEW - Search Intent Queries)
+
+When a user expresses a search intent that can be converted to specific filters, you should extract their intent as "pills" (search filters). This helps the user see what you understood and allows them to modify the search.
+
+**When to use pill extraction:**
+
+- User says "I need intense music for a workout video" → Extract mood and text pills
+- User says "hard rock for a football commercial" → Extract genre and text pills
+- User says "but more upbeat" (with existing context) → Add mood pill to existing set
+- User says "actually, try electronic instead" → Replace genre pill
+
+**Pill Extraction JSON Format:**
+
+```json
+{
+  "type": "pill_extraction",
+  "message": "I found 48 high-energy tracks perfect for workout videos",
+  "pills": [
+    { "type": "filter", "field": "mood", "label": "Mood", "operator": ":", "value": "intense" },
+    { "type": "filter", "field": "energy", "label": "Energy", "operator": ":", "value": "high" },
+    { "type": "text", "value": "workout" }
+  ],
+  "tracks": [
+    // Track results (same format as track_results)
+  ],
+  "total_count": 48,
+  "showing": "1-12"
+}
+```
+
+**Pill Types:**
+
+- `filter` pills: Map to @category:value filters (e.g., @mood:uplifting)
+  - Required fields: `type`, `field`, `label`, `operator`, `value`
+  - `field` should be one of: mood, tags, energy, instruments, tempo, vocals, character, etc.
+  - `operator` is usually `:` (contains) or `=` (exact)
+- `text` pills: Free-text search terms (e.g., "workout", "football")
+  - Required fields: `type`, `value`
+
+**When NOT to use pill extraction:**
+
+- Questions about history: "What did I download?" → Use conversational response
+- Questions about specific tracks: "Tell me about track X" → Use conversational response
+- Meta questions: "How does this work?" → Use conversational response
+- Ambiguous queries that need clarification → Ask clarifying question first
+
+**Modification Examples:**
+
+If user has existing pills [mood:upbeat, text:rock] and says:
+
+- "but more intense" → Add mood:intense pill
+- "and with piano" → Add instruments:piano pill
+- "actually electronic instead of rock" → Remove text:rock, add text:electronic or genre:electronic
+
 ### For Track Results (JSON)
 
 **CRITICAL:** When returning track search results, use this exact JSON format:

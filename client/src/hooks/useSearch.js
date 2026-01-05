@@ -91,8 +91,16 @@ export function useSearch() {
         const data = await response.json();
 
         // Handle different response types
-        if (data.type === 'pill_update' || data.type === 'track_results') {
-          // Update results in place
+        if (data.type === 'pill_extraction' && data.pills) {
+          // Claude extracted pills from natural language - update pills and results
+          const newPills = data.pills.map(p => ({
+            ...p,
+            id: generateId(p.type || 'pill'),
+          }));
+          pillsRef.current = newPills;
+          setPills(newPills);
+
+          // Update results
           setCurrentResults({
             tracks: data.tracks,
             totalCount: data.total_count,
@@ -104,15 +112,28 @@ export function useSearch() {
             architecture: data.architecture,
           });
 
-          // If pill_extraction, also update pills
-          if (data.type === 'pill_extraction' && data.pills) {
-            const newPills = data.pills.map(p => ({
-              ...p,
-              id: generateId(p.type || 'pill'),
-            }));
-            pillsRef.current = newPills;
-            setPills(newPills);
+          // Also add Claude's message to conversation for context
+          if (data.message) {
+            const assistantMsg = {
+              id: generateId('assistant'),
+              role: 'assistant',
+              content: data.message,
+            };
+            conversationRef.current = [...conversationRef.current, assistantMsg];
+            setConversation(conversationRef.current);
           }
+        } else if (data.type === 'pill_update' || data.type === 'track_results') {
+          // Update results in place
+          setCurrentResults({
+            tracks: data.tracks,
+            totalCount: data.total_count,
+            showing: data.showing,
+            message: data.message,
+            _meta: data._meta,
+            timings: data.timings,
+            performance: data.performance,
+            architecture: data.architecture,
+          });
         } else if (data.reply) {
           // Conversational response - add to conversation
           const assistantMsg = {

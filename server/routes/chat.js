@@ -609,6 +609,60 @@ router.post('/chat', async (req, res) => {
               'tracks count:',
               parsed.tracks?.length
             );
+
+            // Handle pill_extraction response type (Phase 3)
+            if (parsed.type === 'pill_extraction' && Array.isArray(parsed.pills)) {
+              console.log(
+                'Valid pill_extraction JSON found with',
+                parsed.pills.length,
+                'pills and',
+                parsed.tracks?.length || 0,
+                'tracks'
+              );
+
+              // If Claude provided tracks, use them; otherwise do a Solr search
+              let finalTracks = parsed.tracks || [];
+              let totalCount = parsed.total_count || 0;
+
+              if (finalTracks.length === 0 && parsed.pills.length > 0) {
+                // Build query from pills and search
+                const filterPills = parsed.pills.filter(p => p.type === 'filter');
+                const textPills = parsed.pills.filter(p => p.type === 'text');
+
+                const filterString = filterPills
+                  .map(p => `@${p.field}${p.operator}${p.value}`)
+                  .join(' ');
+                const textString = textPills.map(p => p.value).join(' ');
+                const pillQuery = [filterString, textString].filter(Boolean).join(' ');
+
+                if (pillQuery) {
+                  try {
+                    const solrResults = await metadataSearch({
+                      text: pillQuery,
+                      limit: 12,
+                      offset: 0,
+                    });
+                    if (solrResults.tracks) {
+                      finalTracks = enrichTracksWithGenreNames(solrResults.tracks);
+                      finalTracks = enrichTracksWithFullVersions(finalTracks);
+                      totalCount = solrResults.total;
+                    }
+                  } catch (searchErr) {
+                    console.log('Pill search failed:', searchErr.message);
+                  }
+                }
+              }
+
+              return res.json({
+                type: 'pill_extraction',
+                message: parsed.message || 'Updated search filters',
+                pills: parsed.pills,
+                tracks: finalTracks,
+                total_count: totalCount,
+                showing: `1-${Math.min(12, finalTracks.length)}`,
+              });
+            }
+
             if (parsed.type === 'track_results' && Array.isArray(parsed.tracks)) {
               trackResults = parsed;
               console.log(
