@@ -898,13 +898,30 @@ router.post('/chat', async (req, res) => {
         const enhancedResults = await applyRules(enrichedTracks, matchedRules, lastMessage.content);
         const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
 
-        // Generate pills from the search query that Claude used
+        // Parse Claude's search query using local taxonomy lookup for validated pills
         const searchQuery = fallbackSearchResults.query || '';
-        const words = searchQuery.split(/\s+/).filter(w => w.length > 2);
-        const generatedPills = words.map(word => ({
-          type: 'text',
-          value: word,
-        }));
+        const parsed = parseQueryLocal(searchQuery);
+        const generatedPills = [];
+
+        // Add filter pills for mapped taxonomy terms
+        for (const mapping of parsed.mappings) {
+          generatedPills.push({
+            type: 'filter',
+            key: mapping.category.toLowerCase().replace(/\s+/g, '_'),
+            field: mapping.category,
+            label: mapping.category,
+            operator: ':',
+            value: mapping.facet,
+          });
+        }
+
+        // Add text pill for remaining unmapped terms
+        if (parsed.remainingText.trim()) {
+          generatedPills.push({
+            type: 'text',
+            value: parsed.remainingText.trim(),
+          });
+        }
 
         // Short, clean message
         const shortMessage = `Found ${fallbackSearchResults.total.toLocaleString()} tracks`;
@@ -920,6 +937,7 @@ router.post('/chat', async (req, res) => {
             appliedRules: enhancedResults.appliedRules,
             scoreAdjustments: enhancedResults.scoreAdjustments,
             fallback: 'tool_results',
+            taxonomyMappings: parsed.mappings,
           },
         });
       }
