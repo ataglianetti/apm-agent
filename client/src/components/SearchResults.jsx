@@ -95,7 +95,7 @@ export function SearchResults({
           <TrackResultsList
             data={{
               tracks: results.tracks,
-              totalCount: results.totalCount,
+              total_count: results.totalCount,
               showing: results.showing,
             }}
             onSoundsLike={onSoundsLike}
