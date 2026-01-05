@@ -11,8 +11,9 @@ export function SearchResults({
   results,
   pills,
   isLoading,
+  isLoadingMore,
   onSoundsLike,
-  onShowMore,
+  onLoadMore,
   showTimings = false,
   showArchitecture = false,
 }) {
@@ -99,7 +100,8 @@ export function SearchResults({
               showing: results.showing,
             }}
             onSoundsLike={onSoundsLike}
-            onShowMore={onShowMore}
+            onLoadMore={onLoadMore}
+            isLoadingMore={isLoadingMore}
           />
         )}
 

@@ -13,11 +13,13 @@ function AppContent() {
     currentResults,
     conversation,
     isLoading,
+    isLoadingMore,
     addPills,
     removePill,
     clearPills,
     setPills,
     sendConversationalMessage,
+    loadMore,
     clearAll,
     updateSettings,
   } = useSearch();
@@ -54,11 +56,6 @@ function AppContent() {
     }
   };
 
-  // Handle "Show More" pagination
-  const handleShowMore = () => {
-    sendConversationalMessage('show more');
-  };
-
   return (
     <div
       className={`h-screen flex flex-col font-poppins ${isDark ? 'bg-apm-dark' : 'bg-gray-100'}`}
@@ -70,8 +67,9 @@ function AppContent() {
           results={currentResults}
           pills={pills}
           isLoading={isLoading}
+          isLoadingMore={isLoadingMore}
           onSoundsLike={handleSoundsLike}
-          onShowMore={handleShowMore}
+          onLoadMore={loadMore}
           showTimings={settings.showTimings}
           showArchitecture={settings.showArchitecture}
         />

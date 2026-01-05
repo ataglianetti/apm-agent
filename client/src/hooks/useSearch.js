@@ -25,6 +25,7 @@ export function useSearch() {
   const [conversation, setConversation] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState(null);
 
   // Refs for synchronous access
@@ -228,6 +229,56 @@ export function useSearch() {
     [executeSearch]
   );
 
+  // Load more results (pagination)
+  const loadMore = useCallback(async () => {
+    if (!currentResults || isLoadingMore) return;
+
+    const currentCount = currentResults.tracks?.length || 0;
+    const totalCount = currentResults.totalCount || 0;
+
+    if (currentCount >= totalCount) return; // No more to load
+
+    setIsLoadingMore(true);
+
+    try {
+      const query = buildQueryFromPills(pillsRef.current);
+      if (!query.trim()) return;
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: query }],
+          pills: pillsRef.current,
+          options: {
+            ...settingsRef.current,
+            offset: currentCount,
+            limit: 12,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.tracks && data.tracks.length > 0) {
+        setCurrentResults(prev => ({
+          ...prev,
+          tracks: [...(prev?.tracks || []), ...data.tracks],
+          showing: `1-${currentCount + data.tracks.length}`,
+        }));
+      }
+    } catch (err) {
+      console.error('Load more error:', err);
+      setError(err.message);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [currentResults, isLoadingMore, buildQueryFromPills]);
+
   // Clear everything
   const clearAll = useCallback(() => {
     pillsRef.current = [];
@@ -246,6 +297,7 @@ export function useSearch() {
 
     // Loading/error state
     isLoading,
+    isLoadingMore,
     error,
 
     // Pill management
@@ -258,6 +310,7 @@ export function useSearch() {
     // Search execution
     executeSearch,
     sendConversationalMessage,
+    loadMore,
 
     // Utilities
     clearAll,

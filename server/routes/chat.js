@@ -89,7 +89,8 @@ function classifyQueryComplexity(query) {
 // Main chat endpoint
 router.post('/chat', async (req, res) => {
   try {
-    const { messages } = req.body;
+    const { messages, options = {} } = req.body;
+    const { offset = 0, limit = 12 } = options;
 
     // Validate request
     if (!messages || !Array.isArray(messages)) {
@@ -115,7 +116,9 @@ router.post('/chat', async (req, res) => {
       });
     }
 
-    console.log(`Processing query: ${lastMessage.content}`);
+    console.log(
+      `Processing query: ${lastMessage.content}${offset > 0 ? ` (offset: ${offset})` : ''}`
+    );
 
     // Handle "show more" / pagination requests
     if (/^(show\s+more|more|next\s+page|load\s+more)$/i.test(lastMessage.content.trim())) {
@@ -310,6 +313,26 @@ router.post('/chat', async (req, res) => {
     if (queryComplexity === 'simple' && llmMode !== 'primary') {
       console.log('Detected simple query, using metadata search + business rules');
       const startTime = Date.now();
+
+      // Handle pagination (offset > 0) - simpler path, just get more results
+      if (offset > 0) {
+        console.log(`Pagination request: offset=${offset}, limit=${limit}`);
+        const searchResults = await metadataSearch({
+          text: lastMessage.content,
+          limit: limit,
+          offset: offset,
+        });
+
+        const enrichedTracks = enrichTracksWithGenreNames(searchResults.tracks);
+        const tracksWithVersions = enrichTracksWithFullVersions(enrichedTracks);
+
+        return res.json({
+          type: 'track_results',
+          tracks: tracksWithVersions,
+          total_count: searchResults.total,
+          showing: `${offset + 1}-${offset + tracksWithVersions.length}`,
+        });
+      }
 
       // TAXONOMY PARSING: Parse query into structured facet filters
       // This maps terms like "solo jazz piano" to actual facet IDs
