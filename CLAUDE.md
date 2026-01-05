@@ -12,7 +12,7 @@
 
 **Role:** Senior Product Manager for APM Music search engine
 **Technical Proficiency:** Expert in PM/strategy, working knowledge of technical implementation
-**Resource Constraint:** One search engineer (Henock Gebrekidan), so TRDs that weigh technical pros/cons save engineering time
+**Resource Constraint:** One search engineer, so TRDs that weigh technical pros/cons save engineering time
 
 ### Working with Claude Code on This Project
 
