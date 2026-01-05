@@ -251,7 +251,7 @@ export async function chat(messages) {
       if (toolUse.name === 'search_tracks' && result && typeof result === 'object') {
         lastSearchResults = {
           tracks: result.tracks || [],
-          total: result.total || 0,
+          total: result.total_count || result.total || 0,
           query: toolUse.input.query,
         };
       }

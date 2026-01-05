@@ -898,9 +898,21 @@ router.post('/chat', async (req, res) => {
         const enhancedResults = await applyRules(enrichedTracks, matchedRules, lastMessage.content);
         const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
 
+        // Generate pills from the search query that Claude used
+        const searchQuery = fallbackSearchResults.query || '';
+        const words = searchQuery.split(/\s+/).filter(w => w.length > 2);
+        const generatedPills = words.map(word => ({
+          type: 'text',
+          value: word,
+        }));
+
+        // Short, clean message
+        const shortMessage = `Found ${fallbackSearchResults.total.toLocaleString()} tracks`;
+
         return res.json({
-          type: 'track_results',
-          message: reply, // Use Claude's conversational message
+          type: 'pill_extraction',
+          message: shortMessage,
+          pills: generatedPills,
           tracks: tracksWithVersions,
           total_count: fallbackSearchResults.total,
           showing: `1-${Math.min(12, tracksWithVersions.length)}`,
