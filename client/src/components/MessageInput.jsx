@@ -66,9 +66,19 @@ function isSimpleTextQuery(text) {
   return words.length >= 1 && words.length <= 4 && !/[?!@#$%^&*()_+=[\]{}|\\:;"'<>,]/.test(trimmed);
 }
 
-export function MessageInput({ onSend, disabled }) {
+export function MessageInput({
+  onSend,
+  disabled,
+  pills = [],
+  onPillsChange,
+  onRemovePill,
+  onClearPills,
+}) {
   const { isDark } = useTheme();
-  const [activeFilters, setActiveFilters] = useState([]); // Persistent filter pills
+  // Use pills from props if provided, otherwise use internal state for backward compatibility
+  const [internalFilters, setInternalFilters] = useState([]);
+  const activeFilters = onPillsChange ? pills : internalFilters;
+  const setActiveFilters = onPillsChange || setInternalFilters;
   const [searchText, setSearchText] = useState(''); // Main search text
   const [showFieldMenu, setShowFieldMenu] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -248,6 +258,19 @@ export function MessageInput({ onSend, disabled }) {
     // Combine all new pills
     const newPills = [...newFilterPills, ...(newTextPill ? [newTextPill] : [])];
 
+    // If using new prop-based pill management (Phase 2+)
+    if (onPillsChange) {
+      if (newPills.length > 0 || remainingText) {
+        // Pass query and new pills to parent
+        // Parent will handle adding pills and executing search
+        onSend(remainingText, newPills);
+        setSearchText('');
+        setShowFieldMenu(false);
+      }
+      return;
+    }
+
+    // Legacy behavior (backward compatibility)
     // Combine with existing pills
     const updatedFilters = [...activeFilters, ...newPills];
 
@@ -276,7 +299,15 @@ export function MessageInput({ onSend, disabled }) {
   };
 
   // Remove pill (filter or text) with auto re-search
-  const removePill = pillId => {
+  const handleRemovePill = pillId => {
+    // If using prop-based pill management
+    if (onRemovePill) {
+      onRemovePill(pillId);
+      inputRef.current?.focus();
+      return;
+    }
+
+    // Legacy behavior
     const updatedFilters = activeFilters.filter(f => f.id !== pillId);
     setActiveFilters(updatedFilters);
 
@@ -304,6 +335,14 @@ export function MessageInput({ onSend, disabled }) {
 
   // Clear all filters
   const clearAllFilters = () => {
+    // If using prop-based pill management
+    if (onClearPills) {
+      onClearPills();
+      inputRef.current?.focus();
+      return;
+    }
+
+    // Legacy behavior
     setActiveFilters([]);
 
     // If we have search text, re-search with just that
@@ -358,7 +397,7 @@ export function MessageInput({ onSend, disabled }) {
       // Backspace on empty input removes the last pill
       e.preventDefault();
       const lastPill = activeFilters[activeFilters.length - 1];
-      removePill(lastPill.id);
+      handleRemovePill(lastPill.id);
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
@@ -440,7 +479,7 @@ export function MessageInput({ onSend, disabled }) {
               </span>
               <button
                 type="button"
-                onClick={() => removePill(pill.id)}
+                onClick={() => handleRemovePill(pill.id)}
                 className={`ml-1 p-0.5 rounded-full transition-colors ${
                   isDark
                     ? 'hover:bg-red-500/20 hover:text-red-300'

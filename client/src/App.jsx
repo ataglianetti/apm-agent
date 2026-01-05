@@ -1,39 +1,99 @@
+import { useState } from 'react';
 import { Header } from './components/Header';
-import { ChatContainer } from './components/ChatContainer';
+import { SearchResults } from './components/SearchResults';
+import { ConversationPanel } from './components/ConversationPanel';
 import { MessageInput } from './components/MessageInput';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { useChat } from './hooks/useChat';
+import { useSearch } from './hooks/useSearch';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 function AppContent() {
-  const { messages, isLoading, sendMessage, clearChat, updateSettings } = useChat();
+  const {
+    pills,
+    currentResults,
+    conversation,
+    isLoading,
+    addPills,
+    removePill,
+    clearPills,
+    setPills,
+    executeSearch,
+    sendConversationalMessage,
+    clearAll,
+    updateSettings,
+  } = useSearch();
+
   const { isDark } = useTheme();
+  const [showConversation, setShowConversation] = useState(false);
+  const [settings, setSettings] = useState({
+    showTimings: false,
+    showArchitecture: false,
+  });
 
   // Handle settings change from demo controls
-  const handleSettingsChange = settings => {
-    updateSettings(settings);
+  const handleSettingsChange = newSettings => {
+    setSettings(prev => ({ ...prev, ...newSettings }));
+    updateSettings(newSettings);
   };
 
   // Handle "Sounds Like" audio similarity search
   const handleSoundsLike = track => {
     const query = `Find tracks that sound like "${track.track_title}" (${track.id})`;
-    sendMessage(query);
+    sendConversationalMessage(query);
+    setShowConversation(true);
+  };
+
+  // Handle message submission from MessageInput
+  const handleSend = (query, newPills) => {
+    if (newPills && newPills.length > 0) {
+      // Pills were extracted, add them and search
+      addPills(newPills);
+    } else if (query) {
+      // No pills extracted, treat as conversational
+      sendConversationalMessage(query);
+      setShowConversation(true);
+    }
+  };
+
+  // Handle "Show More" pagination
+  const handleShowMore = () => {
+    sendConversationalMessage('show more');
   };
 
   return (
     <div
       className={`h-screen flex flex-col font-poppins ${isDark ? 'bg-apm-dark' : 'bg-gray-100'}`}
     >
-      <Header onClear={clearChat} onSettingsChange={handleSettingsChange} />
+      <Header onClear={clearAll} onSettingsChange={handleSettingsChange} />
       <ErrorBoundary>
-        <ChatContainer
-          messages={messages}
+        {/* Main results area - updates in place */}
+        <SearchResults
+          results={currentResults}
+          pills={pills}
           isLoading={isLoading}
           onSoundsLike={handleSoundsLike}
-          onSendMessage={sendMessage}
+          onShowMore={handleShowMore}
+          showTimings={settings.showTimings}
+          showArchitecture={settings.showArchitecture}
         />
+
+        {/* Collapsible conversation panel (Route 3 messages only) */}
+        {conversation.length > 0 && (
+          <ConversationPanel
+            messages={conversation}
+            isExpanded={showConversation}
+            onToggle={() => setShowConversation(!showConversation)}
+          />
+        )}
       </ErrorBoundary>
-      <MessageInput onSend={sendMessage} disabled={isLoading} />
+      <MessageInput
+        onSend={handleSend}
+        disabled={isLoading}
+        pills={pills}
+        onPillsChange={setPills}
+        onRemovePill={removePill}
+        onClearPills={clearPills}
+      />
     </div>
   );
 }
