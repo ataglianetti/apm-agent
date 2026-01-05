@@ -17,7 +17,6 @@ function AppContent() {
     removePill,
     clearPills,
     setPills,
-    executeSearch,
     sendConversationalMessage,
     clearAll,
     updateSettings,
