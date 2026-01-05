@@ -41,6 +41,7 @@ const FIELD_OPTIONS = [
   { key: 'character', label: 'Character', field: 'character', description: 'Search by character' },
   { key: 'vocals', label: 'Vocals', field: 'vocals', description: 'Search by vocal type' },
   { key: 'time-period', label: 'Era', field: 'time_period', description: 'Search by era/period' },
+  { key: 'bpm', label: 'BPM', field: 'bpm', description: 'Search by tempo (e.g., @bpm>120)' },
 ];
 
 // Field labels for better display
@@ -59,6 +60,7 @@ const fieldLabels = {
   character: 'Character',
   vocals: 'Vocals',
   'time-period': 'Era',
+  bpm: 'BPM',
 };
 
 /**
