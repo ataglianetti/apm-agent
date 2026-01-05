@@ -284,9 +284,9 @@ function TrackCardComponent({
 
       {/* Description + Metadata Grid */}
       <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 mb-3 ml-[52px]">
-        {/* Description (left column, takes remaining space) */}
+        {/* Description (left column, takes remaining space, truncated to 2 lines) */}
         <p
-          className={`text-sm leading-relaxed pr-4 ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}
+          className={`text-sm leading-relaxed pr-4 line-clamp-2 ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}
         >
           {track.track_description}
         </p>
