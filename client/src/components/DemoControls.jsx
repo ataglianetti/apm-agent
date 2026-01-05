@@ -6,7 +6,6 @@ export function DemoControls({ onSettingsChange }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const dropdownRef = useRef(null);
   const [settings, setSettings] = useState({
-    llmProvider: 'claude',
     llmMode: 'fallback', // 'fallback' = fast search, 'primary' = AI conversation
     demoMode: false,
     showTimings: false,
@@ -49,10 +48,6 @@ export function DemoControls({ onSettingsChange }) {
   useEffect(() => {
     onSettingsChange(settings);
   }, [settings, onSettingsChange]);
-
-  const handleProviderChange = provider => {
-    setSettings(prev => ({ ...prev, llmProvider: provider }));
-  };
 
   const toggleDemoMode = () => {
     setSettings(prev => ({ ...prev, demoMode: !prev.demoMode }));
@@ -301,33 +296,6 @@ export function DemoControls({ onSettingsChange }) {
             )}
           </div>
 
-          {/* LLM Provider Toggle */}
-          <div className="mb-4">
-            <label className="text-sm font-medium mb-2 block">LLM Provider</label>
-            <div className="flex gap-2">
-              {['claude', 'openai', 'mock'].map(provider => (
-                <button
-                  key={provider}
-                  onClick={() => handleProviderChange(provider)}
-                  className={`
-                    flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors
-                    ${
-                      settings.llmProvider === provider
-                        ? isDark
-                          ? 'bg-apm-orange text-white'
-                          : 'bg-blue-500 text-white'
-                        : isDark
-                          ? 'bg-gray-700 hover:bg-gray-600'
-                          : 'bg-gray-100 hover:bg-gray-200'
-                    }
-                  `}
-                >
-                  {provider.charAt(0).toUpperCase() + provider.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Demo Mode Toggle */}
           <div className="mb-4">
             <div className="flex items-center justify-between">
@@ -434,7 +402,7 @@ export function DemoControls({ onSettingsChange }) {
             >
               <div className="font-medium mb-1">Three-Stage Pipeline</div>
               <div className="opacity-80">
-                <div>1. INTERPRET → LLM ({settings.llmProvider})</div>
+                <div>1. INTERPRET → LLM (Claude)</div>
                 <div>2. SEARCH → Mock Solr/AIMS</div>
                 <div>3. FORMAT → Context Engine</div>
               </div>
