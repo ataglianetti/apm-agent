@@ -125,7 +125,9 @@ export function SearchResults({
               {results._meta.appliedRules.map((rule, i) => (
                 <span key={i}>
                   {i > 0 && ' • '}
-                  {rule}
+                  {typeof rule === 'string'
+                    ? rule
+                    : rule.description || rule.type || 'Unknown rule'}
                 </span>
               ))}
             </div>
