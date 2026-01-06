@@ -1,8 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { TrackCard, TrackCardComponent } from './TrackCard';
 import { useTheme } from '../context/ThemeContext';
 
-export function TrackResultsList({ data, onShowMore, onSoundsLike, searchQuery = '' }) {
+export function TrackResultsList({
+  data,
+  onLoadMore,
+  isLoadingMore,
+  onSoundsLike,
+  searchQuery = '',
+}) {
   const { isDark } = useTheme();
 
   // State for version expansion - versions are pre-loaded, just track which is expanded
@@ -17,6 +23,27 @@ export function TrackResultsList({ data, onShowMore, onSoundsLike, searchQuery =
   const handleCollapseVersions = useCallback(() => {
     setExpandedTrackId(null);
   }, []);
+
+  // Infinite scroll - load more when sentinel is visible
+  const sentinelRef = useRef(null);
+  useEffect(() => {
+    if (!onLoadMore) return;
+
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && !isLoadingMore) {
+          onLoadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (sentinelRef.current) {
+      observer.observe(sentinelRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [onLoadMore, isLoadingMore]);
 
   // Defensive: ensure data exists
   if (!data) {
@@ -181,20 +208,25 @@ export function TrackResultsList({ data, onShowMore, onSoundsLike, searchQuery =
       </div>
 
       {/* Pagination Footer */}
-      <div className="mt-4 flex items-center justify-between">
+      <div className="mt-4 flex items-center justify-center">
         <span className={`text-sm ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
-          Showing {showing || `1-${tracks.length}`} of {total_count || tracks.length} results
+          Showing {tracks.length} of {total_count || tracks.length} results
         </span>
-
-        {hasMore && onShowMore && (
-          <button
-            onClick={onShowMore}
-            className="px-4 py-2 bg-apm-purple/20 text-apm-purple text-sm rounded-lg hover:bg-apm-purple/30 transition-colors"
-          >
-            Show More
-          </button>
-        )}
       </div>
+
+      {/* Infinite scroll sentinel */}
+      {hasMore && (
+        <div ref={sentinelRef} className="h-20 flex items-center justify-center">
+          {isLoadingMore && (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-apm-purple border-t-transparent rounded-full animate-spin" />
+              <span className={`text-sm ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}>
+                Loading more...
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

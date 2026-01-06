@@ -75,7 +75,14 @@
       "Bash(docker compose:*)",
       "Bash(jq:*)",
       "Bash(__NEW_LINE__ echo -e \"\\\\n=== Toggle OFF ===\")",
-      "Bash(__NEW_LINE__ echo -e \"\\\\n=== Toggle ON ===\")"
+      "Bash(__NEW_LINE__ echo -e \"\\\\n=== Toggle ON ===\")",
+      "Bash(node scripts/indexToSolr.js:*)",
+      "Bash(mv:*)",
+      "Bash(npx prettier:*)",
+      "Bash(git lfs ls-files:*)",
+      "Bash(git rev-list:*)",
+      "Bash(git cat-file:*)",
+      "Bash(sort:*)"
     ],
     "deny": [],
     "ask": []

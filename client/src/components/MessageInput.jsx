@@ -3,6 +3,12 @@ import { useTheme } from '../context/ThemeContext';
 
 const FIELD_OPTIONS = [
   {
+    key: 'text',
+    label: 'Text (All Fields)',
+    field: 'text',
+    description: 'Search keywords across all fields',
+  },
+  {
     key: 'track-title',
     label: 'Track Title',
     field: 'track_title',
@@ -22,41 +28,73 @@ const FIELD_OPTIONS = [
     field: 'library_name',
     description: 'Search by library name',
   },
-  { key: 'tags', label: 'Tags/Genre', field: 'genre', description: 'Search by genre tags' },
+  { key: 'genre', label: 'Genre', field: 'genre', description: 'Search by genre' },
   { key: 'mood', label: 'Mood', field: 'mood', description: 'Search by mood' },
-  { key: 'energy', label: 'Energy', field: 'energy_level', description: 'Search by energy level' },
-  { key: 'use-case', label: 'Use Case', field: 'use_case', description: 'Search by use case' },
+  { key: 'music-for', label: 'Music For', field: 'music_for', description: 'Search by use case' },
   {
     key: 'instruments',
     label: 'Instruments',
     field: 'instruments',
     description: 'Search by instruments',
   },
-  { key: 'era', label: 'Era', field: 'era', description: 'Search by era/period' },
-  { key: 'bpm', label: 'BPM', field: 'bpm', description: 'Search by tempo' },
+  { key: 'tempo', label: 'Tempo', field: 'tempo', description: 'Search by tempo' },
+  {
+    key: 'movement',
+    label: 'Movement',
+    field: 'movement',
+    description: 'Search by movement/energy',
+  },
+  { key: 'character', label: 'Character', field: 'character', description: 'Search by character' },
+  { key: 'vocals', label: 'Vocals', field: 'vocals', description: 'Search by vocal type' },
+  { key: 'time-period', label: 'Era', field: 'time_period', description: 'Search by era/period' },
+  { key: 'bpm', label: 'BPM', field: 'bpm', description: 'Search by tempo (e.g., @bpm>120)' },
 ];
 
 // Field labels for better display
 const fieldLabels = {
+  text: 'Text',
   'track-title': 'Title',
   'track-description': 'Description',
   'album-title': 'Album',
   composer: 'Composer',
   library: 'Library',
-  tags: 'Genre',
+  genre: 'Genre',
   mood: 'Mood',
-  energy: 'Energy',
-  'use-case': 'Use Case',
+  'music-for': 'Music For',
   instruments: 'Instruments',
-  era: 'Era',
+  tempo: 'Tempo',
+  movement: 'Movement',
+  character: 'Character',
+  vocals: 'Vocals',
+  'time-period': 'Era',
   bpm: 'BPM',
-  duration: 'Duration',
-  'has-stems': 'Stems',
 };
 
-export function MessageInput({ onSend, disabled }) {
+/**
+ * Check if a query is a simple text search (should become a text pill)
+ * Simple = 1-4 words, no special characters, no question marks
+ */
+function isSimpleTextQuery(text) {
+  if (!text || !text.trim()) return false;
+  const trimmed = text.trim();
+  const words = trimmed.split(/\s+/);
+  // 1-4 words, no special characters that indicate complex queries
+  return words.length >= 1 && words.length <= 4 && !/[?!@#$%^&*()_+=[\]{}|\\:;"'<>,]/.test(trimmed);
+}
+
+export function MessageInput({
+  onSend,
+  disabled,
+  pills = [],
+  onPillsChange,
+  onRemovePill,
+  onClearPills,
+}) {
   const { isDark } = useTheme();
-  const [activeFilters, setActiveFilters] = useState([]); // Persistent filter pills
+  // Use pills from props if provided, otherwise use internal state for backward compatibility
+  const [internalFilters, setInternalFilters] = useState([]);
+  const activeFilters = onPillsChange ? pills : internalFilters;
+  const setActiveFilters = onPillsChange || setInternalFilters;
   const [searchText, setSearchText] = useState(''); // Main search text
   const [showFieldMenu, setShowFieldMenu] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -210,14 +248,45 @@ export function MessageInput({ onSend, disabled }) {
     const parsed = parseEnhancedFilters(searchText);
 
     // Create new pills from parsed filters with unique IDs
-    const newPills = parsed.filters.map(f => ({
+    const newFilterPills = parsed.filters.map(f => ({
       id: `filter-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'filter',
       key: f.key,
       label: f.label,
       operator: f.operator,
       value: f.value,
     }));
 
+    // Check if remaining text should become a text pill
+    let newTextPill = null;
+    let remainingText = parsed.remainingText;
+
+    if (remainingText && isSimpleTextQuery(remainingText)) {
+      // Simple text query becomes a pill
+      newTextPill = {
+        id: `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: 'text',
+        value: remainingText,
+      };
+      remainingText = ''; // Clear remaining text since it's now a pill
+    }
+
+    // Combine all new pills
+    const newPills = [...newFilterPills, ...(newTextPill ? [newTextPill] : [])];
+
+    // If using new prop-based pill management (Phase 2+)
+    if (onPillsChange) {
+      if (newPills.length > 0 || remainingText) {
+        // Pass query and new pills to parent
+        // Parent will handle adding pills and executing search
+        onSend(remainingText, newPills);
+        setSearchText('');
+        setShowFieldMenu(false);
+      }
+      return;
+    }
+
+    // Legacy behavior (backward compatibility)
     // Combine with existing pills
     const updatedFilters = [...activeFilters, ...newPills];
 
@@ -227,8 +296,16 @@ export function MessageInput({ onSend, disabled }) {
     }
 
     // Build query from all pills + remaining text
-    const filterString = updatedFilters.map(f => `@${f.key}${f.operator}${f.value}`).join(' ');
-    const fullQuery = filterString + (parsed.remainingText ? ' ' + parsed.remainingText : '');
+    // Default to 'filter' for backward compatibility
+    const filterPills = updatedFilters.filter(f => (f.type || 'filter') === 'filter');
+    const textPills = updatedFilters.filter(f => f.type === 'text');
+
+    const filterString = filterPills.map(f => `@${f.key}${f.operator}${f.value}`).join(' ');
+    const textString = textPills.map(f => f.value).join(' ');
+
+    // Combine: filters first, then text pills, then any remaining text
+    const parts = [filterString, textString, remainingText].filter(Boolean);
+    const fullQuery = parts.join(' ');
 
     if (fullQuery.trim() && !disabled) {
       onSend(fullQuery.trim());
@@ -237,17 +314,32 @@ export function MessageInput({ onSend, disabled }) {
     }
   };
 
-  // Remove filter pill with auto re-search
-  const removeFilter = filterId => {
-    const updatedFilters = activeFilters.filter(f => f.id !== filterId);
+  // Remove pill (filter or text) with auto re-search
+  const handleRemovePill = pillId => {
+    // If using prop-based pill management
+    if (onRemovePill) {
+      onRemovePill(pillId);
+      inputRef.current?.focus();
+      return;
+    }
+
+    // Legacy behavior
+    const updatedFilters = activeFilters.filter(f => f.id !== pillId);
     setActiveFilters(updatedFilters);
 
-    // Auto re-search with remaining filters
+    // Auto re-search with remaining pills
     const hasContent = updatedFilters.length > 0 || searchText.trim();
 
     if (hasContent && !disabled) {
-      const filterString = updatedFilters.map(f => `@${f.key}${f.operator}${f.value}`).join(' ');
-      const fullQuery = filterString + (searchText ? ' ' + searchText : '');
+      // Default to 'filter' for backward compatibility
+      const filterPills = updatedFilters.filter(f => (f.type || 'filter') === 'filter');
+      const textPills = updatedFilters.filter(f => f.type === 'text');
+
+      const filterString = filterPills.map(f => `@${f.key}${f.operator}${f.value}`).join(' ');
+      const textString = textPills.map(f => f.value).join(' ');
+
+      const parts = [filterString, textString, searchText].filter(Boolean);
+      const fullQuery = parts.join(' ');
 
       if (fullQuery.trim()) {
         onSend(fullQuery.trim());
@@ -259,6 +351,14 @@ export function MessageInput({ onSend, disabled }) {
 
   // Clear all filters
   const clearAllFilters = () => {
+    // If using prop-based pill management
+    if (onClearPills) {
+      onClearPills();
+      inputRef.current?.focus();
+      return;
+    }
+
+    // Legacy behavior
     setActiveFilters([]);
 
     // If we have search text, re-search with just that
@@ -312,8 +412,8 @@ export function MessageInput({ onSend, disabled }) {
     } else if (e.key === 'Backspace' && searchText === '' && activeFilters.length > 0) {
       // Backspace on empty input removes the last pill
       e.preventDefault();
-      const lastFilter = activeFilters[activeFilters.length - 1];
-      removeFilter(lastFilter.id);
+      const lastPill = activeFilters[activeFilters.length - 1];
+      handleRemovePill(lastPill.id);
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
@@ -365,30 +465,43 @@ export function MessageInput({ onSend, disabled }) {
         </div>
       )}
 
-      {/* Persistent Filter Pills */}
+      {/* Persistent Pills (Filter pills = purple, Text pills = blue) */}
       {activeFilters.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3 px-1">
-          {activeFilters.map(filter => (
+          {activeFilters.map(pill => (
             <span
-              key={filter.id}
-              className={`inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md flex-shrink-0 ${
-                isDark
-                  ? 'bg-apm-purple/30 text-apm-purple-light hover:bg-apm-purple/40'
-                  : 'bg-apm-purple/20 text-apm-purple hover:bg-apm-purple/30'
-              } transition-colors`}
+              key={pill.id}
+              className={`inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md flex-shrink-0 transition-colors ${
+                (pill.type || 'filter') === 'text'
+                  ? isDark
+                    ? 'bg-blue-500/30 text-blue-300 hover:bg-blue-500/40'
+                    : 'bg-blue-500/20 text-blue-700 hover:bg-blue-500/30'
+                  : isDark
+                    ? 'bg-apm-purple/30 text-apm-purple-light hover:bg-apm-purple/40'
+                    : 'bg-apm-purple/20 text-apm-purple hover:bg-apm-purple/30'
+              }`}
             >
               <span className="font-medium">
-                {filter.label}: {filter.value}
+                {(pill.type || 'filter') === 'text' ? (
+                  <>
+                    <span className="opacity-60">text:</span>
+                    {pill.value}
+                  </>
+                ) : (
+                  <>
+                    {pill.label}: {pill.value}
+                  </>
+                )}
               </span>
               <button
                 type="button"
-                onClick={() => removeFilter(filter.id)}
+                onClick={() => handleRemovePill(pill.id)}
                 className={`ml-1 p-0.5 rounded-full transition-colors ${
                   isDark
                     ? 'hover:bg-red-500/20 hover:text-red-300'
                     : 'hover:bg-red-500/20 hover:text-red-600'
                 }`}
-                aria-label={`Remove ${filter.label} filter`}
+                aria-label={`Remove ${(pill.type || 'filter') === 'text' ? pill.value : pill.label} ${(pill.type || 'filter') === 'text' ? 'search term' : 'filter'}`}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -402,7 +515,7 @@ export function MessageInput({ onSend, disabled }) {
             </span>
           ))}
 
-          {/* Clear All button when many filters */}
+          {/* Clear All button when many pills */}
           {activeFilters.length > 2 && (
             <button
               type="button"

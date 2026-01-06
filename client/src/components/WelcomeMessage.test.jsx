@@ -1,10 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { WelcomeMessage } from './WelcomeMessage';
 import { ThemeProvider } from '../context/ThemeContext';
 
 // Wrapper component to provide theme context
-const renderWithTheme = (component, isDark = true) => {
+const renderWithTheme = (component, _isDark = true) => {
   return render(<ThemeProvider>{component}</ThemeProvider>);
 };
 

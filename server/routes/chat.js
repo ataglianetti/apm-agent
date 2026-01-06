@@ -11,6 +11,11 @@ import {
   enrichTracksWithFullVersions,
 } from '../services/metadataEnhancer.js';
 import { parseQueryLocal } from '../services/queryToTaxonomy.js';
+import {
+  isAimsAvailable,
+  search as aimsSearch,
+  pillsToConstraints,
+} from '../services/aimsService.js';
 
 const router = express.Router();
 
@@ -89,7 +94,8 @@ function classifyQueryComplexity(query) {
 // Main chat endpoint
 router.post('/chat', async (req, res) => {
   try {
-    const { messages } = req.body;
+    const { messages, options = {} } = req.body;
+    const { offset = 0, limit = 12 } = options;
 
     // Validate request
     if (!messages || !Array.isArray(messages)) {
@@ -115,7 +121,9 @@ router.post('/chat', async (req, res) => {
       });
     }
 
-    console.log(`Processing query: ${lastMessage.content}`);
+    console.log(
+      `Processing query: ${lastMessage.content}${offset > 0 ? ` (offset: ${offset})` : ''}`
+    );
 
     // Handle "show more" / pagination requests
     if (/^(show\s+more|more|next\s+page|load\s+more)$/i.test(lastMessage.content.trim())) {
@@ -221,9 +229,14 @@ router.post('/chat', async (req, res) => {
       // Convert parsed filters to metadataSearch format
       const facets = []; // For facet category filters (go to combined_ids)
       const filters = []; // For metadata field filters (bpm, duration, etc.)
+      const textTerms = []; // For @text filters (add to general search text)
 
       for (const filter of parsed.filters) {
-        if (filter.field.startsWith('facet:')) {
+        if (filter.field === '_text_all') {
+          // @text filter → add to general search text
+          textTerms.push(filter.value);
+          console.log(`Text filter: "${filter.value}"`);
+        } else if (filter.field.startsWith('facet:')) {
           // Facet category filter → use Solr combined_ids
           const categoryName = filter.field.substring(6); // Remove 'facet:' prefix
           facets.push({ category: categoryName, value: filter.value });
@@ -255,15 +268,18 @@ router.post('/chat', async (req, res) => {
         }
       }
 
+      // Combine @text filter values with any remaining search text
+      const combinedText = [...textTerms, parsed.searchText].filter(Boolean).join(' ');
+
       console.log(
-        `Solr search: ${facets.length} facets, ${filters.length} filters, text="${parsed.searchText}"`
+        `Solr search: ${facets.length} facets, ${filters.length} filters, ${textTerms.length} text terms, text="${combinedText}"`
       );
 
       // Execute search via Solr
       const searchResults = await metadataSearch({
         facets,
         filters,
-        text: parsed.searchText || '',
+        text: combinedText,
         limit: 12,
         offset: 0,
       });
@@ -310,6 +326,26 @@ router.post('/chat', async (req, res) => {
     if (queryComplexity === 'simple' && llmMode !== 'primary') {
       console.log('Detected simple query, using metadata search + business rules');
       const startTime = Date.now();
+
+      // Handle pagination (offset > 0) - simpler path, just get more results
+      if (offset > 0) {
+        console.log(`Pagination request: offset=${offset}, limit=${limit}`);
+        const searchResults = await metadataSearch({
+          text: lastMessage.content,
+          limit: limit,
+          offset: offset,
+        });
+
+        const enrichedTracks = enrichTracksWithGenreNames(searchResults.tracks);
+        const tracksWithVersions = enrichTracksWithFullVersions(enrichedTracks);
+
+        return res.json({
+          type: 'track_results',
+          tracks: tracksWithVersions,
+          total_count: searchResults.total,
+          showing: `${offset + 1}-${offset + tracksWithVersions.length}`,
+        });
+      }
 
       // TAXONOMY PARSING: Parse query into structured facet filters
       // This maps terms like "solo jazz piano" to actual facet IDs
@@ -475,12 +511,73 @@ router.post('/chat', async (req, res) => {
       });
     }
 
-    // Route 3: Complex queries (Claude + metadata search + business rules)
+    // Route 3: Complex queries
+    // Priority: AIMS (if available) → Claude (fallback)
     const startTime = Date.now();
-    let reply = await claudeChat(messages);
+
+    // Route 3a: Try AIMS Prompt Search for natural language queries
+    if (isAimsAvailable()) {
+      console.log('AIMS available - routing natural language query to AIMS');
+      try {
+        // Get pills from request if provided (for refining AIMS results)
+        const { pills = [] } = req.body;
+        const constraints = pillsToConstraints(pills);
+
+        const aimsResults = await aimsSearch(lastMessage.content, constraints, 12, 0);
+
+        if (aimsResults && aimsResults.tracks?.length > 0) {
+          const enrichedTracks = enrichTracksWithGenreNames(aimsResults.tracks);
+          const matchedRules = matchRules(lastMessage.content);
+          const enhancedResults = await applyRules(
+            enrichedTracks,
+            matchedRules,
+            lastMessage.content
+          );
+          const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
+
+          const elapsed = Date.now() - startTime;
+          console.log(
+            `AIMS search completed in ${elapsed}ms with ${tracksWithVersions.length} tracks`
+          );
+
+          return res.json({
+            type: 'track_results',
+            message: buildResultsMessage(
+              lastMessage.content,
+              aimsResults.total,
+              aimsResults.total // AIMS may not have separate version count
+            ),
+            tracks: tracksWithVersions,
+            total_count: aimsResults.total,
+            showing: `1-${Math.min(12, tracksWithVersions.length)}`,
+            _meta: {
+              appliedRules: enhancedResults.appliedRules,
+              scoreAdjustments: enhancedResults.scoreAdjustments,
+              engine: 'aims',
+              aimsQuery: aimsResults.aimsQuery,
+            },
+          });
+        }
+      } catch (aimsError) {
+        console.log('AIMS search failed, falling back to Claude:', aimsError.message);
+        // Fall through to Claude
+      }
+    }
+
+    // Route 3b: Claude (fallback when AIMS unavailable or fails)
+    const claudeResult = await claudeChat(messages);
     const elapsed = Date.now() - startTime;
 
+    // Extract reply and fallback search results
+    let reply = claudeResult.reply || claudeResult;
+    const fallbackSearchResults = claudeResult.searchResults;
+
     console.log(`Response generated in ${elapsed}ms`);
+    if (fallbackSearchResults) {
+      console.log(
+        `Fallback search results available: ${fallbackSearchResults.tracks?.length} tracks`
+      );
+    }
 
     // Check if the reply has been double-encoded (common issue with JSON responses)
     // This happens when markdown text gets JSON.stringify'd multiple times
@@ -514,10 +611,12 @@ router.post('/chat', async (req, res) => {
         // Try to find JSON object if it doesn't start with {
         if (!trimmed.startsWith('{')) {
           console.log('Reply does not start with {, searching for JSON object...');
-          // Find the start of a track_results JSON object
-          const jsonStartMatch = trimmed.match(/\{\s*"type"\s*:\s*"track_results"/);
+          // Find the start of a track_results or pill_extraction JSON object
+          const jsonStartMatch = trimmed.match(
+            /\{\s*"type"\s*:\s*"(?:track_results|pill_extraction)"/
+          );
           if (jsonStartMatch) {
-            console.log('Found track_results JSON start pattern');
+            console.log('Found JSON start pattern:', jsonStartMatch[0].substring(0, 50));
             const startIdx = trimmed.indexOf(jsonStartMatch[0]);
             // Extract from the opening brace and find matching closing brace
             let braceCount = 0;
@@ -559,7 +658,7 @@ router.post('/chat', async (req, res) => {
             trimmed = trimmed.substring(startIdx, endIdx);
             console.log('Extracted JSON first 200 chars:', trimmed.substring(0, 200));
           } else {
-            console.log('No track_results JSON pattern found in reply');
+            console.log('No track_results or pill_extraction JSON pattern found in reply');
           }
         }
 
@@ -609,6 +708,60 @@ router.post('/chat', async (req, res) => {
               'tracks count:',
               parsed.tracks?.length
             );
+
+            // Handle pill_extraction response type (Phase 3)
+            if (parsed.type === 'pill_extraction' && Array.isArray(parsed.pills)) {
+              console.log(
+                'Valid pill_extraction JSON found with',
+                parsed.pills.length,
+                'pills and',
+                parsed.tracks?.length || 0,
+                'tracks'
+              );
+
+              // If Claude provided tracks, use them; otherwise do a Solr search
+              let finalTracks = parsed.tracks || [];
+              let totalCount = parsed.total_count || 0;
+
+              if (finalTracks.length === 0 && parsed.pills.length > 0) {
+                // Build query from pills and search
+                const filterPills = parsed.pills.filter(p => p.type === 'filter');
+                const textPills = parsed.pills.filter(p => p.type === 'text');
+
+                const filterString = filterPills
+                  .map(p => `@${p.field}${p.operator}${p.value}`)
+                  .join(' ');
+                const textString = textPills.map(p => p.value).join(' ');
+                const pillQuery = [filterString, textString].filter(Boolean).join(' ');
+
+                if (pillQuery) {
+                  try {
+                    const solrResults = await metadataSearch({
+                      text: pillQuery,
+                      limit: 12,
+                      offset: 0,
+                    });
+                    if (solrResults.tracks) {
+                      finalTracks = enrichTracksWithGenreNames(solrResults.tracks);
+                      finalTracks = enrichTracksWithFullVersions(finalTracks);
+                      totalCount = solrResults.total;
+                    }
+                  } catch (searchErr) {
+                    console.log('Pill search failed:', searchErr.message);
+                  }
+                }
+              }
+
+              return res.json({
+                type: 'pill_extraction',
+                message: parsed.message || 'Updated search filters',
+                pills: parsed.pills,
+                tracks: finalTracks,
+                total_count: totalCount,
+                showing: `1-${Math.min(12, finalTracks.length)}`,
+              });
+            }
+
             if (parsed.type === 'track_results' && Array.isArray(parsed.tracks)) {
               trackResults = parsed;
               console.log(
@@ -821,6 +974,60 @@ router.post('/chat', async (req, res) => {
         } catch (fallbackError) {
           console.log('Markdown extraction fallback failed:', fallbackError.message);
         }
+      }
+
+      // Use fallback search results if Claude found tracks but didn't format correctly
+      if (fallbackSearchResults && fallbackSearchResults.tracks?.length > 0) {
+        console.log(
+          `Using fallback search results: ${fallbackSearchResults.tracks.length} tracks from query "${fallbackSearchResults.query}"`
+        );
+        const enrichedTracks = enrichTracksWithGenreNames(fallbackSearchResults.tracks);
+        const matchedRules = matchRules(lastMessage.content);
+        const enhancedResults = await applyRules(enrichedTracks, matchedRules, lastMessage.content);
+        const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
+
+        // Parse Claude's search query using local taxonomy lookup for validated pills
+        const searchQuery = fallbackSearchResults.query || '';
+        const parsed = parseQueryLocal(searchQuery);
+        const generatedPills = [];
+
+        // Add filter pills for mapped taxonomy terms
+        for (const mapping of parsed.mappings) {
+          generatedPills.push({
+            type: 'filter',
+            key: mapping.category.toLowerCase().replace(/\s+/g, '_'),
+            field: mapping.category,
+            label: mapping.category,
+            operator: ':',
+            value: mapping.facet,
+          });
+        }
+
+        // Add text pill for remaining unmapped terms
+        if (parsed.remainingText.trim()) {
+          generatedPills.push({
+            type: 'text',
+            value: parsed.remainingText.trim(),
+          });
+        }
+
+        // Short, clean message
+        const shortMessage = `Found ${fallbackSearchResults.total.toLocaleString()} tracks`;
+
+        return res.json({
+          type: 'pill_extraction',
+          message: shortMessage,
+          pills: generatedPills,
+          tracks: tracksWithVersions,
+          total_count: fallbackSearchResults.total,
+          showing: `1-${Math.min(12, tracksWithVersions.length)}`,
+          _meta: {
+            appliedRules: enhancedResults.appliedRules,
+            scoreAdjustments: enhancedResults.scoreAdjustments,
+            fallback: 'tool_results',
+            taxonomyMappings: parsed.mappings,
+          },
+        });
       }
 
       // Return regular text response
