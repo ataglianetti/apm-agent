@@ -3,6 +3,12 @@ import { useTheme } from '../context/ThemeContext';
 
 const FIELD_OPTIONS = [
   {
+    key: 'text',
+    label: 'Text (All Fields)',
+    field: 'text',
+    description: 'Search keywords across all fields',
+  },
+  {
     key: 'track-title',
     label: 'Track Title',
     field: 'track_title',
@@ -46,6 +52,7 @@ const FIELD_OPTIONS = [
 
 // Field labels for better display
 const fieldLabels = {
+  text: 'Text',
   'track-title': 'Title',
   'track-description': 'Description',
   'album-title': 'Album',

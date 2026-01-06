@@ -12,6 +12,9 @@
 // Complete field mapping with all supported fields
 // Uses SOLR *_search field names (these are the indexed/searchable fields)
 const FIELD_MAPPING = {
+  // Special all-fields text search (adds to general search text)
+  text: '_text_all',
+
   // Primary text search fields (Solr *_search fields are indexed)
   'track-title': 'track_title_search',
   'track-description': 'track_description_search',
@@ -331,6 +334,13 @@ export function hasFilters(message) {
  */
 export function getAvailableFields() {
   return [
+    // All-fields text search
+    {
+      key: '@text',
+      field: '_text_all',
+      description: 'Search keywords across all text fields',
+    },
+
     // Metadata fields (Solr *_search fields are indexed)
     { key: '@track-title', field: 'track_title_search', description: 'Search by track name' },
     {
@@ -428,6 +438,9 @@ Use @ filters to search specific metadata fields directly:
 **Basic Syntax:**
 - \`@field:value\` - Contains match (partial)
 - \`@field=value\` - Exact match (full string)
+
+**All-Fields Text Search:**
+- \`@text:ambient\` - Search "ambient" across all text fields
 
 **Metadata Field Examples:**
 - \`@library:MLB Music\` - MLB Music library tracks

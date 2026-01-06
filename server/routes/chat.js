@@ -11,6 +11,11 @@ import {
   enrichTracksWithFullVersions,
 } from '../services/metadataEnhancer.js';
 import { parseQueryLocal } from '../services/queryToTaxonomy.js';
+import {
+  isAimsAvailable,
+  search as aimsSearch,
+  pillsToConstraints,
+} from '../services/aimsService.js';
 
 const router = express.Router();
 
@@ -224,9 +229,14 @@ router.post('/chat', async (req, res) => {
       // Convert parsed filters to metadataSearch format
       const facets = []; // For facet category filters (go to combined_ids)
       const filters = []; // For metadata field filters (bpm, duration, etc.)
+      const textTerms = []; // For @text filters (add to general search text)
 
       for (const filter of parsed.filters) {
-        if (filter.field.startsWith('facet:')) {
+        if (filter.field === '_text_all') {
+          // @text filter → add to general search text
+          textTerms.push(filter.value);
+          console.log(`Text filter: "${filter.value}"`);
+        } else if (filter.field.startsWith('facet:')) {
           // Facet category filter → use Solr combined_ids
           const categoryName = filter.field.substring(6); // Remove 'facet:' prefix
           facets.push({ category: categoryName, value: filter.value });
@@ -258,15 +268,18 @@ router.post('/chat', async (req, res) => {
         }
       }
 
+      // Combine @text filter values with any remaining search text
+      const combinedText = [...textTerms, parsed.searchText].filter(Boolean).join(' ');
+
       console.log(
-        `Solr search: ${facets.length} facets, ${filters.length} filters, text="${parsed.searchText}"`
+        `Solr search: ${facets.length} facets, ${filters.length} filters, ${textTerms.length} text terms, text="${combinedText}"`
       );
 
       // Execute search via Solr
       const searchResults = await metadataSearch({
         facets,
         filters,
-        text: parsed.searchText || '',
+        text: combinedText,
         limit: 12,
         offset: 0,
       });
@@ -498,8 +511,60 @@ router.post('/chat', async (req, res) => {
       });
     }
 
-    // Route 3: Complex queries (Claude + metadata search + business rules)
+    // Route 3: Complex queries
+    // Priority: AIMS (if available) → Claude (fallback)
     const startTime = Date.now();
+
+    // Route 3a: Try AIMS Prompt Search for natural language queries
+    if (isAimsAvailable()) {
+      console.log('AIMS available - routing natural language query to AIMS');
+      try {
+        // Get pills from request if provided (for refining AIMS results)
+        const { pills = [] } = req.body;
+        const constraints = pillsToConstraints(pills);
+
+        const aimsResults = await aimsSearch(lastMessage.content, constraints, 12, 0);
+
+        if (aimsResults && aimsResults.tracks?.length > 0) {
+          const enrichedTracks = enrichTracksWithGenreNames(aimsResults.tracks);
+          const matchedRules = matchRules(lastMessage.content);
+          const enhancedResults = await applyRules(
+            enrichedTracks,
+            matchedRules,
+            lastMessage.content
+          );
+          const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results);
+
+          const elapsed = Date.now() - startTime;
+          console.log(
+            `AIMS search completed in ${elapsed}ms with ${tracksWithVersions.length} tracks`
+          );
+
+          return res.json({
+            type: 'track_results',
+            message: buildResultsMessage(
+              lastMessage.content,
+              aimsResults.total,
+              aimsResults.total // AIMS may not have separate version count
+            ),
+            tracks: tracksWithVersions,
+            total_count: aimsResults.total,
+            showing: `1-${Math.min(12, tracksWithVersions.length)}`,
+            _meta: {
+              appliedRules: enhancedResults.appliedRules,
+              scoreAdjustments: enhancedResults.scoreAdjustments,
+              engine: 'aims',
+              aimsQuery: aimsResults.aimsQuery,
+            },
+          });
+        }
+      } catch (aimsError) {
+        console.log('AIMS search failed, falling back to Claude:', aimsError.message);
+        // Fall through to Claude
+      }
+    }
+
+    // Route 3b: Claude (fallback when AIMS unavailable or fails)
     const claudeResult = await claudeChat(messages);
     const elapsed = Date.now() - startTime;
 
