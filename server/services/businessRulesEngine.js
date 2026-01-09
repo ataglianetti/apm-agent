@@ -10,6 +10,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import safeRegex from 'safe-regex';
 import { getBusinessRulesEnabled } from '../routes/settings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -17,10 +18,46 @@ const RULES_PATH = path.join(__dirname, '..', 'config', 'businessRules.json');
 
 let cachedRules = null;
 let rulesLastModified = null;
+// Cache of validated regex patterns: pattern string -> { safe: boolean, regex: RegExp | null }
+const validatedPatterns = new Map();
+
+/**
+ * Validate a regex pattern for safety (ReDoS prevention)
+ * Caches the result and compiled regex for performance
+ * @param {string} pattern - The regex pattern to validate
+ * @returns {{ safe: boolean, regex: RegExp | null, reason?: string }}
+ */
+function validatePattern(pattern) {
+  // Check cache first
+  if (validatedPatterns.has(pattern)) {
+    return validatedPatterns.get(pattern);
+  }
+
+  // Validate the pattern
+  try {
+    // Check for ReDoS vulnerability using safe-regex
+    if (!safeRegex(pattern)) {
+      const result = { safe: false, regex: null, reason: 'Pattern may cause ReDoS' };
+      validatedPatterns.set(pattern, result);
+      return result;
+    }
+
+    // Compile the regex
+    const regex = new RegExp(pattern, 'i');
+    const result = { safe: true, regex };
+    validatedPatterns.set(pattern, result);
+    return result;
+  } catch (error) {
+    const result = { safe: false, regex: null, reason: error.message };
+    validatedPatterns.set(pattern, result);
+    return result;
+  }
+}
 
 /**
  * Load business rules from JSON configuration
  * Uses file system caching with modification time checking
+ * Validates regex patterns at load time for safety
  * @returns {object} - Rules configuration object
  */
 export function loadRules() {
@@ -33,11 +70,31 @@ export function loadRules() {
       return cachedRules;
     }
 
+    // Clear pattern cache when rules file changes
+    validatedPatterns.clear();
+
     const rulesJson = fs.readFileSync(RULES_PATH, 'utf8');
     cachedRules = JSON.parse(rulesJson);
     rulesLastModified = currentModTime;
 
-    console.log(`Loaded ${cachedRules.rules.length} business rules from configuration`);
+    // Pre-validate all patterns and warn about unsafe ones
+    let unsafeCount = 0;
+    for (const rule of cachedRules.rules || []) {
+      if (rule.pattern && rule.enabled) {
+        const validation = validatePattern(rule.pattern);
+        if (!validation.safe) {
+          unsafeCount++;
+          console.warn(
+            `Rule ${rule.id} has unsafe regex pattern: ${validation.reason}. Rule will be skipped.`
+          );
+        }
+      }
+    }
+
+    console.log(
+      `Loaded ${cachedRules.rules.length} business rules from configuration` +
+        (unsafeCount > 0 ? ` (${unsafeCount} skipped due to unsafe patterns)` : '')
+    );
     return cachedRules;
   } catch (error) {
     console.error('Error loading business rules:', error.message);
@@ -166,6 +223,7 @@ export function applyRecencyInterleavingWithBuckets(recentTracks, vintageTracks,
 
 /**
  * Match query text to applicable rules
+ * Uses pre-validated regex patterns to prevent ReDoS attacks
  * @param {string} query - The user's search query
  * @returns {Array} - Array of matching rules, sorted by priority (descending)
  */
@@ -185,14 +243,17 @@ export function matchRules(query) {
       continue;
     }
 
-    // Test pattern against query (case-insensitive)
-    try {
-      const regex = new RegExp(rule.pattern, 'i');
-      if (regex.test(query)) {
-        matched.push(rule);
-      }
-    } catch (error) {
-      console.error(`Invalid regex pattern in rule ${rule.id}:`, error.message);
+    // Get pre-validated regex (validated at load time or cached)
+    const validation = validatePattern(rule.pattern);
+
+    // Skip unsafe patterns
+    if (!validation.safe) {
+      continue;
+    }
+
+    // Test pattern against query using cached regex
+    if (validation.regex.test(query)) {
+      matched.push(rule);
     }
   }
 
