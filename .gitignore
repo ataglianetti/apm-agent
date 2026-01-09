@@ -33,3 +33,6 @@ solr/*/data/
 solr/*/core.properties
 !solr/*/conf/
 server/apm_music.db
+
+# Claude Code local settings
+.claude/settings.local.json
