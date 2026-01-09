@@ -8,6 +8,9 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createLogger } from './logger.js';
+
+const logger = createLogger('Solr');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +28,7 @@ let solrConfig = {
 try {
   solrConfig = JSON.parse(fs.readFileSync(solrConfigPath, 'utf8'));
 } catch (error) {
-  console.warn('Could not load solr.json, using defaults:', error.message);
+  logger.warn('Could not load solr.json, using defaults:', error.message);
 }
 
 // Load field weights from config
@@ -34,9 +37,9 @@ let fieldWeightsConfig = { qf: {}, pf2: {} };
 
 try {
   fieldWeightsConfig = JSON.parse(fs.readFileSync(fieldWeightsPath, 'utf8'));
-  console.log('Loaded field weights from fieldWeights.json');
+  logger.info('Loaded field weights from fieldWeights.json');
 } catch (error) {
-  console.warn('Could not load fieldWeights.json, using defaults:', error.message);
+  logger.warn('Could not load fieldWeights.json, using defaults:', { error: error.message });
 }
 
 // Map fieldWeights.json field names to Solr *_search field names
@@ -234,7 +237,7 @@ export async function search(options = {}) {
     mm = '75%';
   }
   params.set('mm', mm);
-  console.log(`Solr mm=${mm} for ${termCount} terms`);
+  logger.debug(`Solr mm=${mm} for ${termCount} terms`);
 
   params.set('tie', '0.01');
 
@@ -286,7 +289,7 @@ export async function search(options = {}) {
       // Wildcards (*value*) don't work with tokenized fields in Solr
       fq.push(`${filter.field}:"${escapedValue}"`);
     }
-    console.log(`Added field filter: ${filter.field} ${filter.operator} "${filter.value}"`);
+    logger.debug(`Added field filter: ${filter.field} ${filter.operator} "${filter.value}"`);
   }
 
   // Add all filter queries

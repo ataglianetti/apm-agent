@@ -3,6 +3,8 @@
  * Shared date parsing logic for consistent handling across the application
  */
 
+import { TIME } from '../config/constants.js';
+
 /**
  * Parse a release date string into a Date object
  * Handles multiple formats: ISO, MM/DD/YYYY, YYYY-MM-DD
@@ -87,6 +89,5 @@ export function getAgeInMonths(date) {
   }
 
   const now = Date.now();
-  const msPerMonth = 30 * 24 * 60 * 60 * 1000;
-  return Math.max(0, (now - date.getTime()) / msPerMonth);
+  return Math.max(0, (now - date.getTime()) / TIME.MS_PER_MONTH);
 }

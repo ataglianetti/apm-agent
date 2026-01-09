@@ -22,6 +22,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createLogger } from './logger.js';
+
+const logger = createLogger('QueryToTaxonomy');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.join(__dirname, '../apm_music.db');
@@ -225,7 +228,8 @@ export async function parseQueryToTaxonomy(query) {
   const systemPrompt = buildSystemPrompt(taxonomy);
 
   // Use Haiku for speed (this is a structured extraction task)
-  const model = 'claude-3-haiku-20240307';
+  // Use latest Haiku model for fast, cost-effective taxonomy parsing
+  const model = process.env.TAXONOMY_MODEL || 'claude-3-5-haiku-latest';
 
   try {
     const response = await getClient().messages.create({
@@ -251,7 +255,7 @@ export async function parseQueryToTaxonomy(query) {
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       parsed = JSON.parse(jsonMatch ? jsonMatch[0] : responseText);
     } catch (_parseError) {
-      console.error('Failed to parse LLM response as JSON:', responseText);
+      logger.error('Failed to parse LLM response as JSON:', responseText);
       parsed = {
         filters: {},
         remainingText: query,
@@ -271,11 +275,11 @@ export async function parseQueryToTaxonomy(query) {
       latencyMs: Date.now() - startTime,
     };
 
-    console.log(`Query "${query}" mapped to taxonomy in ${result.latencyMs}ms`);
+    logger.debug(`Query "${query}" mapped to taxonomy in ${result.latencyMs}ms`);
 
     return result;
   } catch (error) {
-    console.error('Error calling LLM for taxonomy mapping:', error);
+    logger.error('Error calling LLM for taxonomy mapping:', error);
     return {
       query: query,
       filters: {},

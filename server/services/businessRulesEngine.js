@@ -13,6 +13,9 @@ import { fileURLToPath } from 'url';
 import safeRegex from 'safe-regex';
 import { getBusinessRulesEnabled } from '../routes/settings.js';
 import { parseReleaseDate, getDateMonthsAgo } from './dateUtils.js';
+import { createLogger } from './logger.js';
+
+const logger = createLogger('BusinessRules');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RULES_PATH = path.join(__dirname, '..', 'config', 'businessRules.json');
@@ -164,7 +167,7 @@ export function loadRules() {
       const ruleValidation = validateRule(rule);
       if (!ruleValidation.valid) {
         invalidCount++;
-        console.warn(
+        logger.warn(
           `Rule ${rule.id || '(no id)'} has invalid configuration: ${ruleValidation.errors.join(', ')}. Rule will be skipped.`
         );
         continue;
@@ -175,7 +178,7 @@ export function loadRules() {
         const patternValidation = validatePattern(rule.pattern);
         if (!patternValidation.safe) {
           unsafeCount++;
-          console.warn(
+          logger.warn(
             `Rule ${rule.id} has unsafe regex pattern: ${patternValidation.reason}. Rule will be skipped.`
           );
           continue;
@@ -193,13 +196,13 @@ export function loadRules() {
     if (invalidCount > 0) skippedMsg.push(`${invalidCount} invalid`);
     if (unsafeCount > 0) skippedMsg.push(`${unsafeCount} unsafe patterns`);
 
-    console.log(
+    logger.info(
       `Loaded ${validRules.length}/${totalOriginal} business rules from configuration` +
         (skippedMsg.length > 0 ? ` (skipped: ${skippedMsg.join(', ')})` : '')
     );
     return cachedRules;
   } catch (error) {
-    console.error('Error loading business rules:', error.message);
+    logger.error('Error loading business rules:', error.message);
     return { rules: [] };
   }
 }
@@ -304,7 +307,7 @@ export function applyRecencyInterleavingWithBuckets(recentTracks, vintageTracks,
     interleavedTracks.push(vintageTracks[vintageIndex++]);
   }
 
-  console.log(
+  logger.debug(
     `Recency interleaving (dual-query): ${recentTracks.length} recent + ${vintageTracks.length} vintage = ${interleavedTracks.length} interleaved`
   );
 
@@ -332,7 +335,7 @@ export function applyRecencyInterleavingWithBuckets(recentTracks, vintageTracks,
 export function matchRules(query) {
   // Check global toggle first
   if (!getBusinessRulesEnabled()) {
-    console.log('Business rules globally disabled - skipping rule matching');
+    logger.debug('Business rules globally disabled - skipping rule matching');
     return [];
   }
 
@@ -362,7 +365,7 @@ export function matchRules(query) {
   // Sort by priority (higher priority first)
   matched.sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
-  console.log(
+  logger.debug(
     `Matched ${matched.length} rules for query "${query}":`,
     matched.map(r => `${r.id} (priority: ${r.priority})`).join(', ')
   );
@@ -463,7 +466,7 @@ async function applyRule(tracks, rule, _query) {
       return applySubgenreInterleaving(tracks, rule);
 
     default:
-      console.warn(`Unknown rule type: ${rule.type}`);
+      logger.warn(`Unknown rule type: ${rule.type}`);
       return { applied: false };
   }
 }
@@ -608,7 +611,7 @@ function applyRecencyInterleaving(tracks, rule) {
   }
 
   if (excludedCount > 0) {
-    console.log(
+    logger.debug(
       `Recency interleaving: excluded ${excludedCount} tracks (no date or outside vintage range)`
     );
   }
@@ -805,7 +808,7 @@ function applyRecencyDecay(tracks, rule) {
     adj.rankChange = adj.originalRank - adj.finalRank;
   });
 
-  console.log(
+  logger.debug(
     `Recency decay applied: ${affectedCount} tracks affected, horizon=${horizonMonths}mo, threshold=${horizonThreshold}`
   );
 
@@ -993,7 +996,7 @@ function applySubgenreInterleaving(tracks, rule) {
     subgenreCounts[sg] = (subgenreCounts[sg] || 0) + 1;
   }
 
-  console.log(
+  logger.debug(
     `Subgenre interleaving applied: ${interleaveDetails.length} tracks interleaved across ${Object.keys(subgenreCounts).length} subgenres`
   );
 

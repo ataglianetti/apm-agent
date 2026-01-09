@@ -6,17 +6,24 @@
  * - "music for a high speed chase through a neon city scape"
  * - "uplifting corporate video background music"
  *
- * INTEGRATION TODO:
+ * STATUS: Not yet implemented. The service is disabled to avoid latency.
+ *
+ * To enable AIMS integration:
  * 1. Get AIMS API key and add to .env as AIMS_API_KEY
- * 2. Implement the search() function with actual API call
- * 3. Map AIMS response format to our track format
+ * 2. Set AIMS_CONFIG.implemented = true below
+ * 3. Uncomment and complete the search() implementation
+ * 4. Update _mapAimsTrackToInternal() based on actual AIMS response format
  *
  * API Contract (expected):
  * - Input: { query: string, filters?: { genre?: string[], mood?: string[], ... }, limit?: number, offset?: number }
  * - Output: { tracks: Track[], total: number }
  */
 
-// Placeholder for AIMS API configuration
+import { createLogger } from './logger.js';
+
+const logger = createLogger('AIMS');
+
+// AIMS API configuration
 const AIMS_CONFIG = {
   baseUrl: process.env.AIMS_API_URL || 'https://api.aims.example.com',
   apiKey: process.env.AIMS_API_KEY,
@@ -28,10 +35,9 @@ const AIMS_CONFIG = {
  * Check if AIMS is configured and available
  * Returns false until AIMS integration is complete to avoid latency
  * from failed API calls on every complex query.
+ * @returns {boolean} True if AIMS is available and configured
  */
 export function isAimsAvailable() {
-  // AIMS integration is not yet complete - return false to avoid latency
-  // When AIMS is implemented, set AIMS_CONFIG.implemented = true
   return AIMS_CONFIG.implemented && Boolean(AIMS_CONFIG.apiKey);
 }
 
@@ -51,13 +57,12 @@ export function isAimsAvailable() {
  */
 export async function search(query, constraints = {}, limit = 12, offset = 0) {
   if (!isAimsAvailable()) {
-    throw new Error('AIMS API not configured. Set AIMS_API_KEY in .env');
+    throw new Error('AIMS API not configured. Set AIMS_API_KEY in .env and enable integration.');
   }
 
-  console.log('AIMS search:', { query, constraints, limit, offset });
+  logger.debug('AIMS search request', { query, constraints, limit, offset });
 
-  // TODO: Implement actual AIMS API call
-  // Example expected implementation:
+  // Implementation placeholder - uncomment and complete when AIMS is ready:
   //
   // const response = await fetch(`${AIMS_CONFIG.baseUrl}/search`, {
   //   method: 'POST',
@@ -78,9 +83,7 @@ export async function search(query, constraints = {}, limit = 12, offset = 0) {
   // }
   //
   // const data = await response.json();
-  //
-  // // Map AIMS track format to our format
-  // const tracks = data.tracks.map(mapAimsTrackToInternal);
+  // const tracks = data.tracks.map(_mapAimsTrackToInternal);
   //
   // return {
   //   tracks,
@@ -88,8 +91,7 @@ export async function search(query, constraints = {}, limit = 12, offset = 0) {
   //   aimsQuery: query,
   // };
 
-  // Placeholder response until AIMS is integrated
-  throw new Error('AIMS integration not yet implemented. See aimsService.js for TODO.');
+  throw new Error('AIMS integration not yet implemented.');
 }
 
 /**
@@ -99,6 +101,10 @@ export async function search(query, constraints = {}, limit = 12, offset = 0) {
  * @returns {object} Constraints object for AIMS API
  */
 export function pillsToConstraints(pills) {
+  if (!pills || !Array.isArray(pills)) {
+    return {};
+  }
+
   const constraints = {};
 
   for (const pill of pills) {
@@ -121,9 +127,11 @@ export function pillsToConstraints(pills) {
 
 /**
  * Map AIMS track format to internal track format
- * TODO: Update this mapping based on actual AIMS response format
+ * Prefixed with underscore as it's not used until AIMS is implemented.
+ * @param {object} aimsTrack - Track object from AIMS API
+ * @returns {object} Track object in internal format
  */
-function mapAimsTrackToInternal(aimsTrack) {
+function _mapAimsTrackToInternal(aimsTrack) {
   return {
     id: aimsTrack.id || aimsTrack.track_id,
     track_title: aimsTrack.title || aimsTrack.track_title,
@@ -136,6 +144,8 @@ function mapAimsTrackToInternal(aimsTrack) {
     genre: aimsTrack.genre || aimsTrack.genres,
     mood: aimsTrack.mood || aimsTrack.moods,
     instruments: aimsTrack.instruments,
-    // Add more field mappings as needed
   };
 }
+
+// Export for testing purposes (prefixed to indicate internal use)
+export { _mapAimsTrackToInternal };

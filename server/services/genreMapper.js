@@ -1,14 +1,25 @@
-// Genre ID to Name mapping utility
+/**
+ * Genre ID to Name Mapping Utility
+ * Maps numeric genre IDs to human-readable genre names.
+ */
+
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { parse } from 'csv-parse/sync';
+import { createLogger } from './logger.js';
+
+const logger = createLogger('GenreMapper');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Create genre mapping from CSV
+// Create genre mapping from CSV (cached)
 let genreMap = null;
 
+/**
+ * Load genre mapping from CSV file
+ * @returns {object} Map of genre ID to genre name
+ */
 function loadGenreMap() {
   if (genreMap) return genreMap;
 
@@ -25,16 +36,22 @@ function loadGenreMap() {
       genreMap[record.genre_id] = record.genre_name;
     });
 
-    console.log(`Loaded ${Object.keys(genreMap).length} genre mappings`);
+    logger.info(`Loaded ${Object.keys(genreMap).length} genre mappings`);
     return genreMap;
   } catch (error) {
-    console.error('Error loading genre map:', error);
+    logger.error('Error loading genre map', error);
     return {};
   }
 }
 
-// Map genre IDs to names for a track
+/**
+ * Map genre IDs to names for a track
+ * @param {object} track - Track object with genre IDs
+ * @returns {object} Track with genre_name and additional_genres_names added
+ */
 export function enrichTrackWithGenreNames(track) {
+  if (!track) return track;
+
   const mapping = loadGenreMap();
 
   // Map primary genre (try master_genre_id first, then fall back to genre)
@@ -42,7 +59,7 @@ export function enrichTrackWithGenreNames(track) {
   if (genreId && mapping[genreId]) {
     track.genre_name = mapping[genreId];
   } else {
-    track.genre_name = null; // No mapping available
+    track.genre_name = null;
   }
 
   // Map additional genres (try additional_genre_ids first, then fall back to additional_genres)
@@ -61,9 +78,12 @@ export function enrichTrackWithGenreNames(track) {
   return track;
 }
 
-// Map genre IDs to names for multiple tracks
+/**
+ * Map genre IDs to names for multiple tracks
+ * @param {object[]} tracks - Array of track objects
+ * @returns {object[]} Tracks with genre names added
+ */
 export function enrichTracksWithGenreNames(tracks) {
+  if (!tracks || !Array.isArray(tracks)) return [];
   return tracks.map(track => enrichTrackWithGenreNames(track));
 }
-
-export default { enrichTrackWithGenreNames, enrichTracksWithGenreNames };
