@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -43,9 +44,33 @@ app.use(
 );
 app.use(express.json({ limit: '10mb' })); // Add size limit for security
 
+// Rate limiting configuration
+// General API rate limit: 200 requests per 15 minutes
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+
+// Stricter rate limit for chat endpoint (calls expensive Anthropic API)
+// 50 requests per 15 minutes per IP
+const chatLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many chat requests, please try again later.' },
+});
+
+// Apply general rate limit to all API routes
+app.use('/api', generalLimiter);
+
 // API routes
 app.use('/api', healthRouter); // Health checks first (no auth needed)
 app.use('/api', settingsRouter); // Settings API
+app.use('/api/chat', chatLimiter); // Stricter limit for chat endpoint
 app.use('/api', chatRouter);
 app.use('/api', trackMetadataRouter);
 app.use('/api/taxonomy', taxonomyRouter); // Taxonomy parsing API
