@@ -86,27 +86,56 @@ const VALUE_PARSERS = {
     // Handle BPM ranges like "120-140" or comparisons like ">120"
     if (value.includes('-')) {
       const [min, max] = value.split('-').map(v => parseInt(v.trim()));
+      if (isNaN(min) || isNaN(max)) {
+        return { type: 'invalid', reason: 'Invalid BPM range' };
+      }
       return { type: 'range', min, max };
     } else if (value.startsWith('>')) {
-      return { type: 'greater', value: parseInt(value.slice(1).trim()) };
+      const parsed = parseInt(value.slice(1).trim());
+      if (isNaN(parsed)) {
+        return { type: 'invalid', reason: 'Invalid BPM value' };
+      }
+      return { type: 'greater', value: parsed };
     } else if (value.startsWith('<')) {
-      return { type: 'less', value: parseInt(value.slice(1).trim()) };
+      const parsed = parseInt(value.slice(1).trim());
+      if (isNaN(parsed)) {
+        return { type: 'invalid', reason: 'Invalid BPM value' };
+      }
+      return { type: 'less', value: parsed };
     }
-    return { type: 'exact', value: parseInt(value) };
+    const parsed = parseInt(value);
+    if (isNaN(parsed)) {
+      return { type: 'invalid', reason: 'Invalid BPM value' };
+    }
+    return { type: 'exact', value: parsed };
   },
 
   duration: value => {
     // Handle duration in various formats: "2:30", "150", ">60"
     // Note: duration is stored in seconds in the database
     if (value.includes(':')) {
-      const [minutes, seconds] = value.split(':').map(v => parseInt(v));
-      return minutes * 60 + seconds;
+      const parts = value.split(':');
+      if (parts.length !== 2) {
+        return { type: 'invalid', reason: 'Invalid duration format' };
+      }
+      const [minutes, seconds] = parts.map(v => parseInt(v));
+      if (isNaN(minutes) || isNaN(seconds) || seconds < 0 || seconds >= 60) {
+        return { type: 'invalid', reason: 'Invalid duration value' };
+      }
+      return { type: 'exact', value: minutes * 60 + seconds };
     } else if (value.startsWith('>') || value.startsWith('<')) {
       const operator = value[0];
       const seconds = parseInt(value.slice(1).trim());
+      if (isNaN(seconds)) {
+        return { type: 'invalid', reason: 'Invalid duration value' };
+      }
       return { type: operator === '>' ? 'greater' : 'less', value: seconds };
     }
-    return parseInt(value);
+    const parsed = parseInt(value);
+    if (isNaN(parsed)) {
+      return { type: 'invalid', reason: 'Invalid duration value' };
+    }
+    return { type: 'exact', value: parsed };
   },
 
   'release-date': value => {

@@ -31,6 +31,7 @@ const router = express.Router();
 const rerankedResultsCache = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const CACHE_FETCH_SIZE = 500; // Fetch this many tracks for re-ranking
+const MAX_CACHE_SIZE = 100; // Maximum number of cached query results
 
 /**
  * Get cache key for a query + rules combination
@@ -88,11 +89,23 @@ async function getRerankedResults(query, matchedRules, searchFn) {
   rerankedResultsCache.set(cacheKey, cacheEntry);
   console.log(`Cached ${cacheEntry.tracks.length} re-ranked tracks for "${query}"`);
 
-  // Clean old entries
+  // Clean old entries and enforce size limit
+  const now = Date.now();
   for (const [key, entry] of rerankedResultsCache.entries()) {
-    if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    if (now - entry.timestamp > CACHE_TTL_MS) {
       rerankedResultsCache.delete(key);
     }
+  }
+
+  // If still over limit, remove oldest entries (LRU eviction)
+  if (rerankedResultsCache.size > MAX_CACHE_SIZE) {
+    const entries = Array.from(rerankedResultsCache.entries());
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const toRemove = entries.slice(0, entries.length - MAX_CACHE_SIZE);
+    for (const [key] of toRemove) {
+      rerankedResultsCache.delete(key);
+    }
+    console.log(`Cache size exceeded, evicted ${toRemove.length} oldest entries`);
   }
 
   return cacheEntry;

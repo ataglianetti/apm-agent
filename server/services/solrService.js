@@ -191,6 +191,10 @@ function buildSort(sort = 'featured') {
  * @param {number} options.offset - Offset for pagination (default 0)
  * @param {Object} options.ranges - Range filters (bpm, duration, date)
  */
+// Maximum allowed values to prevent memory exhaustion
+const MAX_LIMIT = 1000;
+const MAX_OFFSET = 100000;
+
 export async function search(options = {}) {
   const {
     text = '*:*',
@@ -198,11 +202,15 @@ export async function search(options = {}) {
     excludeFacetIds = [],
     fieldFilters = [], // [{field, value, operator}] for text field filtering
     sort = 'featured',
-    limit = 12,
-    offset = 0,
+    limit: rawLimit = 12,
+    offset: rawOffset = 0,
     ranges = {},
     groupBy = 'song_id',
   } = options;
+
+  // Apply bounds checking to prevent memory exhaustion
+  const limit = Math.min(Math.max(0, rawLimit), MAX_LIMIT);
+  const offset = Math.min(Math.max(0, rawOffset), MAX_OFFSET);
 
   // Build query
   const q = text && text.trim() ? text.trim() : '*:*';
