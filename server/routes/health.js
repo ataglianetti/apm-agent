@@ -37,9 +37,9 @@ router.get('/health', async (req, res) => {
     anthropic_api: { configured: !!process.env.ANTHROPIC_API_KEY },
   };
 
-  // Check Solr
+  // Check Solr using select query (ping handler may be disabled)
   try {
-    const solrUrl = `http://${solrConfig.host}:${solrConfig.port}/solr/${solrConfig.core}/admin/ping`;
+    const solrUrl = `http://${solrConfig.host}:${solrConfig.port}/solr/${solrConfig.core}/select?q=*:*&rows=0&wt=json`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
 
@@ -47,16 +47,12 @@ router.get('/health', async (req, res) => {
     clearTimeout(timeoutId);
 
     if (response.ok) {
-      // Get document count
-      const statsUrl = `http://${solrConfig.host}:${solrConfig.port}/solr/${solrConfig.core}/select?q=*:*&rows=0&wt=json`;
-      const statsResponse = await fetch(statsUrl);
-      const statsData = await statsResponse.json();
-
+      const data = await response.json();
       health.solr = {
         status: 'connected',
         url: `${solrConfig.host}:${solrConfig.port}`,
         core: solrConfig.core,
-        numDocs: statsData.response?.numFound || 0,
+        numDocs: data.response?.numFound || 0,
       };
     } else {
       health.solr = { status: 'error', message: `HTTP ${response.status}` };
