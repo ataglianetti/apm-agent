@@ -20,13 +20,19 @@
 const AIMS_CONFIG = {
   baseUrl: process.env.AIMS_API_URL || 'https://api.aims.example.com',
   apiKey: process.env.AIMS_API_KEY,
+  // Set to true when AIMS integration is complete
+  implemented: false,
 };
 
 /**
  * Check if AIMS is configured and available
+ * Returns false until AIMS integration is complete to avoid latency
+ * from failed API calls on every complex query.
  */
 export function isAimsAvailable() {
-  return Boolean(AIMS_CONFIG.apiKey);
+  // AIMS integration is not yet complete - return false to avoid latency
+  // When AIMS is implemented, set AIMS_CONFIG.implemented = true
+  return AIMS_CONFIG.implemented && Boolean(AIMS_CONFIG.apiKey);
 }
 
 /**

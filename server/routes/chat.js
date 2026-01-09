@@ -617,26 +617,12 @@ router.post('/chat', async (req, res) => {
           const recentOffset = pagesCompleted * rCount;
           const vintageOffset = pagesCompleted * vCount;
 
-          const baseSearchOptions = {
-            text: lastMessage.content,
-            taxonomyFilters: null,
-            limit: Math.ceil((limit * rCount) / patternLength) + 5, // Extra buffer
-            offset: 0,
-          };
-
-          // Query recent tracks
+          // Query recent and vintage tracks in parallel to avoid race conditions
           const recentDateFilter = {
             field: 'releaseDate',
             operator: 'greater',
             value: recencyConfig.recentThresholdDate.toISOString(),
           };
-          const recentResults = await metadataSearch({
-            ...baseSearchOptions,
-            filters: [recentDateFilter],
-            offset: recentOffset,
-          });
-
-          // Query vintage tracks
           const vintageDateFilter = {
             field: 'releaseDate',
             operator: 'range',
@@ -645,12 +631,23 @@ router.post('/chat', async (req, res) => {
               max: recencyConfig.recentThresholdDate.toISOString(),
             },
           };
-          const vintageResults = await metadataSearch({
-            ...baseSearchOptions,
-            limit: Math.ceil((limit * vCount) / patternLength) + 5,
-            filters: [vintageDateFilter],
-            offset: vintageOffset,
-          });
+
+          const [recentResults, vintageResults] = await Promise.all([
+            metadataSearch({
+              text: lastMessage.content,
+              taxonomyFilters: null,
+              limit: Math.ceil((limit * rCount) / patternLength) + 5,
+              offset: recentOffset,
+              filters: [recentDateFilter],
+            }),
+            metadataSearch({
+              text: lastMessage.content,
+              taxonomyFilters: null,
+              limit: Math.ceil((limit * vCount) / patternLength) + 5,
+              offset: vintageOffset,
+              filters: [vintageDateFilter],
+            }),
+          ]);
 
           const recentTracks = enrichTracksWithGenreNames(recentResults.tracks);
           const vintageTracks = enrichTracksWithGenreNames(vintageResults.tracks);
@@ -803,32 +800,12 @@ router.post('/chat', async (req, res) => {
       if (recencyConfig) {
         console.log('Recency interleaving detected - using dual-query approach');
 
-        // Use original query text for dual-query (skip taxonomy filters to avoid empty results)
-        // Taxonomy filters can be too restrictive when combined with date filters
-        const baseSearchOptions = {
-          text: lastMessage.content,
-          taxonomyFilters: null, // Skip taxonomy filters for dual-query - use pure text search
-          limit: 50, // 50 recent + 50 vintage = 100 total
-          offset: 0,
-        };
-
-        // Query 1: Recent tracks (within threshold)
+        // Query recent and vintage tracks in parallel to avoid race conditions
         const recentDateFilter = {
           field: 'releaseDate',
           operator: 'greater',
           value: recencyConfig.recentThresholdDate.toISOString(),
         };
-
-        console.log(
-          `Fetching recent tracks (after ${recencyConfig.recentThresholdDate.toISOString().slice(0, 10)})`
-        );
-        const recentResults = await metadataSearch({
-          ...baseSearchOptions,
-          filters: [recentDateFilter],
-        });
-
-        // Query 2: Vintage tracks (between vintage_max and recent_threshold)
-        // Use range operator to pass both min and max in one filter
         const vintageDateFilter = {
           field: 'releaseDate',
           operator: 'range',
@@ -839,12 +816,25 @@ router.post('/chat', async (req, res) => {
         };
 
         console.log(
-          `Fetching vintage tracks (${recencyConfig.vintageMaxDate ? recencyConfig.vintageMaxDate.toISOString().slice(0, 10) + ' to ' : 'before '}${recencyConfig.recentThresholdDate.toISOString().slice(0, 10)})`
+          `Fetching recent tracks (after ${recencyConfig.recentThresholdDate.toISOString().slice(0, 10)}) and vintage tracks (${recencyConfig.vintageMaxDate ? recencyConfig.vintageMaxDate.toISOString().slice(0, 10) + ' to ' : 'before '}${recencyConfig.recentThresholdDate.toISOString().slice(0, 10)}) in parallel`
         );
-        const vintageResults = await metadataSearch({
-          ...baseSearchOptions,
-          filters: [vintageDateFilter],
-        });
+
+        const [recentResults, vintageResults] = await Promise.all([
+          metadataSearch({
+            text: lastMessage.content,
+            taxonomyFilters: null,
+            limit: 50,
+            offset: 0,
+            filters: [recentDateFilter],
+          }),
+          metadataSearch({
+            text: lastMessage.content,
+            taxonomyFilters: null,
+            limit: 50,
+            offset: 0,
+            filters: [vintageDateFilter],
+          }),
+        ]);
 
         // Enrich with genre names
         const recentTracks = enrichTracksWithGenreNames(recentResults.tracks);

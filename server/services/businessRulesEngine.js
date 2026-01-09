@@ -12,6 +12,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import safeRegex from 'safe-regex';
 import { getBusinessRulesEnabled } from '../routes/settings.js';
+import { parseReleaseDate, getDateMonthsAgo } from './dateUtils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RULES_PATH = path.join(__dirname, '..', 'config', 'businessRules.json');
@@ -20,6 +21,82 @@ let cachedRules = null;
 let rulesLastModified = null;
 // Cache of validated regex patterns: pattern string -> { safe: boolean, regex: RegExp | null }
 const validatedPatterns = new Map();
+
+/**
+ * Required fields for each rule type
+ */
+const RULE_TYPE_REQUIREMENTS = {
+  genre_simplification: {
+    required: ['id', 'pattern', 'action'],
+    actionFields: ['auto_apply_facets'],
+  },
+  library_boost: { required: ['id', 'pattern', 'action'], actionFields: ['boost_libraries'] },
+  recency_interleaving: {
+    required: ['id', 'pattern', 'action'],
+    actionFields: ['recent_threshold_months', 'pattern'],
+  },
+  feature_boost: {
+    required: ['id', 'pattern', 'action'],
+    actionFields: ['boost_field', 'boost_value', 'boost_factor'],
+  },
+  recency_decay: { required: ['id', 'pattern', 'action'], actionFields: [] },
+  filter_optimization: {
+    required: ['id', 'pattern', 'action'],
+    actionFields: ['auto_apply_filter'],
+  },
+  subgenre_interleaving: {
+    required: ['id', 'pattern', 'action'],
+    actionFields: ['values', 'pattern'],
+  },
+};
+
+/**
+ * Validate a single rule configuration
+ * @param {object} rule - The rule to validate
+ * @returns {{ valid: boolean, errors: string[] }}
+ */
+function validateRule(rule) {
+  const errors = [];
+
+  // Check basic required fields
+  if (!rule.id) errors.push('Missing required field: id');
+  if (!rule.type) errors.push('Missing required field: type');
+  if (!rule.pattern) errors.push('Missing required field: pattern');
+
+  // Check type-specific requirements
+  const typeReqs = RULE_TYPE_REQUIREMENTS[rule.type];
+  if (!typeReqs) {
+    errors.push(`Unknown rule type: ${rule.type}`);
+  } else {
+    // Check required top-level fields
+    for (const field of typeReqs.required) {
+      if (rule[field] === undefined) {
+        errors.push(`Missing required field: ${field}`);
+      }
+    }
+
+    // Check required action fields
+    if (rule.action && typeReqs.actionFields.length > 0) {
+      for (const field of typeReqs.actionFields) {
+        if (rule.action[field] === undefined) {
+          errors.push(`Missing required action field: ${field}`);
+        }
+      }
+    }
+  }
+
+  // Validate priority is a number if provided
+  if (rule.priority !== undefined && typeof rule.priority !== 'number') {
+    errors.push('Priority must be a number');
+  }
+
+  // Validate enabled is a boolean if provided
+  if (rule.enabled !== undefined && typeof rule.enabled !== 'boolean') {
+    errors.push('Enabled must be a boolean');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
 
 /**
  * Validate a regex pattern for safety (ReDoS prevention)
@@ -77,23 +154,48 @@ export function loadRules() {
     cachedRules = JSON.parse(rulesJson);
     rulesLastModified = currentModTime;
 
-    // Pre-validate all patterns and warn about unsafe ones
+    // Validate all rules and log warnings for invalid ones
+    let invalidCount = 0;
     let unsafeCount = 0;
+    const validRules = [];
+
     for (const rule of cachedRules.rules || []) {
+      // Validate rule configuration
+      const ruleValidation = validateRule(rule);
+      if (!ruleValidation.valid) {
+        invalidCount++;
+        console.warn(
+          `Rule ${rule.id || '(no id)'} has invalid configuration: ${ruleValidation.errors.join(', ')}. Rule will be skipped.`
+        );
+        continue;
+      }
+
+      // Validate regex pattern for enabled rules
       if (rule.pattern && rule.enabled) {
-        const validation = validatePattern(rule.pattern);
-        if (!validation.safe) {
+        const patternValidation = validatePattern(rule.pattern);
+        if (!patternValidation.safe) {
           unsafeCount++;
           console.warn(
-            `Rule ${rule.id} has unsafe regex pattern: ${validation.reason}. Rule will be skipped.`
+            `Rule ${rule.id} has unsafe regex pattern: ${patternValidation.reason}. Rule will be skipped.`
           );
+          continue;
         }
       }
+
+      validRules.push(rule);
     }
 
+    // Replace rules array with only valid rules
+    cachedRules.rules = validRules;
+
+    const totalOriginal = (JSON.parse(rulesJson).rules || []).length;
+    const skippedMsg = [];
+    if (invalidCount > 0) skippedMsg.push(`${invalidCount} invalid`);
+    if (unsafeCount > 0) skippedMsg.push(`${unsafeCount} unsafe patterns`);
+
     console.log(
-      `Loaded ${cachedRules.rules.length} business rules from configuration` +
-        (unsafeCount > 0 ? ` (${unsafeCount} skipped due to unsafe patterns)` : '')
+      `Loaded ${validRules.length}/${totalOriginal} business rules from configuration` +
+        (skippedMsg.length > 0 ? ` (skipped: ${skippedMsg.join(', ')})` : '')
     );
     return cachedRules;
   } catch (error) {
@@ -478,19 +580,9 @@ function applyRecencyInterleaving(tracks, rule) {
     return { applied: false };
   }
 
-  // Calculate threshold dates
-  const now = new Date();
-
-  // Recent threshold: tracks newer than this are "recent"
-  const recentThresholdDate = new Date(now);
-  recentThresholdDate.setMonth(recentThresholdDate.getMonth() - recent_threshold_months);
-
-  // Vintage max: tracks older than this are excluded (optional)
-  let vintageMaxDate = null;
-  if (vintage_max_months) {
-    vintageMaxDate = new Date(now);
-    vintageMaxDate.setMonth(vintageMaxDate.getMonth() - vintage_max_months);
-  }
+  // Calculate threshold dates using shared utility
+  const recentThresholdDate = getDateMonthsAgo(recent_threshold_months);
+  const vintageMaxDate = vintage_max_months ? getDateMonthsAgo(vintage_max_months) : null;
 
   // Separate tracks into recent, vintage, and excluded
   const recentTracks = [];
@@ -498,46 +590,19 @@ function applyRecencyInterleaving(tracks, rule) {
   let excludedCount = 0;
 
   for (const track of tracks) {
-    const releaseDate = track.apm_release_date;
+    const trackDate = parseReleaseDate(track.apm_release_date);
 
-    if (releaseDate) {
-      try {
-        let trackDate;
-
-        // Handle ISO format (e.g., "1997-04-10T07:00:00Z")
-        if (releaseDate.includes('T')) {
-          trackDate = new Date(releaseDate);
-        }
-        // Handle MM/DD/YYYY format
-        else if (releaseDate.includes('/')) {
-          const dateParts = releaseDate.split('/');
-          trackDate = new Date(dateParts[2], dateParts[0] - 1, dateParts[1]);
-        }
-        // Handle YYYY-MM-DD format
-        else {
-          const dateParts = releaseDate.split('-');
-          trackDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
-        }
-
-        if (isNaN(trackDate.getTime())) {
-          // Invalid date, exclude from interleaving
-          excludedCount++;
-        } else if (trackDate >= recentThresholdDate) {
-          // Recent: within recent_threshold_months
-          recentTracks.push(track);
-        } else if (!vintageMaxDate || trackDate >= vintageMaxDate) {
-          // Vintage: older than recent threshold but within vintage_max_months (if set)
-          vintageTracks.push(track);
-        } else {
-          // Too old: excluded from interleaving
-          excludedCount++;
-        }
-      } catch (_error) {
-        // If date parsing fails, exclude from interleaving
-        excludedCount++;
-      }
+    if (!trackDate) {
+      // No release date or invalid date, exclude from interleaving
+      excludedCount++;
+    } else if (trackDate >= recentThresholdDate) {
+      // Recent: within recent_threshold_months
+      recentTracks.push(track);
+    } else if (!vintageMaxDate || trackDate >= vintageMaxDate) {
+      // Vintage: older than recent threshold but within vintage_max_months (if set)
+      vintageTracks.push(track);
     } else {
-      // No release date, exclude from interleaving
+      // Too old: excluded from interleaving
       excludedCount++;
     }
   }

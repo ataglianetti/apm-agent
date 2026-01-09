@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { TrackMetadataModal } from './TrackMetadataModal';
+import { parseReleaseDate, isWithinMonths } from '../utils/dateUtils';
 
 function TrackCardComponent({
   track,
@@ -11,11 +12,17 @@ function TrackCardComponent({
   hasVersions = false, // Whether track has multiple versions
   isVersion = false, // Whether this is a version card (for styling)
   searchMeta = null, // Business rules metadata from search response
+  onFavorite, // Optional callback for favorite action
+  onDownload, // Optional callback for download action
+  onAddToProject, // Optional callback for add to project action
 }) {
   const { isDark } = useTheme();
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
+
+  // Ref for focus management - stores the element that opened the modal
+  const modalTriggerRef = useRef(null);
 
   // Parse duration - can be string (e.g., "2:15") or number (seconds)
   const durationSeconds = useMemo(() => {
@@ -92,12 +99,46 @@ function TrackCardComponent({
     if (onSoundsLike) onSoundsLike(track);
   }, [onSoundsLike, track]);
 
-  const openMetadataModal = useCallback(() => {
+  const handleFavorite = useCallback(() => {
+    if (onFavorite) {
+      onFavorite(track);
+    } else {
+      console.log('Favorite action not implemented. Track:', track.id, track.track_title);
+    }
+  }, [onFavorite, track]);
+
+  const handleDownload = useCallback(() => {
+    if (onDownload) {
+      onDownload(track);
+    } else {
+      console.log('Download action not implemented. Track:', track.id, track.track_title);
+    }
+  }, [onDownload, track]);
+
+  const handleAddToProject = useCallback(() => {
+    if (onAddToProject) {
+      onAddToProject(track);
+    } else {
+      console.log('Add to project action not implemented. Track:', track.id, track.track_title);
+    }
+  }, [onAddToProject, track]);
+
+  const openMetadataModal = useCallback(e => {
+    // Store the trigger element for focus restoration
+    modalTriggerRef.current = e?.currentTarget || e?.target || null;
     setShowMetadataModal(true);
   }, []);
 
   const closeMetadataModal = useCallback(() => {
     setShowMetadataModal(false);
+    // Restore focus to the element that opened the modal
+    if (modalTriggerRef.current) {
+      // Use setTimeout to ensure the modal is fully closed before focusing
+      setTimeout(() => {
+        modalTriggerRef.current?.focus();
+        modalTriggerRef.current = null;
+      }, 0);
+    }
   }, []);
 
   // Parse additional genres from comma-separated string
@@ -113,41 +154,14 @@ function TrackCardComponent({
 
   // Parse release date and determine if "recent" (within 12 months)
   const releaseInfo = useMemo(() => {
-    if (!track.apm_release_date) return { year: null, isRecent: false };
-
-    try {
-      let trackDate;
-      const releaseDate = track.apm_release_date;
-
-      // Handle ISO format (e.g., "1997-04-10T07:00:00Z")
-      if (releaseDate.includes('T')) {
-        trackDate = new Date(releaseDate);
-      }
-      // Handle MM/DD/YYYY format
-      else if (releaseDate.includes('/')) {
-        const dateParts = releaseDate.split('/');
-        trackDate = new Date(dateParts[2], dateParts[0] - 1, dateParts[1]);
-      }
-      // Handle YYYY-MM-DD format
-      else {
-        const dateParts = releaseDate.split('-');
-        trackDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
-      }
-
-      if (isNaN(trackDate.getTime())) {
-        return { year: null, isRecent: false };
-      }
-
-      const thresholdDate = new Date();
-      thresholdDate.setMonth(thresholdDate.getMonth() - 12);
-
-      return {
-        year: trackDate.getFullYear(),
-        isRecent: trackDate >= thresholdDate,
-      };
-    } catch {
+    const trackDate = parseReleaseDate(track.apm_release_date);
+    if (!trackDate) {
       return { year: null, isRecent: false };
     }
+    return {
+      year: trackDate.getFullYear(),
+      isRecent: isWithinMonths(trackDate, 12),
+    };
   }, [track.apm_release_date]);
 
   // Check if recency interleaving is active (for demo highlighting)
@@ -272,6 +286,7 @@ function TrackCardComponent({
           )}
           {/* Favorite */}
           <button
+            onClick={handleFavorite}
             aria-label={`Add ${track.track_title} to favorites`}
             className={`p-2 hover:text-apm-purple transition-colors ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}
           >
@@ -292,6 +307,7 @@ function TrackCardComponent({
           </button>
           {/* Download */}
           <button
+            onClick={handleDownload}
             aria-label={`Download ${track.track_title}`}
             className={`p-2 hover:text-apm-purple transition-colors ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}
           >
@@ -312,6 +328,7 @@ function TrackCardComponent({
           </button>
           {/* Add to Project */}
           <button
+            onClick={handleAddToProject}
             aria-label={`Add ${track.track_title} to project`}
             className={`p-2 hover:text-apm-purple transition-colors ${isDark ? 'text-apm-gray' : 'text-gray-400'}`}
           >
@@ -486,7 +503,10 @@ function arePropsEqual(prevProps, nextProps) {
     prevProps.searchQuery === nextProps.searchQuery &&
     prevProps.hasVersions === nextProps.hasVersions &&
     prevProps.isVersion === nextProps.isVersion &&
-    prevProps.searchMeta === nextProps.searchMeta
+    prevProps.searchMeta === nextProps.searchMeta &&
+    prevProps.onFavorite === nextProps.onFavorite &&
+    prevProps.onDownload === nextProps.onDownload &&
+    prevProps.onAddToProject === nextProps.onAddToProject
   );
 }
 
