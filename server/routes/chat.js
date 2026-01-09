@@ -25,6 +25,104 @@ import {
 const router = express.Router();
 
 /**
+ * Safely extract JSON from a string that may contain additional text
+ * Uses JSON.parse validation rather than manual brace counting
+ * @param {string} text - The text that may contain JSON
+ * @param {string[]} expectedTypes - Expected "type" field values (e.g., ['track_results', 'pill_extraction'])
+ * @returns {{ json: object, startIndex: number, endIndex: number } | null}
+ */
+function safeExtractJSON(text, expectedTypes = ['track_results', 'pill_extraction']) {
+  if (!text || typeof text !== 'string') return null;
+
+  // Maximum characters to scan (prevent hanging on huge inputs)
+  const MAX_SCAN_LENGTH = 500000;
+  const scanText = text.slice(0, MAX_SCAN_LENGTH);
+
+  // Build pattern to find potential JSON starts
+  const typePattern = expectedTypes.map(t => `"${t}"`).join('|');
+  const startPattern = new RegExp(`\\{\\s*"type"\\s*:\\s*(?:${typePattern})`, 'g');
+
+  let match;
+  while ((match = startPattern.exec(scanText)) !== null) {
+    const startIdx = match.index;
+
+    // Try increasingly longer substrings until we find valid JSON
+    // Start with a reasonable minimum and increase
+    for (let endIdx = startIdx + 50; endIdx <= scanText.length; endIdx += 100) {
+      // Look for a closing brace near this position
+      let bracePos = scanText.indexOf('}', endIdx - 100);
+      while (bracePos !== -1 && bracePos < scanText.length) {
+        const candidate = scanText.slice(startIdx, bracePos + 1);
+
+        try {
+          const parsed = JSON.parse(candidate);
+          // Verify it has the expected structure
+          if (parsed && typeof parsed === 'object' && expectedTypes.includes(parsed.type)) {
+            return { json: parsed, startIndex: startIdx, endIndex: bracePos + 1 };
+          }
+        } catch {
+          // Not valid JSON yet, try next closing brace
+        }
+
+        bracePos = scanText.indexOf('}', bracePos + 1);
+
+        // Safety limit: don't try more than 1000 positions per start
+        if (bracePos - startIdx > 100000) break;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Clean common LLM JSON issues and attempt to parse
+ * @param {string} jsonStr - The JSON string to clean and parse
+ * @returns {object | null}
+ */
+function cleanAndParseJSON(jsonStr) {
+  if (!jsonStr || typeof jsonStr !== 'string') return null;
+
+  // Try direct parse first
+  try {
+    return JSON.parse(jsonStr);
+  } catch {
+    // Continue to cleanup
+  }
+
+  // Common LLM JSON issues
+  let cleaned = jsonStr
+    // Remove trailing commas before closing brackets/braces
+    .replace(/,(\s*[}\]])/g, '$1')
+    // Fix unescaped control characters in strings (except valid escapes like \n, \t)
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F]/g, ' ');
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Continue to more aggressive cleanup
+  }
+
+  // Try truncating at last complete object in an array
+  const lastCompleteObj = cleaned.lastIndexOf('},');
+  if (lastCompleteObj > 0) {
+    // Find the array start to close it properly
+    const arrayStart = cleaned.indexOf('[');
+    if (arrayStart !== -1 && arrayStart < lastCompleteObj) {
+      const truncated = cleaned.slice(0, lastCompleteObj + 1) + ']}';
+      try {
+        return JSON.parse(truncated);
+      } catch {
+        // Give up
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Cache for re-ranked results when business rules (like recency_decay) are applied
  * This allows proper pagination across the re-ranked result set
  */
@@ -980,168 +1078,100 @@ router.post('/chat', async (req, res) => {
           trimmed = trimmed.trim();
         }
 
-        // Try to find JSON object if it doesn't start with {
-        if (!trimmed.startsWith('{')) {
-          console.log('Reply does not start with {, searching for JSON object...');
-          // Find the start of a track_results or pill_extraction JSON object
-          const jsonStartMatch = trimmed.match(
-            /\{\s*"type"\s*:\s*"(?:track_results|pill_extraction)"/
-          );
-          if (jsonStartMatch) {
-            console.log('Found JSON start pattern:', jsonStartMatch[0].substring(0, 50));
-            const startIdx = trimmed.indexOf(jsonStartMatch[0]);
-            // Extract from the opening brace and find matching closing brace
-            let braceCount = 0;
-            let endIdx = startIdx;
-            let inString = false;
-            let escapeNext = false;
+        // Try to find and parse JSON object
+        let parsed = null;
 
-            for (let i = startIdx; i < trimmed.length; i++) {
-              const char = trimmed[i];
-
-              // Handle escape sequences inside strings
-              if (escapeNext) {
-                escapeNext = false;
-                continue;
-              }
-
-              if (char === '\\' && inString) {
-                escapeNext = true;
-                continue;
-              }
-
-              // Toggle string mode on unescaped quotes
-              if (char === '"') {
-                inString = !inString;
-                continue;
-              }
-
-              // Only count braces outside of strings
-              if (!inString) {
-                if (char === '{') braceCount++;
-                if (char === '}') braceCount--;
-                if (braceCount === 0) {
-                  endIdx = i + 1;
-                  break;
-                }
-              }
-            }
-            console.log(`Extracted JSON from index ${startIdx} to ${endIdx}`);
-            trimmed = trimmed.substring(startIdx, endIdx);
-            console.log('Extracted JSON first 200 chars:', trimmed.substring(0, 200));
-          } else {
-            console.log('No track_results or pill_extraction JSON pattern found in reply');
+        if (trimmed.startsWith('{')) {
+          // Starts with {, try direct parsing with cleanup
+          console.log('Attempting to parse JSON directly...');
+          parsed = cleanAndParseJSON(trimmed);
+          if (parsed) {
+            console.log('JSON parsed successfully');
           }
         }
 
-        // Only try to parse if it looks like JSON
-        if (trimmed.startsWith('{')) {
-          console.log('Attempting to parse JSON...');
-
-          // Try to parse directly first
-          let parsed;
-          try {
-            parsed = JSON.parse(trimmed);
-          } catch (parseError) {
-            console.log('Direct JSON parse failed:', parseError.message);
-            console.log('Attempting to clean up JSON...');
-
-            // Common LLM JSON issues: trailing commas, unescaped newlines in strings
-            let cleanedJson = trimmed
-              // Remove trailing commas before closing brackets/braces
-              .replace(/,\s*\]/g, ']')
-              .replace(/,\s*\}/g, '}')
-              // Fix unescaped newlines in strings (replace with \n)
-              .replace(/\n(?=[^"]*"(?:[^"]*"[^"]*")*[^"]*$)/g, '\\n');
-
-            try {
-              parsed = JSON.parse(cleanedJson);
-              console.log('JSON parsed successfully after cleanup');
-            } catch (cleanupError) {
-              console.log('JSON cleanup parse also failed:', cleanupError.message);
-              // Try more aggressive cleanup - truncate at last complete track
-              const lastCompleteTrack = cleanedJson.lastIndexOf('},');
-              if (lastCompleteTrack > 0) {
-                const truncated = cleanedJson.substring(0, lastCompleteTrack + 1) + ']}';
-                try {
-                  parsed = JSON.parse(truncated);
-                  console.log('JSON parsed successfully after truncation');
-                } catch (truncError) {
-                  console.log('Truncation parse failed:', truncError.message);
-                }
-              }
-            }
-          }
-
-          if (parsed) {
+        // If direct parsing failed, try to extract JSON from the text
+        if (!parsed) {
+          console.log('Direct parse failed, searching for embedded JSON...');
+          const extracted = safeExtractJSON(trimmed);
+          if (extracted) {
             console.log(
-              'JSON parsed successfully, type:',
-              parsed.type,
-              'tracks count:',
-              parsed.tracks?.length
+              `Extracted JSON from index ${extracted.startIndex} to ${extracted.endIndex}`
+            );
+            parsed = extracted.json;
+          } else {
+            console.log('No valid track_results or pill_extraction JSON found in reply');
+          }
+        }
+
+        if (parsed) {
+          console.log(
+            'JSON parsed successfully, type:',
+            parsed.type,
+            'tracks count:',
+            parsed.tracks?.length
+          );
+
+          // Handle pill_extraction response type (Phase 3)
+          if (parsed.type === 'pill_extraction' && Array.isArray(parsed.pills)) {
+            console.log(
+              'Valid pill_extraction JSON found with',
+              parsed.pills.length,
+              'pills and',
+              parsed.tracks?.length || 0,
+              'tracks'
             );
 
-            // Handle pill_extraction response type (Phase 3)
-            if (parsed.type === 'pill_extraction' && Array.isArray(parsed.pills)) {
-              console.log(
-                'Valid pill_extraction JSON found with',
-                parsed.pills.length,
-                'pills and',
-                parsed.tracks?.length || 0,
-                'tracks'
-              );
+            // If Claude provided tracks, use them; otherwise do a Solr search
+            let finalTracks = parsed.tracks || [];
+            let totalCount = parsed.total_count || 0;
 
-              // If Claude provided tracks, use them; otherwise do a Solr search
-              let finalTracks = parsed.tracks || [];
-              let totalCount = parsed.total_count || 0;
+            if (finalTracks.length === 0 && parsed.pills.length > 0) {
+              // Build query from pills and search
+              const filterPills = parsed.pills.filter(p => p.type === 'filter');
+              const textPills = parsed.pills.filter(p => p.type === 'text');
 
-              if (finalTracks.length === 0 && parsed.pills.length > 0) {
-                // Build query from pills and search
-                const filterPills = parsed.pills.filter(p => p.type === 'filter');
-                const textPills = parsed.pills.filter(p => p.type === 'text');
+              const filterString = filterPills
+                .map(p => `@${p.field}${p.operator}${p.value}`)
+                .join(' ');
+              const textString = textPills.map(p => p.value).join(' ');
+              const pillQuery = [filterString, textString].filter(Boolean).join(' ');
 
-                const filterString = filterPills
-                  .map(p => `@${p.field}${p.operator}${p.value}`)
-                  .join(' ');
-                const textString = textPills.map(p => p.value).join(' ');
-                const pillQuery = [filterString, textString].filter(Boolean).join(' ');
-
-                if (pillQuery) {
-                  try {
-                    const solrResults = await metadataSearch({
-                      text: pillQuery,
-                      limit: 12,
-                      offset: 0,
-                    });
-                    if (solrResults.tracks) {
-                      finalTracks = enrichTracksWithGenreNames(solrResults.tracks);
-                      finalTracks = enrichTracksWithFullVersions(finalTracks);
-                      totalCount = solrResults.total;
-                    }
-                  } catch (searchErr) {
-                    console.log('Pill search failed:', searchErr.message);
+              if (pillQuery) {
+                try {
+                  const solrResults = await metadataSearch({
+                    text: pillQuery,
+                    limit: 12,
+                    offset: 0,
+                  });
+                  if (solrResults.tracks) {
+                    finalTracks = enrichTracksWithGenreNames(solrResults.tracks);
+                    finalTracks = enrichTracksWithFullVersions(finalTracks);
+                    totalCount = solrResults.total;
                   }
+                } catch (searchErr) {
+                  console.log('Pill search failed:', searchErr.message);
                 }
               }
-
-              return res.json({
-                type: 'pill_extraction',
-                message: parsed.message || 'Updated search filters',
-                pills: parsed.pills,
-                tracks: finalTracks,
-                total_count: totalCount,
-                showing: `1-${Math.min(12, finalTracks.length)}`,
-              });
             }
 
-            if (parsed.type === 'track_results' && Array.isArray(parsed.tracks)) {
-              trackResults = parsed;
-              console.log(
-                'Valid track_results JSON found with',
-                trackResults.tracks.length,
-                'tracks'
-              );
-            }
+            return res.json({
+              type: 'pill_extraction',
+              message: parsed.message || 'Updated search filters',
+              pills: parsed.pills,
+              tracks: finalTracks,
+              total_count: totalCount,
+              showing: `1-${Math.min(12, finalTracks.length)}`,
+            });
+          }
+
+          if (parsed.type === 'track_results' && Array.isArray(parsed.tracks)) {
+            trackResults = parsed;
+            console.log(
+              'Valid track_results JSON found with',
+              trackResults.tracks.length,
+              'tracks'
+            );
           }
         }
       } catch (e) {
