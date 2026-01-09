@@ -126,7 +126,7 @@ export function SearchResults({
             </div>
             <div className={isDark ? 'text-apm-gray' : 'text-gray-500'}>
               {results._meta.appliedRules.map((rule, i) => (
-                <span key={i}>
+                <span key={typeof rule === 'string' ? `${rule}-${i}` : rule.ruleId || `rule-${i}`}>
                   {i > 0 && ' • '}
                   {typeof rule === 'string'
                     ? rule

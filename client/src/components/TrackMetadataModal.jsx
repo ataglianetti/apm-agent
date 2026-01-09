@@ -202,7 +202,7 @@ export function TrackMetadataModal({
                       <div className="flex flex-wrap gap-2">
                         {metadata.track.genre_names.map((genre, i) => (
                           <span
-                            key={i}
+                            key={`genre-${genre}-${i}`}
                             className={`px-3 py-1 text-xs rounded-full ${
                               isDark
                                 ? 'bg-apm-purple/20 text-apm-purple'
@@ -248,7 +248,7 @@ export function TrackMetadataModal({
                               <div className="flex flex-wrap gap-2">
                                 {facets.map((facet, i) => (
                                   <span
-                                    key={i}
+                                    key={facet.id || `${facet.label}-${i}`}
                                     className={`px-3 py-1 text-xs rounded-full ${
                                       isDark
                                         ? 'bg-apm-dark text-apm-light'
@@ -276,7 +276,7 @@ export function TrackMetadataModal({
                       <div className="space-y-2">
                         {metadata.textMatches.map((match, i) => (
                           <div
-                            key={i}
+                            key={`${match.field}-${i}`}
                             className={`p-3 rounded-lg ${isDark ? 'bg-apm-dark/50' : 'bg-gray-50'}`}
                           >
                             <span
@@ -539,7 +539,7 @@ export function TrackMetadataModal({
                       <div className="space-y-3">
                         {searchMeta.appliedRules.map((rule, i) => (
                           <div
-                            key={i}
+                            key={rule.ruleId || `rule-${i}`}
                             className={`p-4 rounded-lg ${isDark ? 'bg-apm-dark/50' : 'bg-gray-50'}`}
                           >
                             <div className="flex items-start justify-between mb-2">
@@ -597,7 +597,7 @@ export function TrackMetadataModal({
                           .filter(adj => adj.trackId === track.id)
                           .map((adj, i) => (
                             <div
-                              key={i}
+                              key={`${adj.trackId}-${adj.reason}-${i}`}
                               className={`p-3 rounded-lg ${isDark ? 'bg-apm-dark/50' : 'bg-gray-50'}`}
                             >
                               <div className="flex items-center justify-between mb-1">

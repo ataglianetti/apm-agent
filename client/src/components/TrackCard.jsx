@@ -399,7 +399,7 @@ function TrackCardComponent({
             const isPlayed = barProgress <= progress;
             return (
               <div
-                key={i}
+                key={`bar-${i}`}
                 className={`flex-1 rounded-sm transition-colors duration-100 ${
                   isPlayed
                     ? isDark
@@ -428,7 +428,7 @@ function TrackCardComponent({
         {/* Display enhanced metadata tags with category tooltips */}
         {visibleTags.map((tag, i) => (
           <span
-            key={i}
+            key={`${tag.category}-${tag.label}-${i}`}
             title={`${tag.category} > ${tag.label}`}
             className={`px-3 py-1 text-xs rounded-full transition-colors cursor-pointer ${
               isDark
