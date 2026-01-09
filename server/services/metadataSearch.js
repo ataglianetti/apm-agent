@@ -186,23 +186,39 @@ async function searchWithSolr(options) {
 }
 
 /**
+ * Escape SQL LIKE wildcards in a string
+ * @param {string} str - String to escape
+ * @returns {string} - Escaped string safe for LIKE patterns
+ */
+function escapeLikeWildcards(str) {
+  return str.replace(/[%_\\]/g, '\\$&');
+}
+
+/**
  * Get facet IDs for a category/value pair
  * Returns IDs in the format "Category/facet_id" for Solr combined_ids matching
  */
 async function getFacetIds(category, value) {
-  const db = getDb();
-  const query = `
-    SELECT facet_id, category_name FROM facet_taxonomy
-    WHERE category_name = ? AND (facet_label LIKE ? OR facet_name LIKE ?)
-  `;
-  const pattern = `%${value}%`;
-  const rows = db.prepare(query).all(category, pattern, pattern);
-  // Return in "Category/facet_id" format for Solr combined_ids matching
-  const ids = rows.map(r => `${r.category_name}/${r.facet_id}`);
-  console.log(
-    `getFacetIds: ${category}="${value}" → ${ids.length} IDs: ${ids.slice(0, 5).join(', ')}${ids.length > 5 ? '...' : ''}`
-  );
-  return ids;
+  try {
+    const db = getDb();
+    // Escape SQL LIKE wildcards to prevent injection
+    const escapedValue = escapeLikeWildcards(value);
+    const query = `
+      SELECT facet_id, category_name FROM facet_taxonomy
+      WHERE category_name = ? AND (facet_label LIKE ? ESCAPE '\\' OR facet_name LIKE ? ESCAPE '\\')
+    `;
+    const pattern = `%${escapedValue}%`;
+    const rows = db.prepare(query).all(category, pattern, pattern);
+    // Return in "Category/facet_id" format for Solr combined_ids matching
+    const ids = rows.map(r => `${r.category_name}/${r.facet_id}`);
+    console.log(
+      `getFacetIds: ${category}="${value}" → ${ids.length} IDs: ${ids.slice(0, 5).join(', ')}${ids.length > 5 ? '...' : ''}`
+    );
+    return ids;
+  } catch (error) {
+    console.error(`getFacetIds error for ${category}="${value}":`, error.message);
+    return []; // Return empty array on error to allow search to continue
+  }
 }
 
 /**

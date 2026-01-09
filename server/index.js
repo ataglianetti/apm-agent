@@ -39,10 +39,45 @@ app.use(
     },
     credentials: true,
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   })
 );
 app.use(express.json({ limit: '10mb' })); // Add size limit for security
+
+// CSRF protection middleware for state-changing requests
+// Validates that POST/PUT/DELETE requests come from trusted sources
+const csrfProtection = (req, res, next) => {
+  // Only check state-changing methods
+  if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+    return next();
+  }
+
+  // Skip CSRF check for health endpoints
+  if (req.path.startsWith('/api/health')) {
+    return next();
+  }
+
+  const origin = req.get('Origin');
+  const contentType = req.get('Content-Type') || '';
+
+  // Check 1: If Origin header present, it must match allowed origins
+  if (origin && !allowedOrigins.includes(origin)) {
+    console.warn(`CSRF: Blocked request from unauthorized origin: ${origin}`);
+    return res.status(403).json({ error: 'Forbidden: Invalid origin' });
+  }
+
+  // Check 2: Require JSON content type for POST requests (prevents form submissions)
+  // Simple form submissions cannot set Content-Type to application/json
+  if (req.method === 'POST' && !contentType.includes('application/json')) {
+    console.warn(`CSRF: Blocked non-JSON POST request: ${contentType}`);
+    return res.status(403).json({ error: 'Forbidden: Content-Type must be application/json' });
+  }
+
+  next();
+};
+
+// Apply CSRF protection to all API routes
+app.use('/api', csrfProtection);
 
 // Rate limiting configuration
 // General API rate limit: 200 requests per 15 minutes
