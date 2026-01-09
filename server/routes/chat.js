@@ -2,7 +2,12 @@ import express from 'express';
 import { chat as claudeChat } from '../services/claude.js';
 import { parseFilterQuery, hasFilters } from '../services/filterParser.js';
 import { search as metadataSearch } from '../services/metadataSearch.js';
-import { matchRules, applyRules } from '../services/businessRulesEngine.js';
+import {
+  matchRules,
+  applyRules,
+  getRecencyInterleavingConfig,
+  applyRecencyInterleavingWithBuckets,
+} from '../services/businessRulesEngine.js';
 // searchFacets available from '../services/taxonomySearch.js' if needed
 import { enrichTracksWithGenreNames } from '../services/genreMapper.js';
 import { getLLMMode, getTaxonomyParserEnabled } from './settings.js';
@@ -18,6 +23,80 @@ import {
 } from '../services/aimsService.js';
 
 const router = express.Router();
+
+/**
+ * Cache for re-ranked results when business rules (like recency_decay) are applied
+ * This allows proper pagination across the re-ranked result set
+ */
+const rerankedResultsCache = new Map();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_FETCH_SIZE = 500; // Fetch this many tracks for re-ranking
+
+/**
+ * Get cache key for a query + rules combination
+ */
+function getCacheKey(query, ruleIds) {
+  return `${query.toLowerCase().trim()}:${ruleIds.sort().join(',')}`;
+}
+
+/**
+ * Get or create cached re-ranked results
+ */
+async function getRerankedResults(query, matchedRules, searchFn) {
+  const nonInterleavingRules = matchedRules.filter(
+    r => r.type !== 'recency_interleaving' && r.type !== 'subgenre_interleaving'
+  );
+
+  if (nonInterleavingRules.length === 0) {
+    return null; // No re-ranking rules, use normal pagination
+  }
+
+  const ruleIds = nonInterleavingRules.map(r => r.id);
+  const cacheKey = getCacheKey(query, ruleIds);
+
+  // Check cache
+  const cached = rerankedResultsCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    console.log(`Using cached re-ranked results for "${query}" (${cached.tracks.length} tracks)`);
+    return cached;
+  }
+
+  // Fetch larger result set
+  console.log(
+    `Fetching ${CACHE_FETCH_SIZE} tracks for re-ranking with rules: ${ruleIds.join(', ')}`
+  );
+  const searchResults = await searchFn({
+    text: query,
+    limit: CACHE_FETCH_SIZE,
+    offset: 0,
+  });
+
+  const enrichedTracks = enrichTracksWithGenreNames(searchResults.tracks);
+
+  // Apply business rules to the full set
+  const enhancedResults = await applyRules(enrichedTracks, nonInterleavingRules, query);
+
+  // Cache the results
+  const cacheEntry = {
+    tracks: enhancedResults.results,
+    total: searchResults.total,
+    appliedRules: enhancedResults.appliedRules || [],
+    scoreAdjustments: enhancedResults.scoreAdjustments || [],
+    timestamp: Date.now(),
+  };
+
+  rerankedResultsCache.set(cacheKey, cacheEntry);
+  console.log(`Cached ${cacheEntry.tracks.length} re-ranked tracks for "${query}"`);
+
+  // Clean old entries
+  for (const [key, entry] of rerankedResultsCache.entries()) {
+    if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+      rerankedResultsCache.delete(key);
+    }
+  }
+
+  return cacheEntry;
+}
 
 /**
  * Format number with commas (e.g., 70306 → "70,306")
@@ -327,9 +406,188 @@ router.post('/chat', async (req, res) => {
       console.log('Detected simple query, using metadata search + business rules');
       const startTime = Date.now();
 
-      // Handle pagination (offset > 0) - simpler path, just get more results
+      // Handle pagination (offset > 0)
       if (offset > 0) {
         console.log(`Pagination request: offset=${offset}, limit=${limit}`);
+
+        // Check if recency interleaving is active for this query
+        const matchedRules = matchRules(lastMessage.content);
+        const recencyConfig = getRecencyInterleavingConfig(matchedRules);
+
+        if (recencyConfig) {
+          // Calculate pattern metrics
+          const patternChars = recencyConfig.pattern.replace(/\s/g, '');
+          const patternLength = patternChars.length;
+          const pagesCompleted = Math.floor(offset / patternLength);
+
+          // Check if we've exceeded the repeat_count bounds
+          // After repeat_count pages, fall back to re-ranked relevance
+          if (pagesCompleted >= recencyConfig.repeatCount) {
+            console.log(
+              `Pagination beyond recency bounds (page ${pagesCompleted + 1} > ${recencyConfig.repeatCount}) - using cached re-ranked results`
+            );
+
+            // Use cached re-ranked results for proper cross-page ordering
+            const rerankedData = await getRerankedResults(
+              lastMessage.content,
+              matchedRules,
+              metadataSearch
+            );
+
+            if (rerankedData) {
+              // Paginate from the cached re-ranked results
+              // Adjust offset: subtract the interleaved pages (first 36 results)
+              const interleavedCount = recencyConfig.repeatCount * patternLength;
+              const rerankedOffset = offset - interleavedCount;
+
+              const pageTrack = rerankedData.tracks.slice(rerankedOffset, rerankedOffset + limit);
+
+              // Add score breakdown for metadata modal
+              const tracksWithScores = pageTrack.map(track => ({
+                ...track,
+                _score_breakdown: {
+                  solr_score: track._relevance_score || 0,
+                  note: `Re-ranked with ${rerankedData.appliedRules.map(r => r.type).join(', ')} (cached ${rerankedData.tracks.length} tracks)`,
+                },
+              }));
+
+              const tracksWithVersions = enrichTracksWithFullVersions(tracksWithScores);
+
+              return res.json({
+                type: 'track_results',
+                tracks: tracksWithVersions,
+                total_count: rerankedData.total,
+                showing: `${offset + 1}-${offset + tracksWithVersions.length}`,
+                _meta: {
+                  note: `Beyond interleaving bounds - using re-ranked cache (${rerankedData.tracks.length} tracks)`,
+                  appliedRules: rerankedData.appliedRules,
+                  scoreAdjustments: rerankedData.scoreAdjustments.slice(
+                    rerankedOffset,
+                    rerankedOffset + limit
+                  ),
+                },
+              });
+            }
+
+            // Fallback: no re-ranking rules, use normal Solr pagination
+            const searchResults = await metadataSearch({
+              text: lastMessage.content,
+              limit: limit,
+              offset: offset,
+            });
+
+            const enrichedTracks = enrichTracksWithGenreNames(searchResults.tracks);
+            const tracksWithVersions = enrichTracksWithFullVersions(enrichedTracks);
+
+            return res.json({
+              type: 'track_results',
+              tracks: tracksWithVersions,
+              total_count: searchResults.total,
+              showing: `${offset + 1}-${offset + tracksWithVersions.length}`,
+              _meta: {
+                note: `Beyond interleaving bounds (${recencyConfig.repeatCount} pages), pure relevance`,
+              },
+            });
+          }
+
+          // Use dual-query approach for pagination within bounds
+          console.log(
+            `Pagination with recency interleaving (page ${pagesCompleted + 1} of ${recencyConfig.repeatCount}) - using dual-query`
+          );
+
+          // Calculate how many R and V tracks we need based on the pattern
+          const rCount = (patternChars.match(/R/g) || []).length;
+          const vCount = (patternChars.match(/V/g) || []).length;
+
+          // Calculate offsets for each bucket based on pattern ratio
+          // For pattern RRRRVRRRVRRR (10R, 2V per 12), at offset 12:
+          // - Recent offset = 10 (10 R tracks used in first page)
+          // - Vintage offset = 2 (2 V tracks used in first page)
+          const recentOffset = pagesCompleted * rCount;
+          const vintageOffset = pagesCompleted * vCount;
+
+          const baseSearchOptions = {
+            text: lastMessage.content,
+            taxonomyFilters: null,
+            limit: Math.ceil((limit * rCount) / patternLength) + 5, // Extra buffer
+            offset: 0,
+          };
+
+          // Query recent tracks
+          const recentDateFilter = {
+            field: 'releaseDate',
+            operator: 'greater',
+            value: recencyConfig.recentThresholdDate.toISOString(),
+          };
+          const recentResults = await metadataSearch({
+            ...baseSearchOptions,
+            filters: [recentDateFilter],
+            offset: recentOffset,
+          });
+
+          // Query vintage tracks
+          const vintageDateFilter = {
+            field: 'releaseDate',
+            operator: 'range',
+            value: {
+              min: recencyConfig.vintageMaxDate ? recencyConfig.vintageMaxDate.toISOString() : null,
+              max: recencyConfig.recentThresholdDate.toISOString(),
+            },
+          };
+          const vintageResults = await metadataSearch({
+            ...baseSearchOptions,
+            limit: Math.ceil((limit * vCount) / patternLength) + 5,
+            filters: [vintageDateFilter],
+            offset: vintageOffset,
+          });
+
+          const recentTracks = enrichTracksWithGenreNames(recentResults.tracks);
+          const vintageTracks = enrichTracksWithGenreNames(vintageResults.tracks);
+
+          console.log(
+            `Pagination dual-query: ${recentTracks.length} recent (offset ${recentOffset}), ${vintageTracks.length} vintage (offset ${vintageOffset})`
+          );
+
+          // Interleave for this page only (repeat_count = 1)
+          const pageConfig = { ...recencyConfig, repeatCount: 1 };
+          const enhancedResults = applyRecencyInterleavingWithBuckets(
+            recentTracks,
+            vintageTracks,
+            pageConfig
+          );
+
+          // Apply recency_decay for score transparency (doesn't change order, just adds score data)
+          const decayRule = matchedRules.find(r => r.type === 'recency_decay');
+          let finalTracks = enhancedResults.results.slice(0, limit);
+          let scoreAdjustments = [];
+
+          if (decayRule) {
+            const decayResults = await applyRules(finalTracks, [decayRule], lastMessage.content);
+            // Keep original interleaved order, but capture score adjustments
+            scoreAdjustments = decayResults.scoreAdjustments || [];
+            // Update tracks with score data but maintain interleaved order
+            const scoreMap = new Map(decayResults.results.map(t => [t.id, t._relevance_score]));
+            finalTracks = finalTracks.map(t => ({
+              ...t,
+              _relevance_score: scoreMap.get(t.id) || t._relevance_score,
+            }));
+          }
+
+          const tracksWithVersions = enrichTracksWithFullVersions(finalTracks);
+
+          return res.json({
+            type: 'track_results',
+            tracks: tracksWithVersions,
+            total_count: recentResults.total + vintageResults.total,
+            showing: `${offset + 1}-${offset + tracksWithVersions.length}`,
+            _meta: {
+              appliedRules: enhancedResults.appliedRules,
+              scoreAdjustments: scoreAdjustments,
+            },
+          });
+        }
+
+        // Standard pagination (no recency interleaving)
         const searchResults = await metadataSearch({
           text: lastMessage.content,
           limit: limit,
@@ -380,6 +638,9 @@ router.post('/chat', async (req, res) => {
         matchedRules.map(r => r.id).join(', ')
       );
 
+      // Check if recency interleaving rule matched (requires dual-query approach)
+      const recencyConfig = getRecencyInterleavingConfig(matchedRules);
+
       // Extract expanded facets from genre_simplification rules
       const expandedFacets = [];
       for (const rule of matchedRules) {
@@ -389,6 +650,7 @@ router.post('/chat', async (req, res) => {
       }
 
       let searchResults;
+      let enhancedResults;
 
       // HYBRID SEARCH STRATEGY:
       // 1. Use taxonomy-parsed facets for precise filtering (is_a, Instruments, etc.)
@@ -426,57 +688,152 @@ router.post('/chat', async (req, res) => {
         );
       }
 
-      // Execute Solr search with taxonomy facets + text search
-      const searchOptions = {
-        text: textQuery,
-        taxonomyFilters: taxonomyFacets.length > 0 ? taxonomyResult.filters : null,
-        limit: 100, // Get more for business rules to work with
-        offset: 0,
-      };
+      // DUAL-QUERY PATH: If recency interleaving matched, fetch recent and vintage separately
+      if (recencyConfig) {
+        console.log('Recency interleaving detected - using dual-query approach');
 
-      searchResults = await metadataSearch(searchOptions);
-
-      // FALLBACK: If taxonomy filters returned 0 results, retry with pure text search
-      // This handles cases where facet intersection is too restrictive (e.g., "cinematic trailer")
-      if (searchResults.total === 0 && taxonomyFacets.length > 0) {
-        console.log(
-          `Taxonomy filters returned 0 results, falling back to text search for: "${lastMessage.content}"`
-        );
-        searchResults = await metadataSearch({
+        // Use original query text for dual-query (skip taxonomy filters to avoid empty results)
+        // Taxonomy filters can be too restrictive when combined with date filters
+        const baseSearchOptions = {
           text: lastMessage.content,
-          taxonomyFilters: null,
-          limit: 100,
+          taxonomyFilters: null, // Skip taxonomy filters for dual-query - use pure text search
+          limit: 50, // 50 recent + 50 vintage = 100 total
           offset: 0,
+        };
+
+        // Query 1: Recent tracks (within threshold)
+        const recentDateFilter = {
+          field: 'releaseDate',
+          operator: 'greater',
+          value: recencyConfig.recentThresholdDate.toISOString(),
+        };
+
+        console.log(
+          `Fetching recent tracks (after ${recencyConfig.recentThresholdDate.toISOString().slice(0, 10)})`
+        );
+        const recentResults = await metadataSearch({
+          ...baseSearchOptions,
+          filters: [recentDateFilter],
         });
+
+        // Query 2: Vintage tracks (between vintage_max and recent_threshold)
+        // Use range operator to pass both min and max in one filter
+        const vintageDateFilter = {
+          field: 'releaseDate',
+          operator: 'range',
+          value: {
+            min: recencyConfig.vintageMaxDate ? recencyConfig.vintageMaxDate.toISOString() : null,
+            max: recencyConfig.recentThresholdDate.toISOString(),
+          },
+        };
+
+        console.log(
+          `Fetching vintage tracks (${recencyConfig.vintageMaxDate ? recencyConfig.vintageMaxDate.toISOString().slice(0, 10) + ' to ' : 'before '}${recencyConfig.recentThresholdDate.toISOString().slice(0, 10)})`
+        );
+        const vintageResults = await metadataSearch({
+          ...baseSearchOptions,
+          filters: [vintageDateFilter],
+        });
+
+        // Enrich with genre names
+        const recentTracks = enrichTracksWithGenreNames(recentResults.tracks);
+        const vintageTracks = enrichTracksWithGenreNames(vintageResults.tracks);
+
+        console.log(
+          `Dual-query results: ${recentTracks.length} recent, ${vintageTracks.length} vintage`
+        );
+
+        // Interleave using the pre-filtered buckets
+        enhancedResults = applyRecencyInterleavingWithBuckets(
+          recentTracks,
+          vintageTracks,
+          recencyConfig
+        );
+
+        // Apply recency_decay for score transparency (doesn't change order, just adds score data)
+        const decayRule = matchedRules.find(r => r.type === 'recency_decay');
+        let scoreAdjustments = [];
+
+        if (decayRule) {
+          const decayResults = await applyRules(
+            enhancedResults.results,
+            [decayRule],
+            lastMessage.content
+          );
+          // Keep original interleaved order, but capture score adjustments
+          scoreAdjustments = decayResults.scoreAdjustments || [];
+          // Update tracks with score data but maintain interleaved order
+          const scoreMap = new Map(decayResults.results.map(t => [t.id, t._relevance_score]));
+          enhancedResults.results = enhancedResults.results.map(t => ({
+            ...t,
+            _relevance_score: scoreMap.get(t.id) || t._relevance_score,
+          }));
+        }
+
+        // Add score breakdown
+        enhancedResults.results = enhancedResults.results.map(track => ({
+          ...track,
+          _score_breakdown: {
+            solr_score: track._relevance_score || 0,
+            note: 'Score includes field weights from fieldWeights.json',
+          },
+        }));
+
+        // Store total for response
+        searchResults = {
+          total: recentResults.total + vintageResults.total,
+          totalVersions: (recentResults.totalVersions || 0) + (vintageResults.totalVersions || 0),
+        };
+
+        // Add score adjustments from recency decay
+        enhancedResults.scoreAdjustments = scoreAdjustments;
+      } else {
+        // STANDARD PATH: Single query + business rules
+        const searchOptions = {
+          text: textQuery,
+          taxonomyFilters: taxonomyFacets.length > 0 ? taxonomyResult.filters : null,
+          limit: 100, // Get more for business rules to work with
+          offset: 0,
+        };
+
+        searchResults = await metadataSearch(searchOptions);
+
+        // FALLBACK: If taxonomy filters returned 0 results, retry with pure text search
+        if (searchResults.total === 0 && taxonomyFacets.length > 0) {
+          console.log(
+            `Taxonomy filters returned 0 results, falling back to text search for: "${lastMessage.content}"`
+          );
+          searchResults = await metadataSearch({
+            text: lastMessage.content,
+            taxonomyFilters: null,
+            limit: 100,
+            offset: 0,
+          });
+        }
+
+        // Enrich with genre names
+        searchResults.tracks = enrichTracksWithGenreNames(searchResults.tracks);
+
+        console.log(
+          `Solr search: ${searchResults.tracks.length} tracks (total: ${searchResults.total})`
+        );
+
+        // Add score breakdown from Solr score
+        searchResults.tracks = searchResults.tracks.map(track => ({
+          ...track,
+          _score_breakdown: {
+            solr_score: track._relevance_score || 0,
+            note: 'Score includes field weights from fieldWeights.json',
+          },
+        }));
+
+        console.log(
+          `Search returned ${searchResults.tracks.length} tracks (total: ${searchResults.total})`
+        );
+
+        // Apply business rules to results
+        enhancedResults = await applyRules(searchResults.tracks, matchedRules, lastMessage.content);
       }
-
-      // Enrich with genre names
-      searchResults.tracks = enrichTracksWithGenreNames(searchResults.tracks);
-
-      console.log(
-        `Solr search: ${searchResults.tracks.length} tracks (total: ${searchResults.total})`
-      );
-
-      // Add score breakdown from Solr score
-      searchResults.tracks = searchResults.tracks.map(track => ({
-        ...track,
-        _score_breakdown: {
-          solr_score: track._relevance_score || 0,
-          // Note: Solr score already includes combined_genre_search^4.0 for taxonomy matches
-          note: 'Score includes field weights from fieldWeights.json',
-        },
-      }));
-
-      console.log(
-        `Search returned ${searchResults.tracks.length} tracks (total: ${searchResults.total})`
-      );
-
-      // Apply business rules to results
-      const enhancedResults = await applyRules(
-        searchResults.tracks,
-        matchedRules,
-        lastMessage.content
-      );
 
       const elapsed = Date.now() - startTime;
       console.log(
@@ -490,7 +847,9 @@ router.post('/chat', async (req, res) => {
       }
 
       // Enrich tracks with full version data (replaces minimal Solr version info)
-      const tracksWithVersions = enrichTracksWithFullVersions(enhancedResults.results.slice(0, 12));
+      const tracksWithVersions = enrichTracksWithFullVersions(
+        enhancedResults.results.slice(0, limit)
+      );
 
       return res.json({
         type: 'track_results',
@@ -502,11 +861,11 @@ router.post('/chat', async (req, res) => {
         tracks: tracksWithVersions,
         total_count: searchResults.total,
         total_versions: searchResults.totalVersions,
-        showing: `1-${Math.min(12, enhancedResults.results.length)}`,
+        showing: `1-${Math.min(limit, enhancedResults.results.length)}`,
         // Include transparency metadata (optional - for future UI enhancement)
         _meta: {
           appliedRules: enhancedResults.appliedRules,
-          scoreAdjustments: enhancedResults.scoreAdjustments.slice(0, 12),
+          scoreAdjustments: enhancedResults.scoreAdjustments.slice(0, limit),
         },
       });
     }

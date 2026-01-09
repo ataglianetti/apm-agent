@@ -46,6 +46,125 @@ export function loadRules() {
 }
 
 /**
+ * Get recency interleaving config if a matching rule exists
+ * Used by chat.js to make separate Solr queries for recent/vintage tracks
+ * @param {Array} matchedRules - Rules that matched the query
+ * @returns {object|null} - { rule, recentThresholdDate, vintageMaxDate, pattern, repeatCount } or null
+ */
+export function getRecencyInterleavingConfig(matchedRules) {
+  const recencyRule = matchedRules.find(r => r.type === 'recency_interleaving' && r.enabled);
+  if (!recencyRule) return null;
+
+  const {
+    recent_threshold_months,
+    vintage_max_months,
+    pattern,
+    repeat_count = 1,
+  } = recencyRule.action;
+
+  if (!pattern || !recent_threshold_months) return null;
+
+  const now = new Date();
+
+  // Calculate threshold dates
+  const recentThresholdDate = new Date(now);
+  recentThresholdDate.setMonth(recentThresholdDate.getMonth() - recent_threshold_months);
+
+  let vintageMaxDate = null;
+  if (vintage_max_months) {
+    vintageMaxDate = new Date(now);
+    vintageMaxDate.setMonth(vintageMaxDate.getMonth() - vintage_max_months);
+  }
+
+  return {
+    rule: recencyRule,
+    recentThresholdDate,
+    vintageMaxDate,
+    pattern,
+    repeatCount: repeat_count,
+  };
+}
+
+/**
+ * Apply recency interleaving with pre-filtered buckets
+ * Called when chat.js has already fetched recent and vintage tracks separately
+ * @param {Array} recentTracks - Tracks from recent Solr query
+ * @param {Array} vintageTracks - Tracks from vintage Solr query
+ * @param {object} config - Config from getRecencyInterleavingConfig
+ * @returns {object} - { results, appliedRules }
+ */
+export function applyRecencyInterleavingWithBuckets(recentTracks, vintageTracks, config) {
+  const { rule, pattern, repeatCount } = config;
+
+  if (recentTracks.length === 0 && vintageTracks.length === 0) {
+    return {
+      results: [],
+      appliedRules: [],
+    };
+  }
+
+  // If one bucket is empty, just return the other
+  if (recentTracks.length === 0) {
+    return {
+      results: vintageTracks,
+      appliedRules: [],
+    };
+  }
+  if (vintageTracks.length === 0) {
+    return {
+      results: recentTracks,
+      appliedRules: [],
+    };
+  }
+
+  // Apply pattern with repeat
+  const interleavedTracks = [];
+  let recentIndex = 0;
+  let vintageIndex = 0;
+  const patternChars = pattern.replace(/\s/g, '');
+
+  for (let repeat = 0; repeat < repeatCount; repeat++) {
+    for (const char of patternChars) {
+      if (char === 'R' && recentIndex < recentTracks.length) {
+        interleavedTracks.push(recentTracks[recentIndex++]);
+      } else if (char === 'V' && vintageIndex < vintageTracks.length) {
+        interleavedTracks.push(vintageTracks[vintageIndex++]);
+      }
+      // Stop if we've exhausted both buckets
+      if (recentIndex >= recentTracks.length && vintageIndex >= vintageTracks.length) {
+        break;
+      }
+    }
+  }
+
+  // Append remaining tracks (recent first, then vintage)
+  while (recentIndex < recentTracks.length) {
+    interleavedTracks.push(recentTracks[recentIndex++]);
+  }
+  while (vintageIndex < vintageTracks.length) {
+    interleavedTracks.push(vintageTracks[vintageIndex++]);
+  }
+
+  console.log(
+    `Recency interleaving (dual-query): ${recentTracks.length} recent + ${vintageTracks.length} vintage = ${interleavedTracks.length} interleaved`
+  );
+
+  return {
+    results: interleavedTracks,
+    appliedRules: [
+      {
+        ruleId: rule.id,
+        type: rule.type,
+        description: rule.description,
+        affectedTracks: interleavedTracks.length,
+        recentCount: recentTracks.length,
+        vintageCount: vintageTracks.length,
+      },
+    ],
+  };
+}
+
+/**
  * Match query text to applicable rules
  * @param {string} query - The user's search query
  * @returns {Array} - Array of matching rules, sorted by priority (descending)
@@ -171,6 +290,9 @@ async function applyRule(tracks, rule, _query) {
     case 'feature_boost':
       return applyFeatureBoost(tracks, rule);
 
+    case 'recency_decay':
+      return applyRecencyDecay(tracks, rule);
+
     case 'filter_optimization':
       return applyFilterOptimization(tracks, rule);
 
@@ -287,6 +409,7 @@ function applyRecencyInterleaving(tracks, rule) {
     recent_count: _recent_count,
     vintage_count: _vintage_count,
     recent_threshold_months,
+    vintage_max_months,
     pattern,
   } = rule.action;
 
@@ -294,41 +417,74 @@ function applyRecencyInterleaving(tracks, rule) {
     return { applied: false };
   }
 
-  // Calculate threshold date
-  const thresholdDate = new Date();
-  thresholdDate.setMonth(thresholdDate.getMonth() - recent_threshold_months);
+  // Calculate threshold dates
+  const now = new Date();
 
-  // Separate tracks into recent and vintage
+  // Recent threshold: tracks newer than this are "recent"
+  const recentThresholdDate = new Date(now);
+  recentThresholdDate.setMonth(recentThresholdDate.getMonth() - recent_threshold_months);
+
+  // Vintage max: tracks older than this are excluded (optional)
+  let vintageMaxDate = null;
+  if (vintage_max_months) {
+    vintageMaxDate = new Date(now);
+    vintageMaxDate.setMonth(vintageMaxDate.getMonth() - vintage_max_months);
+  }
+
+  // Separate tracks into recent, vintage, and excluded
   const recentTracks = [];
   const vintageTracks = [];
+  let excludedCount = 0;
 
   for (const track of tracks) {
     const releaseDate = track.apm_release_date;
 
     if (releaseDate) {
       try {
-        // Parse date (formats: "MM/DD/YYYY" or "YYYY-MM-DD")
-        const dateParts = releaseDate.includes('/')
-          ? releaseDate.split('/') // MM/DD/YYYY
-          : releaseDate.split('-'); // YYYY-MM-DD
+        let trackDate;
 
-        const trackDate = releaseDate.includes('/')
-          ? new Date(dateParts[2], dateParts[0] - 1, dateParts[1]) // MM/DD/YYYY
-          : new Date(dateParts[0], dateParts[1] - 1, dateParts[2]); // YYYY-MM-DD
+        // Handle ISO format (e.g., "1997-04-10T07:00:00Z")
+        if (releaseDate.includes('T')) {
+          trackDate = new Date(releaseDate);
+        }
+        // Handle MM/DD/YYYY format
+        else if (releaseDate.includes('/')) {
+          const dateParts = releaseDate.split('/');
+          trackDate = new Date(dateParts[2], dateParts[0] - 1, dateParts[1]);
+        }
+        // Handle YYYY-MM-DD format
+        else {
+          const dateParts = releaseDate.split('-');
+          trackDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+        }
 
-        if (trackDate >= thresholdDate) {
+        if (isNaN(trackDate.getTime())) {
+          // Invalid date, exclude from interleaving
+          excludedCount++;
+        } else if (trackDate >= recentThresholdDate) {
+          // Recent: within recent_threshold_months
           recentTracks.push(track);
-        } else {
+        } else if (!vintageMaxDate || trackDate >= vintageMaxDate) {
+          // Vintage: older than recent threshold but within vintage_max_months (if set)
           vintageTracks.push(track);
+        } else {
+          // Too old: excluded from interleaving
+          excludedCount++;
         }
       } catch (_error) {
-        // If date parsing fails, treat as vintage
-        vintageTracks.push(track);
+        // If date parsing fails, exclude from interleaving
+        excludedCount++;
       }
     } else {
-      // No release date, treat as vintage
-      vintageTracks.push(track);
+      // No release date, exclude from interleaving
+      excludedCount++;
     }
+  }
+
+  if (excludedCount > 0) {
+    console.log(
+      `Recency interleaving: excluded ${excludedCount} tracks (no date or outside vintage range)`
+    );
   }
 
   // If we don't have enough tracks in either category, skip interleaving
@@ -336,16 +492,27 @@ function applyRecencyInterleaving(tracks, rule) {
     return { applied: false };
   }
 
+  // Get repeat count (default 1 = no repeat, 3 = repeat for 3 pages)
+  const repeatCount = rule.action.repeat_count || 1;
+
   // Apply pattern (R = recent, V = vintage, space = ignore)
+  // Pattern repeats for repeat_count iterations
   const interleavedTracks = [];
   let recentIndex = 0;
   let vintageIndex = 0;
+  const patternChars = pattern.replace(/\s/g, ''); // Remove spaces
 
-  for (const char of pattern) {
-    if (char === 'R' && recentIndex < recentTracks.length) {
-      interleavedTracks.push(recentTracks[recentIndex++]);
-    } else if (char === 'V' && vintageIndex < vintageTracks.length) {
-      interleavedTracks.push(vintageTracks[vintageIndex++]);
+  for (let repeat = 0; repeat < repeatCount; repeat++) {
+    for (const char of patternChars) {
+      if (char === 'R' && recentIndex < recentTracks.length) {
+        interleavedTracks.push(recentTracks[recentIndex++]);
+      } else if (char === 'V' && vintageIndex < vintageTracks.length) {
+        interleavedTracks.push(vintageTracks[vintageIndex++]);
+      }
+      // Stop if we've exhausted both buckets
+      if (recentIndex >= recentTracks.length && vintageIndex >= vintageTracks.length) {
+        break;
+      }
     }
   }
 
@@ -426,6 +593,112 @@ function applyFeatureBoost(tracks, rule) {
     tracks: boostedTracks,
     affectedTracks: affectedCount,
     scoreAdjustments: adjustments,
+  };
+}
+
+/**
+ * Apply logarithmic recency decay to track scores
+ * Formula: factor = 1 - k × ln(1 + age_months / horizon_months)
+ * where k = (1 - horizon_threshold) / ln(2)
+ *
+ * This provides gentle decay that preserves catalog depth:
+ * - Brand new: 100%
+ * - 6 months: ~97%
+ * - 2 years (horizon): ~90%
+ * - 8 years: ~77%
+ * - 20+ years: ~65% (floor)
+ *
+ * @param {Array} tracks - Array of track objects
+ * @param {object} rule - Rule object
+ * @returns {object} - { applied, tracks, affectedTracks, scoreAdjustments }
+ */
+function applyRecencyDecay(tracks, rule) {
+  const config = rule.action || {};
+  const horizonMonths = config.horizon_months || 24;
+  const horizonThreshold = config.horizon_threshold || 0.9;
+  const minFactor = config.min_factor || 0.65;
+  const dateField = config.date_field || 'apm_release_date';
+
+  // Derive decay rate from horizon threshold
+  // At horizon_months, factor should equal horizon_threshold
+  const decayRate = (1 - horizonThreshold) / Math.log(2);
+
+  const now = Date.now();
+  const msPerMonth = 30 * 24 * 60 * 60 * 1000;
+  const scoreAdjustments = [];
+  let affectedCount = 0;
+
+  const adjustedTracks = tracks.map((track, index) => {
+    const trackDateValue = track[dateField];
+    if (!trackDateValue) {
+      // No date, keep original score
+      return track;
+    }
+
+    const trackDate = new Date(trackDateValue).getTime();
+    if (isNaN(trackDate)) {
+      // Invalid date, keep original score
+      return track;
+    }
+
+    const ageMonths = Math.max(0, (now - trackDate) / msPerMonth);
+
+    // Logarithmic decay: factor decreases slowly over time
+    let factor = 1 - decayRate * Math.log(1 + ageMonths / horizonMonths);
+    factor = Math.max(factor, minFactor);
+
+    const originalScore = track._relevance_score || 1;
+    const newScore = originalScore * factor;
+
+    // Only count as affected if factor is not 1.0
+    if (factor < 0.999) {
+      affectedCount++;
+    }
+
+    scoreAdjustments.push({
+      trackId: track.id,
+      trackTitle: track.track_title,
+      originalRank: index + 1,
+      originalScore: parseFloat(originalScore.toFixed(4)),
+      recencyFactor: parseFloat(factor.toFixed(3)),
+      newScore: parseFloat(newScore.toFixed(4)),
+      ageMonths: Math.round(ageMonths),
+      reason: `Recency decay (${Math.round(ageMonths)}mo, ${(factor * 100).toFixed(0)}%)`,
+    });
+
+    return { ...track, _relevance_score: newScore };
+  });
+
+  // Re-sort by adjusted score (descending)
+  adjustedTracks.sort((a, b) => (b._relevance_score || 0) - (a._relevance_score || 0));
+
+  // Update final ranks in adjustments
+  scoreAdjustments.forEach(adj => {
+    const finalIndex = adjustedTracks.findIndex(t => t.id === adj.trackId);
+    adj.finalRank = finalIndex + 1;
+    adj.rankChange = adj.originalRank - adj.finalRank;
+  });
+
+  console.log(
+    `Recency decay applied: ${affectedCount} tracks affected, horizon=${horizonMonths}mo, threshold=${horizonThreshold}`
+  );
+
+  return {
+    applied: true,
+    tracks: adjustedTracks,
+    affectedTracks: affectedCount,
+    scoreAdjustments,
+    appliedRule: {
+      ruleId: rule.id,
+      type: rule.type,
+      description: rule.description,
+      config: {
+        horizonMonths,
+        horizonThreshold,
+        minFactor,
+        decayRate: parseFloat(decayRate.toFixed(4)),
+      },
+    },
   };
 }
 

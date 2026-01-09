@@ -300,6 +300,151 @@ export function TrackMetadataModal({
               {/* Scoring Tab */}
               {activeTab === 'scoring' && (
                 <div className="p-6 space-y-6">
+                  {/* Score Adjustments - show all rule adjustments for this track */}
+                  {(() => {
+                    const trackAdjustments =
+                      searchMeta?.scoreAdjustments?.filter(adj => adj.trackId === track.id) || [];
+
+                    if (trackAdjustments.length > 0) {
+                      return (
+                        <div className="space-y-4">
+                          <h3
+                            className={`text-sm font-semibold ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+                          >
+                            Business Rule Score Adjustments
+                          </h3>
+                          {trackAdjustments.map((adj, idx) => (
+                            <div
+                              key={idx}
+                              className={`p-4 rounded-lg border-2 ${isDark ? 'bg-apm-dark/30 border-apm-purple/30' : 'bg-purple-50 border-purple-200'}`}
+                            >
+                              {/* Rule reason/name */}
+                              <p
+                                className={`text-sm font-medium mb-3 ${isDark ? 'text-apm-purple' : 'text-purple-600'}`}
+                              >
+                                {adj.reason}
+                              </p>
+
+                              {/* Score comparison */}
+                              <div className="grid grid-cols-2 gap-4 mb-3">
+                                <div>
+                                  <span
+                                    className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                                  >
+                                    Original Score
+                                  </span>
+                                  <p
+                                    className={`text-lg font-semibold ${isDark ? 'text-apm-light' : 'text-gray-900'}`}
+                                  >
+                                    {adj.originalScore?.toFixed(2)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <span
+                                    className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                                  >
+                                    Adjusted Score
+                                  </span>
+                                  <p
+                                    className={`text-lg font-semibold ${isDark ? 'text-apm-purple' : 'text-purple-600'}`}
+                                  >
+                                    {adj.newScore?.toFixed(2)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Dynamic details based on rule type */}
+                              <div className="grid grid-cols-3 gap-4">
+                                {/* Recency decay specific */}
+                                {adj.recencyFactor !== undefined && (
+                                  <>
+                                    <div>
+                                      <span
+                                        className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                                      >
+                                        Track Age
+                                      </span>
+                                      <p
+                                        className={`text-sm font-medium ${isDark ? 'text-apm-light' : 'text-gray-700'}`}
+                                      >
+                                        {adj.ageMonths} months
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <span
+                                        className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                                      >
+                                        Recency Factor
+                                      </span>
+                                      <p
+                                        className={`text-sm font-medium ${isDark ? 'text-apm-light' : 'text-gray-700'}`}
+                                      >
+                                        {(adj.recencyFactor * 100).toFixed(0)}%
+                                      </p>
+                                    </div>
+                                  </>
+                                )}
+
+                                {/* Library/feature boost specific */}
+                                {adj.scoreMultiplier !== undefined && (
+                                  <div>
+                                    <span
+                                      className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                                    >
+                                      Multiplier
+                                    </span>
+                                    <p
+                                      className={`text-sm font-medium ${isDark ? 'text-apm-light' : 'text-gray-700'}`}
+                                    >
+                                      {adj.scoreMultiplier}x
+                                    </p>
+                                  </div>
+                                )}
+
+                                {/* Rank change - always show if available */}
+                                {adj.rankChange !== undefined && (
+                                  <div>
+                                    <span
+                                      className={`text-xs ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                                    >
+                                      Rank Change
+                                    </span>
+                                    <p
+                                      className={`text-sm font-medium ${
+                                        adj.rankChange > 0
+                                          ? 'text-green-500'
+                                          : adj.rankChange < 0
+                                            ? 'text-red-500'
+                                            : isDark
+                                              ? 'text-apm-light'
+                                              : 'text-gray-700'
+                                      }`}
+                                    >
+                                      {adj.rankChange > 0 ? '+' : ''}
+                                      {adj.rankChange}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Formula explanation */}
+                              <p
+                                className={`text-xs mt-3 ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
+                              >
+                                {adj.recencyFactor !== undefined
+                                  ? `Formula: ${adj.originalScore?.toFixed(2)} × ${adj.recencyFactor} = ${adj.newScore?.toFixed(2)}`
+                                  : adj.scoreMultiplier !== undefined
+                                    ? `Formula: ${adj.originalScore?.toFixed(2)} × ${adj.scoreMultiplier} = ${adj.newScore?.toFixed(2)}`
+                                    : `Original: ${adj.originalScore?.toFixed(2)} → Final: ${adj.newScore?.toFixed(2)}`}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
                   {metadata.scoreBreakdown ? (
                     <>
                       <div>

@@ -101,9 +101,15 @@ export function useSearch() {
           pillsRef.current = newPills;
           setPills(newPills);
 
-          // Update results
+          // Update results - tag each track with its _meta for per-track interleaving status
+          const taggedTracks =
+            data.tracks?.map(track => ({
+              ...track,
+              _trackMeta: data._meta,
+            })) || [];
+
           setCurrentResults({
-            tracks: data.tracks,
+            tracks: taggedTracks,
             totalCount: data.total_count,
             showing: data.showing,
             message: data.message,
@@ -124,9 +130,15 @@ export function useSearch() {
             setConversation(conversationRef.current);
           }
         } else if (data.type === 'pill_update' || data.type === 'track_results') {
-          // Update results in place
+          // Update results in place - tag each track with its _meta
+          const taggedTracks =
+            data.tracks?.map(track => ({
+              ...track,
+              _trackMeta: data._meta,
+            })) || [];
+
           setCurrentResults({
-            tracks: data.tracks,
+            tracks: taggedTracks,
             totalCount: data.total_count,
             showing: data.showing,
             message: data.message,
@@ -265,9 +277,15 @@ export function useSearch() {
       const data = await response.json();
 
       if (data.tracks && data.tracks.length > 0) {
+        // Tag each new track with its page's _meta for per-track interleaving status
+        const taggedTracks = data.tracks.map(track => ({
+          ...track,
+          _trackMeta: data._meta,
+        }));
+
         setCurrentResults(prev => ({
           ...prev,
-          tracks: [...(prev?.tracks || []), ...data.tracks],
+          tracks: [...(prev?.tracks || []), ...taggedTracks],
           showing: `1-${currentCount + data.tracks.length}`,
         }));
       }

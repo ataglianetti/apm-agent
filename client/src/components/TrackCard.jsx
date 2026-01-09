@@ -111,6 +111,57 @@ function TrackCardComponent({
   // Helper to capitalize first letter
   const capitalize = str => (str ? str.charAt(0).toUpperCase() + str.slice(1) : '');
 
+  // Parse release date and determine if "recent" (within 12 months)
+  const releaseInfo = useMemo(() => {
+    if (!track.apm_release_date) return { year: null, isRecent: false };
+
+    try {
+      let trackDate;
+      const releaseDate = track.apm_release_date;
+
+      // Handle ISO format (e.g., "1997-04-10T07:00:00Z")
+      if (releaseDate.includes('T')) {
+        trackDate = new Date(releaseDate);
+      }
+      // Handle MM/DD/YYYY format
+      else if (releaseDate.includes('/')) {
+        const dateParts = releaseDate.split('/');
+        trackDate = new Date(dateParts[2], dateParts[0] - 1, dateParts[1]);
+      }
+      // Handle YYYY-MM-DD format
+      else {
+        const dateParts = releaseDate.split('-');
+        trackDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+      }
+
+      if (isNaN(trackDate.getTime())) {
+        return { year: null, isRecent: false };
+      }
+
+      const thresholdDate = new Date();
+      thresholdDate.setMonth(thresholdDate.getMonth() - 12);
+
+      return {
+        year: trackDate.getFullYear(),
+        isRecent: trackDate >= thresholdDate,
+      };
+    } catch {
+      return { year: null, isRecent: false };
+    }
+  }, [track.apm_release_date]);
+
+  // Check if recency interleaving is active (for demo highlighting)
+  // Use per-track _trackMeta if available, otherwise fall back to global searchMeta
+  const interleavingActive = useMemo(() => {
+    const meta = track._trackMeta || searchMeta;
+    if (!meta?.appliedRules) return false;
+    return meta.appliedRules.some(
+      rule =>
+        rule.type === 'recency_interleaving' ||
+        (typeof rule === 'string' && rule.toLowerCase().includes('interleav'))
+    );
+  }, [track._trackMeta, searchMeta]);
+
   // Build enhanced metadata tags from real APM taxonomy data (Solr fields only)
   // Each tag includes its category for the hover tooltip
   const enhancedTags = [];
@@ -283,7 +334,7 @@ function TrackCardComponent({
       </div>
 
       {/* Description + Metadata Grid */}
-      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 mb-3 ml-[52px]">
+      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 mb-3 ml-[52px]">
         {/* Description (left column, takes remaining space, truncated to 2 lines) */}
         <p
           className={`text-sm leading-relaxed pr-4 line-clamp-2 ${isDark ? 'text-apm-gray-light' : 'text-gray-600'}`}
@@ -291,7 +342,7 @@ function TrackCardComponent({
           {track.track_description}
         </p>
 
-        {/* Metadata columns (right side): Genre, Duration, BPM */}
+        {/* Metadata columns (right side): Genre, Duration, BPM, Release Year */}
         <div className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-light' : 'text-gray-800'}`}>
           {track.genre_name || track.genre || '—'}
         </div>
@@ -304,6 +355,27 @@ function TrackCardComponent({
           className={`text-sm whitespace-nowrap ${isDark ? 'text-apm-gray-light' : 'text-gray-500'}`}
         >
           {track.bpm} BPM
+        </div>
+        {/* Release Year with Recent/Vintage indicator */}
+        <div
+          className={`text-sm whitespace-nowrap font-medium ${
+            interleavingActive && releaseInfo.year
+              ? releaseInfo.isRecent
+                ? 'text-blue-500'
+                : 'text-orange-500'
+              : isDark
+                ? 'text-apm-gray-light'
+                : 'text-gray-500'
+          }`}
+          title={
+            interleavingActive
+              ? releaseInfo.isRecent
+                ? 'Recent track (interleaving active)'
+                : 'Vintage track (interleaving active)'
+              : 'Release year'
+          }
+        >
+          {releaseInfo.year || '—'}
         </div>
       </div>
 
@@ -393,13 +465,13 @@ function TrackCardComponent({
         </button>
       </div>
 
-      {/* Metadata Modal */}
+      {/* Metadata Modal - use per-track meta if available for accurate score adjustments */}
       <TrackMetadataModal
         track={track}
         isOpen={showMetadataModal}
         onClose={closeMetadataModal}
         searchQuery={searchQuery}
-        searchMeta={searchMeta}
+        searchMeta={track._trackMeta || searchMeta}
       />
     </div>
   );
@@ -409,6 +481,7 @@ function TrackCardComponent({
 function arePropsEqual(prevProps, nextProps) {
   return (
     prevProps.track.id === nextProps.track.id &&
+    prevProps.track._trackMeta === nextProps.track._trackMeta &&
     prevProps.index === nextProps.index &&
     prevProps.searchQuery === nextProps.searchQuery &&
     prevProps.hasVersions === nextProps.hasVersions &&

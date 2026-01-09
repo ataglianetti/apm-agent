@@ -98,6 +98,7 @@ export function SearchResults({
               tracks: results.tracks,
               total_count: results.totalCount,
               showing: results.showing,
+              _meta: results._meta,
             }}
             onSoundsLike={onSoundsLike}
             onLoadMore={onLoadMore}

@@ -159,7 +159,7 @@ function buildFacetFilters(facetIds = [], excludeIds = []) {
  */
 function buildSort(sort = 'featured') {
   const sortModes = {
-    featured: 'score desc, apm_release_date desc, random_boost desc',
+    featured: 'score desc', // Pure relevance ranking
     explore: 'score desc, random_boost desc',
     rdate: 'apm_release_date asc, score desc',
     '-rdate': 'apm_release_date desc, score desc',
