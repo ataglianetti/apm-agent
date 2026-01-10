@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import { HelpTooltip } from '../ui/Tooltip';
+import { FIELD_HELP } from './help/fieldDescriptions';
+import { RULE_TYPE_HELP } from './help/ruleTypeDescriptions';
 
 /**
  * Rule types with their display names
@@ -241,7 +244,10 @@ export default function RuleEditor({
 
           {/* Type */}
           <div>
-            <label className={labelClass}>Rule Type</label>
+            <label className={`${labelClass} flex items-center gap-1`}>
+              Rule Type
+              <HelpTooltip content={FIELD_HELP.type} isDark={isDark} />
+            </label>
             <select
               value={formData.type}
               onChange={e => handleTypeChange(e.target.value)}
@@ -255,13 +261,25 @@ export default function RuleEditor({
                 </option>
               ))}
             </select>
+            {/* Type-specific help hint */}
+            {formData.type && RULE_TYPE_HELP[formData.type] && (
+              <div
+                className={`mt-2 p-3 rounded-lg text-sm ${
+                  isDark ? 'bg-apm-gray/10 text-gray-300' : 'bg-blue-50 text-blue-800'
+                }`}
+              >
+                <strong>{RULE_TYPE_HELP[formData.type].title}:</strong>{' '}
+                {RULE_TYPE_HELP[formData.type].summary}
+              </div>
+            )}
           </div>
 
           {/* ID */}
           <div>
-            <label className={labelClass}>
-              Rule ID{' '}
-              {isCreating && <span className="text-gray-500">(auto-generated if empty)</span>}
+            <label className={`${labelClass} flex items-center gap-1`}>
+              Rule ID
+              <HelpTooltip content={FIELD_HELP.id} isDark={isDark} />
+              {isCreating && <span className="text-gray-500 ml-1">(auto-generated if empty)</span>}
             </label>
             <input
               type="text"
@@ -275,9 +293,10 @@ export default function RuleEditor({
 
           {/* Pattern */}
           <div>
-            <label className={labelClass}>
-              Pattern (Regex){' '}
-              {isValidating && <span className="text-gray-500 ml-2">validating...</span>}
+            <label className={`${labelClass} flex items-center gap-1`}>
+              Pattern (Regex)
+              <HelpTooltip content={FIELD_HELP.pattern} isDark={isDark} />
+              {isValidating && <span className="text-gray-500 ml-1">validating...</span>}
             </label>
             <input
               type="text"
@@ -294,7 +313,10 @@ export default function RuleEditor({
 
           {/* Description */}
           <div>
-            <label className={labelClass}>Description</label>
+            <label className={`${labelClass} flex items-center gap-1`}>
+              Description
+              <HelpTooltip content={FIELD_HELP.description} isDark={isDark} />
+            </label>
             <input
               type="text"
               value={formData.description}
@@ -307,7 +329,10 @@ export default function RuleEditor({
           {/* Priority & Enabled */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Priority (0-100)</label>
+              <label className={`${labelClass} flex items-center gap-1`}>
+                Priority (0-100)
+                <HelpTooltip content={FIELD_HELP.priority} isDark={isDark} />
+              </label>
               <input
                 type="number"
                 min="0"
@@ -326,6 +351,7 @@ export default function RuleEditor({
                   className="w-4 h-4 rounded border-gray-300 text-apm-purple focus:ring-apm-purple"
                 />
                 <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>Enabled</span>
+                <HelpTooltip content={FIELD_HELP.enabled} isDark={isDark} />
               </label>
             </div>
           </div>
@@ -452,6 +478,8 @@ export default function RuleEditor({
 
 // Library Boost action fields
 function LibraryBoostFields({ action, onUpdate, inputClass, labelClass, isDark }) {
+  const libraryNameHelp = FIELD_HELP.library_name;
+  const boostFactorHelp = FIELD_HELP.boost_factor;
   const libraries = action.boost_libraries || [];
 
   const addLibrary = () => {
@@ -479,7 +507,10 @@ function LibraryBoostFields({ action, onUpdate, inputClass, labelClass, isDark }
       {libraries.map((lib, index) => (
         <div key={index} className="flex gap-2 items-end">
           <div className="flex-1">
-            <label className={labelClass}>Library Name</label>
+            <label className={`${labelClass} flex items-center gap-1`}>
+              Library Name
+              {index === 0 && <HelpTooltip content={libraryNameHelp} isDark={isDark} />}
+            </label>
             <input
               type="text"
               value={lib.library_name}
@@ -488,8 +519,11 @@ function LibraryBoostFields({ action, onUpdate, inputClass, labelClass, isDark }
               className={inputClass}
             />
           </div>
-          <div className="w-24">
-            <label className={labelClass}>Boost</label>
+          <div className="w-28">
+            <label className={`${labelClass} flex items-center gap-1`}>
+              Boost
+              {index === 0 && <HelpTooltip content={boostFactorHelp} isDark={isDark} />}
+            </label>
             <input
               type="number"
               step="0.1"
@@ -537,13 +571,17 @@ function GenreSimplificationFields({
   selectClass,
   selectStyle,
   labelClass,
+  isDark,
 }) {
   const facets = (action.auto_apply_facets || []).join(', ');
 
   return (
     <div className="space-y-3">
       <div>
-        <label className={labelClass}>Facets to Apply (comma-separated)</label>
+        <label className={`${labelClass} flex items-center gap-1`}>
+          Facets to Apply (comma-separated)
+          <HelpTooltip content={FIELD_HELP.auto_apply_facets} isDark={isDark} />
+        </label>
         <textarea
           value={facets}
           onChange={e =>
@@ -561,7 +599,10 @@ function GenreSimplificationFields({
         />
       </div>
       <div>
-        <label className={labelClass}>Mode</label>
+        <label className={`${labelClass} flex items-center gap-1`}>
+          Mode
+          <HelpTooltip content={FIELD_HELP.mode} isDark={isDark} />
+        </label>
         <select
           value={action.mode || 'expand'}
           onChange={e => onUpdate('mode', e.target.value)}
@@ -577,12 +618,15 @@ function GenreSimplificationFields({
 }
 
 // Recency Interleaving action fields
-function RecencyInterleavingFields({ action, onUpdate, inputClass, labelClass }) {
+function RecencyInterleavingFields({ action, onUpdate, inputClass, labelClass, isDark }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={labelClass}>Recent Threshold (months)</label>
+          <label className={`${labelClass} flex items-center gap-1`}>
+            Recent Threshold (months)
+            <HelpTooltip content={FIELD_HELP.recent_threshold_months} isDark={isDark} />
+          </label>
           <input
             type="number"
             min="1"
@@ -592,7 +636,10 @@ function RecencyInterleavingFields({ action, onUpdate, inputClass, labelClass })
           />
         </div>
         <div>
-          <label className={labelClass}>Vintage Max (months)</label>
+          <label className={`${labelClass} flex items-center gap-1`}>
+            Vintage Max (months)
+            <HelpTooltip content={FIELD_HELP.vintage_max_months} isDark={isDark} />
+          </label>
           <input
             type="number"
             min="1"
@@ -603,7 +650,10 @@ function RecencyInterleavingFields({ action, onUpdate, inputClass, labelClass })
         </div>
       </div>
       <div>
-        <label className={labelClass}>Pattern (R=Recent, V=Vintage)</label>
+        <label className={`${labelClass} flex items-center gap-1`}>
+          Pattern (R=Recent, V=Vintage)
+          <HelpTooltip content={FIELD_HELP.interleave_pattern} isDark={isDark} />
+        </label>
         <input
           type="text"
           value={action.pattern || ''}
@@ -613,7 +663,10 @@ function RecencyInterleavingFields({ action, onUpdate, inputClass, labelClass })
         />
       </div>
       <div>
-        <label className={labelClass}>Repeat Count</label>
+        <label className={`${labelClass} flex items-center gap-1`}>
+          Repeat Count
+          <HelpTooltip content={FIELD_HELP.repeat_count} isDark={isDark} />
+        </label>
         <input
           type="number"
           min="1"
@@ -628,12 +681,15 @@ function RecencyInterleavingFields({ action, onUpdate, inputClass, labelClass })
 }
 
 // Feature Boost action fields
-function FeatureBoostFields({ action, onUpdate, inputClass, labelClass }) {
+function FeatureBoostFields({ action, onUpdate, inputClass, labelClass, isDark }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={labelClass}>Field Name</label>
+          <label className={`${labelClass} flex items-center gap-1`}>
+            Field Name
+            <HelpTooltip content={FIELD_HELP.boost_field} isDark={isDark} />
+          </label>
           <input
             type="text"
             value={action.boost_field || ''}
@@ -643,7 +699,10 @@ function FeatureBoostFields({ action, onUpdate, inputClass, labelClass }) {
           />
         </div>
         <div>
-          <label className={labelClass}>Field Value</label>
+          <label className={`${labelClass} flex items-center gap-1`}>
+            Field Value
+            <HelpTooltip content={FIELD_HELP.boost_value} isDark={isDark} />
+          </label>
           <input
             type="text"
             value={action.boost_value || ''}
@@ -654,7 +713,10 @@ function FeatureBoostFields({ action, onUpdate, inputClass, labelClass }) {
         </div>
       </div>
       <div>
-        <label className={labelClass}>Boost Factor</label>
+        <label className={`${labelClass} flex items-center gap-1`}>
+          Boost Factor
+          <HelpTooltip content={FIELD_HELP.boost_factor} isDark={isDark} />
+        </label>
         <input
           type="number"
           step="0.1"
@@ -670,12 +732,15 @@ function FeatureBoostFields({ action, onUpdate, inputClass, labelClass }) {
 }
 
 // Recency Decay action fields
-function RecencyDecayFields({ action, onUpdate, inputClass, labelClass }) {
+function RecencyDecayFields({ action, onUpdate, inputClass, labelClass, isDark }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={labelClass}>Horizon (months)</label>
+          <label className={`${labelClass} flex items-center gap-1`}>
+            Horizon (months)
+            <HelpTooltip content={FIELD_HELP.horizon_months} isDark={isDark} />
+          </label>
           <input
             type="number"
             min="1"
@@ -685,7 +750,10 @@ function RecencyDecayFields({ action, onUpdate, inputClass, labelClass }) {
           />
         </div>
         <div>
-          <label className={labelClass}>Horizon Threshold (0-1)</label>
+          <label className={`${labelClass} flex items-center gap-1`}>
+            Horizon Threshold (0-1)
+            <HelpTooltip content={FIELD_HELP.horizon_threshold} isDark={isDark} />
+          </label>
           <input
             type="number"
             step="0.05"
@@ -699,7 +767,10 @@ function RecencyDecayFields({ action, onUpdate, inputClass, labelClass }) {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={labelClass}>Min Factor (floor)</label>
+          <label className={`${labelClass} flex items-center gap-1`}>
+            Min Factor (floor)
+            <HelpTooltip content={FIELD_HELP.min_factor} isDark={isDark} />
+          </label>
           <input
             type="number"
             step="0.05"
@@ -711,7 +782,10 @@ function RecencyDecayFields({ action, onUpdate, inputClass, labelClass }) {
           />
         </div>
         <div>
-          <label className={labelClass}>Date Field</label>
+          <label className={`${labelClass} flex items-center gap-1`}>
+            Date Field
+            <HelpTooltip content={FIELD_HELP.date_field} isDark={isDark} />
+          </label>
           <input
             type="text"
             value={action.date_field || 'apm_release_date'}
@@ -732,6 +806,7 @@ function FilterOptimizationFields({
   selectClass,
   selectStyle,
   labelClass,
+  isDark,
 }) {
   const filter = action.auto_apply_filter || { field: '', value: '', operator: 'contains' };
 
@@ -743,7 +818,10 @@ function FilterOptimizationFields({
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={labelClass}>Field</label>
+          <label className={`${labelClass} flex items-center gap-1`}>
+            Field
+            <HelpTooltip content={FIELD_HELP.filter_field} isDark={isDark} />
+          </label>
           <input
             type="text"
             value={filter.field || ''}
@@ -753,7 +831,10 @@ function FilterOptimizationFields({
           />
         </div>
         <div>
-          <label className={labelClass}>Operator</label>
+          <label className={`${labelClass} flex items-center gap-1`}>
+            Operator
+            <HelpTooltip content={FIELD_HELP.filter_operator} isDark={isDark} />
+          </label>
           <select
             value={filter.operator || 'contains'}
             onChange={e => updateFilter('operator', e.target.value)}
@@ -768,7 +849,10 @@ function FilterOptimizationFields({
         </div>
       </div>
       <div>
-        <label className={labelClass}>Value</label>
+        <label className={`${labelClass} flex items-center gap-1`}>
+          Value
+          <HelpTooltip content={FIELD_HELP.filter_value} isDark={isDark} />
+        </label>
         <input
           type="text"
           value={filter.value || ''}
@@ -814,7 +898,10 @@ function SubgenreInterleavingFields({
   return (
     <div className="space-y-3">
       <div>
-        <label className={labelClass}>Attribute</label>
+        <label className={`${labelClass} flex items-center gap-1`}>
+          Attribute
+          <HelpTooltip content={FIELD_HELP.attribute} isDark={isDark} />
+        </label>
         <select
           value={action.attribute || 'genre'}
           onChange={e => onUpdate('attribute', e.target.value)}
@@ -828,7 +915,10 @@ function SubgenreInterleavingFields({
       </div>
 
       <div>
-        <label className={labelClass}>Subgenre Values</label>
+        <label className={`${labelClass} flex items-center gap-1`}>
+          Subgenre Values
+          <HelpTooltip content={FIELD_HELP.subgenre_values} isDark={isDark} />
+        </label>
         <div className="space-y-2">
           {letters.map(letter => (
             <div key={letter} className="flex gap-2 items-center">
@@ -877,7 +967,10 @@ function SubgenreInterleavingFields({
       </div>
 
       <div>
-        <label className={labelClass}>Pattern</label>
+        <label className={`${labelClass} flex items-center gap-1`}>
+          Pattern
+          <HelpTooltip content={FIELD_HELP.subgenre_pattern} isDark={isDark} />
+        </label>
         <input
           type="text"
           value={action.pattern || ''}
@@ -891,7 +984,10 @@ function SubgenreInterleavingFields({
       </div>
 
       <div>
-        <label className={labelClass}>Fallback</label>
+        <label className={`${labelClass} flex items-center gap-1`}>
+          Fallback
+          <HelpTooltip content={FIELD_HELP.fallback} isDark={isDark} />
+        </label>
         <select
           value={action.fallback || 'relevance'}
           onChange={e => onUpdate('fallback', e.target.value)}

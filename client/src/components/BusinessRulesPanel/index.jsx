@@ -3,6 +3,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useBusinessRules } from '../../hooks/useBusinessRules';
 import RulesList from './RulesList';
 import RuleEditor from './RuleEditor';
+import RulesHelpModal from './RulesHelpModal';
+import { HelpButton } from '../ui/HelpButton';
 
 /**
  * BusinessRulesPanel - Modal for managing business rules
@@ -30,6 +32,7 @@ export default function BusinessRulesPanel({ onClose }) {
   const [activeTab, setActiveTab] = useState('active');
   const [editingRule, setEditingRule] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const modalRef = useRef(null);
 
   // Close on escape key
@@ -114,6 +117,11 @@ export default function BusinessRulesPanel({ onClose }) {
             >
               {activeRules.length} active
             </span>
+            <HelpButton
+              onClick={() => setShowHelpModal(true)}
+              isDark={isDark}
+              title="Help & Documentation"
+            />
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -229,6 +237,9 @@ export default function BusinessRulesPanel({ onClose }) {
           isDark={isDark}
         />
       )}
+
+      {/* Help Modal */}
+      {showHelpModal && <RulesHelpModal onClose={() => setShowHelpModal(false)} isDark={isDark} />}
     </div>
   );
 }
