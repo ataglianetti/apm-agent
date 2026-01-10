@@ -28,7 +28,7 @@ const validatedPatterns = new Map();
 /**
  * Required fields for each rule type
  */
-const RULE_TYPE_REQUIREMENTS = {
+export const RULE_TYPE_REQUIREMENTS = {
   genre_simplification: {
     required: ['id', 'pattern', 'action'],
     actionFields: ['auto_apply_facets'],
@@ -58,7 +58,7 @@ const RULE_TYPE_REQUIREMENTS = {
  * @param {object} rule - The rule to validate
  * @returns {{ valid: boolean, errors: string[] }}
  */
-function validateRule(rule) {
+export function validateRule(rule) {
   const errors = [];
 
   // Check basic required fields
@@ -107,7 +107,7 @@ function validateRule(rule) {
  * @param {string} pattern - The regex pattern to validate
  * @returns {{ safe: boolean, regex: RegExp | null, reason?: string }}
  */
-function validatePattern(pattern) {
+export function validatePattern(pattern) {
   // Check cache first
   if (validatedPatterns.has(pattern)) {
     return validatedPatterns.get(pattern);

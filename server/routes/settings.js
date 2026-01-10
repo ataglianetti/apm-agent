@@ -2,6 +2,19 @@ import express from 'express';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import {
+  getAllRules,
+  getRuleById,
+  createRule,
+  updateRule,
+  toggleRule,
+  deleteRule,
+  restoreRule,
+  hardDeleteRule,
+  validateRuleData,
+  getTemplates,
+  getRuleTypeRequirements,
+} from '../services/businessRulesManager.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
@@ -70,13 +83,13 @@ export function getLLMMode() {
 
 /**
  * Get taxonomy parser enabled state
- * Returns true by default (enabled)
+ * Returns false by default (disabled)
  */
 export function getTaxonomyParserEnabled() {
   if (runtimeSettings.taxonomyParserEnabled !== null) {
     return runtimeSettings.taxonomyParserEnabled;
   }
-  return true; // Enabled by default
+  return false; // Disabled by default
 }
 
 /**
@@ -240,6 +253,272 @@ router.post('/settings/taxonomy-parser', (req, res) => {
     source: runtimeSettings.taxonomyParserEnabled !== null ? 'runtime' : 'default',
     message: `Taxonomy parser ${newEnabled ? 'enabled' : 'disabled'}`,
   });
+});
+
+// ============================================================================
+// Business Rules CRUD Endpoints
+// ============================================================================
+
+/**
+ * GET /api/settings/business-rules/rules
+ * List all rules (active and disabled)
+ */
+router.get('/settings/business-rules/rules', (req, res) => {
+  try {
+    const result = getAllRules();
+    res.json({
+      success: true,
+      rules: result.rules,
+      disabled_rules: result.disabled_rules,
+      total: result.rules.length + result.disabled_rules.length,
+      version: result.version,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch rules',
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/settings/business-rules/rules/:id
+ * Get a single rule by ID
+ */
+router.get('/settings/business-rules/rules/:id', (req, res) => {
+  try {
+    const result = getRuleById(req.params.id);
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        error: 'Rule not found',
+        details: `No rule with ID '${req.params.id}'`,
+      });
+    }
+    res.json({
+      success: true,
+      rule: result.rule,
+      source: result.source,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch rule',
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/settings/business-rules/rules
+ * Create a new rule
+ */
+router.post('/settings/business-rules/rules', async (req, res) => {
+  try {
+    const result = await createRule(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: result.errors,
+      });
+    }
+    res.status(201).json({
+      success: true,
+      rule: result.rule,
+      message: 'Rule created successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create rule',
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * PUT /api/settings/business-rules/rules/:id
+ * Update an existing rule
+ */
+router.put('/settings/business-rules/rules/:id', async (req, res) => {
+  try {
+    const result = await updateRule(req.params.id, req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: 'Update failed',
+        details: result.errors,
+      });
+    }
+    res.json({
+      success: true,
+      rule: result.rule,
+      message: 'Rule updated successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update rule',
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * PATCH /api/settings/business-rules/rules/:id/toggle
+ * Toggle a rule's enabled state
+ */
+router.patch('/settings/business-rules/rules/:id/toggle', async (req, res) => {
+  try {
+    const result = await toggleRule(req.params.id);
+    if (!result.success) {
+      return res.status(404).json({
+        success: false,
+        error: 'Toggle failed',
+        details: result.errors,
+      });
+    }
+    res.json({
+      success: true,
+      rule: result.rule,
+      message: `Rule ${result.rule.enabled ? 'enabled' : 'disabled'}`,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to toggle rule',
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/settings/business-rules/rules/:id
+ * Soft delete a rule (move to disabled_rules)
+ */
+router.delete('/settings/business-rules/rules/:id', async (req, res) => {
+  try {
+    const result = await deleteRule(req.params.id);
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: 'Delete failed',
+        details: result.errors,
+      });
+    }
+    res.json({
+      success: true,
+      rule: result.rule,
+      message: 'Rule moved to disabled_rules',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete rule',
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/settings/business-rules/rules/:id/restore
+ * Restore a rule from disabled_rules
+ */
+router.post('/settings/business-rules/rules/:id/restore', async (req, res) => {
+  try {
+    const result = await restoreRule(req.params.id);
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: 'Restore failed',
+        details: result.errors,
+      });
+    }
+    res.json({
+      success: true,
+      rule: result.rule,
+      message: 'Rule restored and enabled',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to restore rule',
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/settings/business-rules/rules/:id/permanent
+ * Permanently delete a rule from disabled_rules
+ */
+router.delete('/settings/business-rules/rules/:id/permanent', async (req, res) => {
+  try {
+    const result = await hardDeleteRule(req.params.id);
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: 'Permanent delete failed',
+        details: result.errors,
+      });
+    }
+    res.json({
+      success: true,
+      message: 'Rule permanently deleted',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to permanently delete rule',
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/settings/business-rules/validate
+ * Validate a rule without saving
+ */
+router.post('/settings/business-rules/validate', (req, res) => {
+  try {
+    const result = validateRuleData(req.body);
+    res.json({
+      success: true,
+      valid: result.valid,
+      errors: result.errors,
+      patternInfo: result.patternInfo,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Validation failed',
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/settings/business-rules/templates
+ * Get rule type templates
+ */
+router.get('/settings/business-rules/templates', (req, res) => {
+  try {
+    const templates = getTemplates();
+    const requirements = getRuleTypeRequirements();
+    res.json({
+      success: true,
+      templates,
+      requirements,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch templates',
+      details: error.message,
+    });
+  }
 });
 
 export default router;

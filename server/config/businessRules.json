@@ -6,7 +6,7 @@
     {
       "id": "subgenre_interleaving_rock",
       "type": "subgenre_interleaving",
-      "enabled": true,
+      "enabled": false,
       "priority": 75,
       "pattern": "\\b(rock|rocks|rocky)\\b",
       "description": "Interleave rock subgenres for variety in results",
@@ -35,13 +35,13 @@
         "recent_threshold_months": 12,
         "vintage_max_months": 60,
         "repeat_count": 3,
-        "pattern": "RRRR VRRR VRRR"
+        "pattern": "RRRV RRVR VRRV"
       }
     },
     {
       "id": "recency_decay_pop",
       "type": "recency_decay",
-      "enabled": true,
+      "enabled": false,
       "priority": 65,
       "pattern": "\\b(pop|contemporary|modern)\\b",
       "description": "Gentle recency boost for pop tracks (2-year horizon, 90% at horizon)",
@@ -163,7 +163,7 @@
         "action": {
           "boost_field": "has_stems",
           "boost_value": "true",
-          "boost_factor": 2.0
+          "boost_factor": 2
         }
       },
       "notes": [
@@ -491,7 +491,7 @@
       "action": {
         "boost_field": "has_stems",
         "boost_value": "true",
-        "boost_factor": 2.0
+        "boost_factor": 2
       }
     },
     {

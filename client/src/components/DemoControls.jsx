@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import BusinessRulesPanel from './BusinessRulesPanel';
 
 export function DemoControls({ onSettingsChange }) {
   const { isDark } = useTheme();
@@ -15,6 +16,7 @@ export function DemoControls({ onSettingsChange }) {
     activeRules: [],
     taxonomyParserEnabled: true, // Natural language → facet mapping
   });
+  const [showRulesPanel, setShowRulesPanel] = useState(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -108,6 +110,22 @@ export function DemoControls({ onSettingsChange }) {
       }));
     } catch (err) {
       console.error('Failed to toggle taxonomy parser:', err);
+    }
+  };
+
+  const handleRulesPanelClose = async () => {
+    setShowRulesPanel(false);
+    // Refresh settings to get updated rule count
+    try {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      setSettings(prev => ({
+        ...prev,
+        businessRulesCount: data.businessRules?.activeRuleCount ?? 0,
+        activeRules: data.businessRules?.activeRules ?? [],
+      }));
+    } catch (err) {
+      console.error('Failed to refresh settings:', err);
     }
   };
 
@@ -253,6 +271,16 @@ export function DemoControls({ onSettingsChange }) {
                 ))}
               </div>
             )}
+            <button
+              onClick={() => setShowRulesPanel(true)}
+              className={`mt-2 w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                isDark
+                  ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10'
+                  : 'border-amber-200 text-amber-700 hover:bg-amber-50'
+              }`}
+            >
+              Manage Rules ({settings.businessRulesCount})
+            </button>
           </div>
 
           {/* Taxonomy Parser Toggle */}
@@ -410,6 +438,9 @@ export function DemoControls({ onSettingsChange }) {
           )}
         </div>
       )}
+
+      {/* Business Rules Panel Modal */}
+      {showRulesPanel && <BusinessRulesPanel onClose={handleRulesPanelClose} />}
     </div>
   );
 }
