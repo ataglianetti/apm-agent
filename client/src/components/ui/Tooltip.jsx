@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * Tooltip component with mobile support
  * - Click/tap to toggle on mobile
  * - Hover on desktop
- * - Smart positioning to avoid viewport edges
+ * - Renders via Portal to escape overflow containers
  */
 export function Tooltip({ content, children, isDark, position = 'top', showIcon = false }) {
   const [isVisible, setIsVisible] = useState(false);
-  const [actualPosition, setActualPosition] = useState(position);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   const tooltipRef = useRef(null);
   const triggerRef = useRef(null);
 
@@ -36,30 +37,48 @@ export function Tooltip({ content, children, isDark, position = 'top', showIcon 
     };
   }, [isVisible]);
 
-  // Adjust position if tooltip would go off screen
+  // Calculate tooltip position based on trigger element
   useEffect(() => {
-    if (isVisible && tooltipRef.current) {
-      const rect = tooltipRef.current.getBoundingClientRect();
+    if (isVisible && triggerRef.current) {
+      const triggerRect = triggerRef.current.getBoundingClientRect();
+      const tooltipWidth = 256; // w-64 = 16rem = 256px
+      const tooltipHeight = tooltipRef.current?.offsetHeight || 100;
+      const gap = 8;
+
+      let top, left;
+
+      switch (position) {
+        case 'bottom':
+          top = triggerRect.bottom + gap;
+          left = triggerRect.left + triggerRect.width / 2 - tooltipWidth / 2;
+          break;
+        case 'left':
+          top = triggerRect.top + triggerRect.height / 2 - tooltipHeight / 2;
+          left = triggerRect.left - tooltipWidth - gap;
+          break;
+        case 'right':
+          top = triggerRect.top + triggerRect.height / 2 - tooltipHeight / 2;
+          left = triggerRect.right + gap;
+          break;
+        case 'top':
+        default:
+          top = triggerRect.top - tooltipHeight - gap;
+          left = triggerRect.left + triggerRect.width / 2 - tooltipWidth / 2;
+          break;
+      }
+
+      // Keep tooltip within viewport
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
 
-      let newPosition = position;
+      if (left < 8) left = 8;
+      if (left + tooltipWidth > viewportWidth - 8) left = viewportWidth - tooltipWidth - 8;
+      if (top < 8) top = triggerRect.bottom + gap; // Flip to bottom
+      if (top + tooltipHeight > viewportHeight - 8) top = triggerRect.top - tooltipHeight - gap; // Flip to top
 
-      if (position === 'top' && rect.top < 0) {
-        newPosition = 'bottom';
-      } else if (position === 'bottom' && rect.bottom > viewportHeight) {
-        newPosition = 'top';
-      } else if (position === 'left' && rect.left < 0) {
-        newPosition = 'right';
-      } else if (position === 'right' && rect.right > viewportWidth) {
-        newPosition = 'left';
-      }
-
-      if (newPosition !== actualPosition) {
-        setActualPosition(newPosition);
-      }
+      setTooltipPosition({ top, left });
     }
-  }, [isVisible, position, actualPosition]);
+  }, [isVisible, position]);
 
   // Close on escape key
   useEffect(() => {
@@ -82,20 +101,6 @@ export function Tooltip({ content, children, isDark, position = 'top', showIcon 
     e.preventDefault();
     e.stopPropagation();
     setIsVisible(!isVisible);
-  };
-
-  const positionClasses = {
-    top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
-    bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
-    left: 'right-full top-1/2 -translate-y-1/2 mr-2',
-    right: 'left-full top-1/2 -translate-y-1/2 ml-2',
-  };
-
-  const arrowClasses = {
-    top: 'top-full left-1/2 -translate-x-1/2 -mt-1 border-t border-l',
-    bottom: 'bottom-full left-1/2 -translate-x-1/2 -mb-1 border-b border-r',
-    left: 'left-full top-1/2 -translate-y-1/2 -ml-1 border-t border-r',
-    right: 'right-full top-1/2 -translate-y-1/2 -mr-1 border-b border-l',
   };
 
   // Render content based on type
@@ -130,6 +135,31 @@ export function Tooltip({ content, children, isDark, position = 'top', showIcon 
     return content;
   };
 
+  const tooltipContent = isVisible
+    ? createPortal(
+        <div
+          ref={tooltipRef}
+          role="tooltip"
+          onMouseEnter={() => setIsVisible(true)}
+          onMouseLeave={() => setIsVisible(false)}
+          style={{
+            position: 'fixed',
+            top: tooltipPosition.top,
+            left: tooltipPosition.left,
+            zIndex: 9999,
+          }}
+          className={`w-64 p-3 rounded-lg shadow-xl text-sm ${
+            isDark
+              ? 'bg-apm-dark border border-apm-gray/30 text-gray-200'
+              : 'bg-white border border-gray-200 text-gray-700 shadow-lg'
+          }`}
+        >
+          {renderContent()}
+        </div>,
+        document.body
+      )
+    : null;
+
   return (
     <span className="relative inline-flex items-center">
       {children}
@@ -160,25 +190,7 @@ export function Tooltip({ content, children, isDark, position = 'top', showIcon 
           </svg>
         </button>
       )}
-
-      {isVisible && (
-        <div
-          ref={tooltipRef}
-          role="tooltip"
-          className={`absolute z-50 w-64 p-3 rounded-lg shadow-xl text-sm ${positionClasses[actualPosition]} ${
-            isDark
-              ? 'bg-apm-dark border border-apm-gray/30 text-gray-200'
-              : 'bg-white border border-gray-200 text-gray-700 shadow-lg'
-          }`}
-        >
-          {renderContent()}
-          <div
-            className={`absolute w-2 h-2 rotate-45 ${arrowClasses[actualPosition]} ${
-              isDark ? 'bg-apm-dark border-apm-gray/30' : 'bg-white border-gray-200'
-            }`}
-          />
-        </div>
-      )}
+      {tooltipContent}
     </span>
   );
 }
@@ -187,6 +199,6 @@ export function Tooltip({ content, children, isDark, position = 'top', showIcon 
  * Standalone tooltip trigger with "?" icon
  * Convenience wrapper for common use case
  */
-export function HelpTooltip({ content, isDark }) {
-  return <Tooltip content={content} isDark={isDark} showIcon />;
+export function HelpTooltip({ content, isDark, position = 'top' }) {
+  return <Tooltip content={content} isDark={isDark} position={position} showIcon />;
 }
